@@ -1539,7 +1539,7 @@ function loadSalesPersonReport() {
       <tr class="sp-detail-${i}" style="display:none">
         <td></td>
         <td style="padding-left:24px;color:var(--wire);font-weight:600">▪ ${pr.product} <span style="color:var(--muted);font-weight:400">(all parties)</span></td>
-        <td class="td-num" style="color:var(--wire);font-weight:600">${pr.qtyMT.toFixed(2)}</td>
+        <td class="td-num" style="color:var(--wire);font-weight:600">${pr.qty.toFixed(2)}</td>
         <td class="td-num" style="color:var(--wire);font-weight:600">₹${fmtN(pr.value)}</td>
         <td colspan="2"></td>
       </tr>`).join('');
@@ -1548,7 +1548,7 @@ function loadSalesPersonReport() {
         <tr class="sp-detail-${i}" style="display:none">
           <td></td>
           <td style="padding-left:44px;color:var(--muted);font-size:12px">— ${pr.product}</td>
-          <td class="td-num" style="color:var(--muted);font-size:12px">${pr.qtyMT.toFixed(2)}</td>
+          <td class="td-num" style="color:var(--muted);font-size:12px">${pr.qty.toFixed(2)}</td>
           <td class="td-num" style="color:var(--muted);font-size:12px">₹${fmtN(pr.value)}</td>
           <td colspan="2"></td>
         </tr>`).join('');
@@ -1566,7 +1566,7 @@ function loadSalesPersonReport() {
     <tr>
       <td>${i+1}</td>
       <td><strong>${r.sp}</strong></td>
-      <td class="td-num"><strong>${r.qtyMT.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>${r.qty.toFixed(2)}</strong></td>
       <td class="td-num"><strong>₹${fmtN(r.value)}</strong></td>
       <td>${r.parties.length}</td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleSpDetail(${i}, this)">▼ View</button></td>
@@ -1584,7 +1584,7 @@ function loadSalesPersonReport() {
   }).join('') +
   `<tr class="summary-row">
     <td colspan="2"><strong>TOTAL</strong></td>
-    <td class="td-num"><strong>${list.reduce((s,r)=>s+r.qtyMT,0).toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${list.reduce((s,r)=>s+r.qty,0).toFixed(2)}</strong></td>
     <td class="td-num"><strong>₹${fmtN(list.reduce((s,r)=>s+r.value,0))}</strong></td>
     <td colspan="2"></td>
   </tr>`;
