@@ -1443,23 +1443,30 @@ function loadSalesPersonReport() {
   const mv = document.getElementById('spMonth').value;
   const rows = getMonthData(mv);
 
-  // Group by sales person -> party
+  // Group by sales person -> party -> product/type
   const bySp = {};
   rows.forEach(r => {
     const sp = r.salesPerson || 'Unassigned';
     const party = r.party || 'Unknown';
+    const prod = r.type || r.product || 'Other';
     if (!bySp[sp]) bySp[sp] = {qty:0, value:0, parties:{}};
     bySp[sp].qty += r.qty;
     bySp[sp].value += r.billAmount;
-    if (!bySp[sp].parties[party]) bySp[sp].parties[party] = {qty:0, value:0};
+    if (!bySp[sp].parties[party]) bySp[sp].parties[party] = {qty:0, value:0, products:{}};
     bySp[sp].parties[party].qty += r.qty;
     bySp[sp].parties[party].value += r.billAmount;
+    if (!bySp[sp].parties[party].products[prod]) bySp[sp].parties[party].products[prod] = {qty:0, value:0};
+    bySp[sp].parties[party].products[prod].qty += r.qty;
+    bySp[sp].parties[party].products[prod].value += r.billAmount;
   });
 
   const list = Object.entries(bySp).map(([sp, v]) => ({
     sp, qty: v.qty, value: v.value,
-    parties: Object.entries(v.parties).map(([p, pv]) => ({party:p, qty:pv.qty, value:pv.value}))
-      .sort((a,b) => b.value - a.value)
+    parties: Object.entries(v.parties).map(([p, pv]) => ({
+      party:p, qty:pv.qty, value:pv.value,
+      products: Object.entries(pv.products).map(([pr, prv]) => ({product:pr, qty:prv.qty, value:prv.value}))
+        .sort((a,b) => b.value - a.value)
+    })).sort((a,b) => b.value - a.value)
   })).sort((a,b) => b.value - a.value);
 
   spReportData = list;
@@ -1470,14 +1477,25 @@ function loadSalesPersonReport() {
     return;
   }
   tbody.innerHTML = list.map((r,i) => {
-    const partyRows = r.parties.map(p => `
+    const partyRows = r.parties.map((p,j) => {
+      const prodRows = p.products.map(pr => `
+        <tr class="sp-detail-${i}" style="display:none">
+          <td></td>
+          <td style="padding-left:44px;color:var(--muted);font-size:12px">— ${pr.product}</td>
+          <td class="td-num" style="color:var(--muted);font-size:12px">${pr.qty.toFixed(2)}</td>
+          <td class="td-num" style="color:var(--muted);font-size:12px">₹${fmtN(pr.value)}</td>
+          <td colspan="2"></td>
+        </tr>`).join('');
+      return `
       <tr class="sp-detail-${i}" style="display:none">
         <td></td>
         <td style="padding-left:24px;color:var(--muted)">↳ ${p.party}</td>
         <td class="td-num" style="color:var(--muted)">${p.qty.toFixed(2)}</td>
         <td class="td-num" style="color:var(--muted)">₹${fmtN(p.value)}</td>
         <td colspan="2"></td>
-      </tr>`).join('');
+      </tr>
+      ${prodRows}`;
+    }).join('');
     return `
     <tr>
       <td>${i+1}</td>
@@ -1761,11 +1779,14 @@ function downloadReport(type) {
     const mv = document.getElementById('spMonth').value;
     const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Sales Person Report - MTD'],
       ['Month:', mv],[]
-      ,['Sr. No.','Sales Person / Party','Qty (MT)','Value (Rs.)']];
+      ,['Sr. No.','Sales Person / Party / Product','Qty (MT)','Value (Rs.)']];
     spReportData.forEach((r,i) => {
       rows.push([i+1, r.sp, r.qty.toFixed(2), Math.round(r.value)]);
       r.parties.forEach(p => {
         rows.push(['', '   ↳ ' + p.party, p.qty.toFixed(2), Math.round(p.value)]);
+        p.products.forEach(pr => {
+          rows.push(['', '      — ' + pr.product, pr.qty.toFixed(2), Math.round(pr.value)]);
+        });
       });
     });
     rows.push(['', 'TOTAL',
