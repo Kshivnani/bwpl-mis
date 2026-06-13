@@ -1498,10 +1498,7 @@ function loadSalesPersonReport() {
   // Group by sales person -> party -> product/type ; also sales person -> product totals
   const bySp = {};
   rows.forEach(r => {
-    const sp = r.salesPerson || 'Unassigned';
-    const party = r.party || 'Unknown';
-    const prod = r.type || r.product || 'Other';
-    if (!bySp[sp]) bySp[sp] = {qty:0, value:0, parties:{}, products:{}};
+    const prod = r.product || 'Other';
     bySp[sp].qty += r.qtyMT;
     bySp[sp].value += r.billAmount;
     if (!bySp[sp].parties[party]) bySp[sp].parties[party] = {qty:0, value:0, products:{}};
@@ -1621,7 +1618,7 @@ function loadAnalytics() {
 
   rows.forEach(r => {
     const sp = r.salesPerson || 'Unassigned';
-    const prod = r.type || r.product || 'Other';
+    const prod = r.product || 'Other';
     if (!spTotals[sp]) spTotals[sp] = {qty:0, value:0};
     spTotals[sp].qty += r.qtyMT;
     spTotals[sp].value += r.billAmount;
