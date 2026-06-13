@@ -1,0 +1,1774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BWPL MIS Automation — Bajrang Wire Products</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --steel: #1a2332;
+    --steel-mid: #243347;
+    --steel-light: #2e4160;
+    --wire: #e8a020;
+    --wire-dim: #b37a10;
+    --spark: #f0c040;
+    --white: #f5f7fa;
+    --muted: #8fa3be;
+    --success: #2ecc71;
+    --danger: #e74c3c;
+    --info: #3498db;
+    --daily-accent: #e8a020;
+    --monthly-accent: #3498db;
+    --card-bg: #1e2e42;
+    --border: rgba(232,160,32,0.2);
+    --font-display: 'Segoe UI', system-ui, sans-serif;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--steel); color:var(--white); font-family:var(--font-display); min-height:100vh; }
+
+  /* HEADER */
+  .header {
+    background: linear-gradient(135deg, var(--steel-mid) 0%, #0f1a28 100%);
+    border-bottom: 2px solid var(--wire);
+    padding: 0 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px; position: sticky; top:0; z-index:100;
+  }
+  .header-brand { display:flex; align-items:center; gap:12px; }
+  .header-brand .logo {
+    width:38px; height:38px; background: var(--wire);
+    border-radius: 6px; display:flex; align-items:center; justify-content:center;
+    font-weight:900; font-size:16px; color:var(--steel); letter-spacing:-1px;
+  }
+  .header-brand h1 { font-size:18px; font-weight:700; letter-spacing:0.5px; }
+  .header-brand span { font-size:11px; color:var(--muted); display:block; margin-top:1px; }
+  .header-right { display:flex; align-items:center; gap:16px; }
+  .date-badge {
+    background: rgba(232,160,32,0.15); border:1px solid var(--border);
+    border-radius:6px; padding:5px 12px; font-size:13px; color:var(--spark);
+    font-weight:600;
+  }
+  .sync-btn {
+    background:var(--wire); color:var(--steel); border:none; border-radius:6px;
+    padding:7px 16px; font-size:13px; font-weight:700; cursor:pointer;
+    display:flex; align-items:center; gap:6px; transition:all 0.2s;
+  }
+  .sync-btn:hover { background:var(--spark); transform:translateY(-1px); }
+  .sync-btn.loading { opacity:0.7; pointer-events:none; }
+
+  /* LAYOUT */
+  .layout { display:flex; height:calc(100vh - 64px); }
+
+  /* SIDEBAR */
+  .sidebar {
+    width:260px; min-width:260px; background:var(--card-bg);
+    border-right:1px solid var(--border); overflow-y:auto; padding:16px 0;
+  }
+  .sidebar-section { margin-bottom:8px; }
+  .sidebar-label {
+    font-size:10px; font-weight:700; color:var(--muted); letter-spacing:1.5px;
+    text-transform:uppercase; padding:8px 20px 4px;
+  }
+  .sidebar-item {
+    display:flex; align-items:center; gap:10px; padding:9px 20px;
+    cursor:pointer; border-left:3px solid transparent;
+    font-size:13px; color:var(--muted); transition:all 0.15s;
+    position:relative;
+  }
+  .sidebar-item:hover { background:rgba(232,160,32,0.08); color:var(--white); }
+  .sidebar-item.active { background:rgba(232,160,32,0.12); color:var(--wire); border-left-color:var(--wire); }
+  .sidebar-item .freq-tag {
+    margin-left:auto; font-size:9px; font-weight:700; border-radius:3px;
+    padding:2px 5px; text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .freq-daily { background:rgba(232,160,32,0.2); color:var(--wire); }
+  .freq-monthly { background:rgba(52,152,219,0.2); color:var(--info); }
+  .sidebar-item .dot { width:6px; height:6px; border-radius:50%; }
+  .dot-daily { background:var(--wire); }
+  .dot-monthly { background:var(--info); }
+
+  /* MAIN CONTENT */
+  .main { flex:1; overflow-y:auto; padding:24px; }
+
+  /* OVERVIEW CARDS */
+  .overview-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
+  .stat-card {
+    background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+    padding:16px 18px; position:relative; overflow:hidden;
+  }
+  .stat-card::before {
+    content:''; position:absolute; top:0; left:0; right:0; height:3px;
+    background: var(--accent-color, var(--wire));
+  }
+  .stat-card .label { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:8px; }
+  .stat-card .value { font-size:26px; font-weight:800; color:var(--white); line-height:1; }
+  .stat-card .sub { font-size:11px; color:var(--muted); margin-top:4px; }
+  .stat-card .trend { font-size:11px; font-weight:700; margin-top:6px; }
+  .trend-up { color:var(--success); }
+  .trend-neutral { color:var(--muted); }
+
+  /* REPORT PANEL */
+  .report-panel { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .report-header {
+    background:rgba(0,0,0,0.2); padding:16px 20px;
+    display:flex; align-items:center; justify-content:space-between;
+    border-bottom:1px solid var(--border);
+  }
+  .report-header h2 { font-size:16px; font-weight:700; }
+  .report-header .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .report-actions { display:flex; gap:8px; align-items:center; }
+  .btn {
+    border:none; border-radius:6px; padding:7px 14px; font-size:12px;
+    font-weight:700; cursor:pointer; transition:all 0.15s; display:flex; align-items:center; gap:5px;
+  }
+  .btn-primary { background:var(--wire); color:var(--steel); }
+  .btn-primary:hover { background:var(--spark); }
+  .btn-secondary { background:rgba(255,255,255,0.1); color:var(--white); }
+  .btn-secondary:hover { background:rgba(255,255,255,0.15); }
+  .btn-success { background:var(--success); color:#fff; }
+  .btn-success:hover { background:#27ae60; }
+  .btn-info { background:var(--info); color:#fff; }
+  .btn-info:hover { background:#2980b9; }
+
+  /* TABLE */
+  .table-wrap { overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th {
+    background:rgba(0,0,0,0.3); color:var(--muted); text-transform:uppercase;
+    font-size:10px; letter-spacing:1px; font-weight:700;
+    padding:10px 14px; text-align:left; white-space:nowrap;
+    border-bottom:1px solid var(--border);
+  }
+  td { padding:9px 14px; border-bottom:1px solid rgba(255,255,255,0.04); vertical-align:middle; }
+  tr:hover td { background:rgba(255,255,255,0.03); }
+  tr:last-child td { border-bottom:none; }
+  .td-num { text-align:right; font-variant-numeric:tabular-nums; }
+  .td-bold { font-weight:700; color:var(--wire); }
+
+  /* EDITABLE CELLS */
+  td input, td select {
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1);
+    border-radius:4px; padding:4px 8px; color:var(--white); font-size:12px;
+    width:100%; outline:none; transition:border 0.15s;
+  }
+  td input:focus, td select:focus { border-color:var(--wire); background:rgba(232,160,32,0.08); }
+  td select option { background:var(--steel-mid); color:var(--white); }
+
+  /* TABS */
+  .tabs { display:flex; gap:0; border-bottom:1px solid var(--border); padding:0 20px; }
+  .tab {
+    padding:11px 16px; font-size:13px; font-weight:600; cursor:pointer;
+    color:var(--muted); border-bottom:2px solid transparent; margin-bottom:-1px;
+    transition:all 0.15s;
+  }
+  .tab:hover { color:var(--white); }
+  .tab.active { color:var(--wire); border-bottom-color:var(--wire); }
+
+  /* HISTORY */
+  .history-list { padding:12px 20px; display:flex; flex-direction:column; gap:8px; }
+  .history-item {
+    display:flex; align-items:center; justify-content:space-between;
+    background:rgba(0,0,0,0.2); border:1px solid var(--border);
+    border-radius:7px; padding:10px 14px; cursor:pointer; transition:all 0.15s;
+  }
+  .history-item:hover { border-color:var(--wire); background:rgba(232,160,32,0.05); }
+  .history-item .hi-date { font-size:13px; font-weight:700; }
+  .history-item .hi-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+  .history-item .hi-badge {
+    font-size:10px; font-weight:700; padding:3px 8px; border-radius:4px;
+    background:rgba(46,204,113,0.15); color:var(--success);
+  }
+
+  /* UPLOAD SECTION */
+  .upload-zone {
+    border:2px dashed var(--border); border-radius:10px; padding:32px;
+    text-align:center; cursor:pointer; transition:all 0.2s; margin:20px;
+  }
+  .upload-zone:hover { border-color:var(--wire); background:rgba(232,160,32,0.05); }
+  .upload-zone p { color:var(--muted); font-size:13px; margin-top:8px; }
+
+  /* TOAST */
+  #toast {
+    position:fixed; bottom:24px; right:24px; background:var(--success);
+    color:#fff; padding:12px 20px; border-radius:8px; font-size:13px; font-weight:600;
+    z-index:999; opacity:0; transform:translateY(10px);
+    transition:all 0.3s; pointer-events:none;
+  }
+  #toast.show { opacity:1; transform:translateY(0); }
+
+  /* DIVIDER */
+  .divider { height:1px; background:var(--border); margin:0 20px; }
+  .section-pad { padding:20px; }
+  .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+  .form-group { display:flex; flex-direction:column; gap:4px; }
+  .form-group label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:0.8px; }
+  .form-group input, .form-group select {
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1);
+    border-radius:6px; padding:7px 10px; color:var(--white); font-size:13px; outline:none;
+    transition:border 0.15s;
+  }
+  .form-group input:focus, .form-group select:focus { border-color:var(--wire); }
+  .form-group select option { background:var(--steel-mid); }
+
+  .summary-row td { font-weight:700; background:rgba(232,160,32,0.08); color:var(--spark); }
+  .empty-state { text-align:center; padding:40px; color:var(--muted); font-size:14px; }
+  .empty-state .icon { font-size:36px; margin-bottom:12px; }
+
+  .freq-badge {
+    display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
+    padding:3px 8px; border-radius:4px; margin-left:8px;
+  }
+
+  /* Page visibility */
+  .page { display:none; }
+  .page.active { display:block; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  ::-webkit-scrollbar-thumb { background:var(--steel-light); border-radius:3px; }
+
+  /* Info box */
+  .info-box {
+    background:rgba(52,152,219,0.1); border:1px solid rgba(52,152,219,0.3);
+    border-radius:8px; padding:12px 16px; font-size:12px; color:#7ec8f0;
+    display:flex; align-items:flex-start; gap:8px; margin:12px 20px;
+  }
+
+  /* Setup steps */
+  .setup-steps { padding:20px; }
+  .step { display:flex; gap:16px; margin-bottom:20px; align-items:flex-start; }
+  .step-num {
+    width:32px; height:32px; min-width:32px; border-radius:50%;
+    background:var(--wire); color:var(--steel); display:flex; align-items:center;
+    justify-content:center; font-weight:900; font-size:14px; margin-top:2px;
+  }
+  .step h4 { font-size:14px; font-weight:700; margin-bottom:4px; }
+  .step p { font-size:12px; color:var(--muted); line-height:1.6; }
+  .step code {
+    background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:4px;
+    padding:2px 6px; font-family:monospace; font-size:11px; color:var(--spark);
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-brand">
+    <div class="logo">BW</div>
+    <div>
+      <h1>BWPL MIS Automation</h1>
+      <span>Bajrang Wire Products — Daily Report System</span>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="date-badge" id="todayBadge">📅 Loading...</div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-label">Overview</div>
+      <div class="sidebar-item active" onclick="showPage('dashboard', this)">
+        <span class="dot dot-daily"></span> Dashboard
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Daily Reports <span class="freq-badge freq-daily">By 10:30 AM</span></div>
+      <div class="sidebar-item" onclick="showPage('sales', this)">
+        <span class="dot dot-daily"></span> Daily Sales Register
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('collection', this)">
+        <span class="dot dot-daily"></span> Daily Collection Report
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('compliance', this)">
+        <span class="dot dot-daily"></span> Sales Compliance
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('productivity', this)">
+        <span class="dot dot-daily"></span> Productivity Report
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('vehicle', this)">
+        <span class="dot dot-daily"></span> Vehicle Placement Failure
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('travel', this)">
+        <span class="dot dot-daily"></span> Official Travel Report
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('pricelist', this)">
+        <span class="dot dot-daily"></span> Price List Compliance
+        <span class="freq-tag freq-daily">Daily</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Monthly Reports</div>
+      <div class="sidebar-item" onclick="showPage('top10vol', this)">
+        <span class="dot dot-monthly"></span> Top 10 by Volume
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('top10val', this)">
+        <span class="dot dot-monthly"></span> Top 10 by Value
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('bot10vol', this)">
+        <span class="dot dot-monthly"></span> Bottom 10 by Volume
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('bot10val', this)">
+        <span class="dot dot-monthly"></span> Bottom 10 by Value
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('complaints', this)">
+        <span class="dot dot-monthly"></span> Customer Complaints
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('financials', this)">
+        <span class="dot dot-monthly"></span> Financials
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+      <div class="sidebar-item" onclick="showPage('manufacturing', this)">
+        <span class="dot dot-monthly"></span> Manufacturing & Sales
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">History & Setup</div>
+      <div class="sidebar-item" onclick="showPage('history', this)">
+        <span class="dot dot-daily"></span> Report History
+      </div>
+      <div class="sidebar-item" onclick="showPage('setup', this)">
+        <span class="dot dot-monthly"></span> Setup / Upload Data
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main">
+
+    <!-- DASHBOARD -->
+    <div class="page active" id="page-dashboard">
+      <div class="overview-grid">
+        <div class="stat-card" style="--accent-color:var(--wire)">
+          <div class="label">Today's Dispatch Qty</div>
+          <div class="value" id="todayQty">—</div>
+          <div class="sub">MT dispatched today</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--success)">
+          <div class="label">Today's Bill Value</div>
+          <div class="value" id="todayVal">—</div>
+          <div class="sub">Rs. (with GST)</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--info)">
+          <div class="label">MTD Dispatch Qty</div>
+          <div class="value" id="mtdQty">—</div>
+          <div class="sub">Month to date (MT)</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#9b59b6">
+          <div class="label">MTD Bill Value</div>
+          <div class="value" id="mtdVal">—</div>
+          <div class="sub">Rs. Lakhs (MTD)</div>
+        </div>
+      </div>
+
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Today's Dispatch Summary</h2>
+            <div class="meta" id="dashDateMeta">Auto-filled from POS Sheet</div>
+          </div>
+          <div class="report-actions">
+            <button class="btn btn-primary" onclick="generateAllDaily()">⚡ Generate All Daily Reports</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="dashTable">
+            <thead>
+              <tr>
+                <th>#</th><th>Party Name</th><th>Product</th><th>Size</th>
+                <th>Qty (MT)</th><th>Unit</th><th>Bill Amount</th><th>Sales Person</th><th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="dashBody">
+              <tr><td colspan="9" class="empty-state"><div class="icon">📊</div>Upload POS Excel or Sync Google Sheet to load dispatch data</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAILY SALES REGISTER -->
+    <div class="page" id="page-sales">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Daily Sales Register <span class="freq-badge freq-daily">Daily — By 10:30 AM</span></h2>
+            <div class="meta">Auto-populated from Dispatch Planning sheet | Responsibility: CRO</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="salesDate" style="width:140px"></div>
+            <button class="btn btn-secondary" onclick="loadSalesReport()">⟳ Load</button>
+            <button class="btn btn-success" onclick="saveDailyReport('sales')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('sales')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="info-box">ℹ️ Data auto-fetched from POS Dispatch Planning. MTD values cumulative from month start. Add rows manually for any missing entries.</div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Customer</th><th>Product</th>
+                <th class="td-num">Qty — For the day (MT)</th>
+                <th class="td-num">Value (Rs.)</th>
+                <th class="td-num">MTD Sales Qty</th>
+                <th class="td-num">MTD Sales Value</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="salesBody"></tbody>
+          </table>
+        </div>
+        <div class="section-pad">
+          <button class="btn btn-secondary" onclick="addSalesRow()">+ Add Row</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAILY COLLECTION REPORT -->
+    <div class="page" id="page-collection">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Daily Collection Report <span class="freq-badge freq-daily">Daily — By 10:30 AM</span></h2>
+            <div class="meta">Manual entry — amounts received from customers today</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="collDate" style="width:140px"></div>
+            <button class="btn btn-secondary" onclick="loadCollectionReport()">⟳ Load</button>
+            <button class="btn btn-success" onclick="saveDailyReport('collection')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('collection')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th>
+                <th>Customer</th>
+                <th class="td-num">Amount for the Day (Rs.)</th>
+                <th class="td-num">MTD Collection (Rs.)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="collBody"></tbody>
+          </table>
+        </div>
+        <div class="section-pad" style="display:flex;gap:12px;align-items:center">
+          <button class="btn btn-secondary" onclick="addCollRow()">+ Add Row</button>
+          <span style="font-size:12px;color:var(--muted)">Total: <strong id="collTotal" style="color:var(--wire)">₹0</strong></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- SALES COMPLIANCE -->
+    <div class="page" id="page-compliance">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Daily Sales Compliance Report <span class="freq-badge freq-daily">Daily — By 10:30 AM</span></h2>
+            <div class="meta">Responsibility: HR | Product-wise target vs actual</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="compDate" style="width:140px"></div>
+            <button class="btn btn-secondary" onclick="loadComplianceReport()">⟳ Load</button>
+            <button class="btn btn-success" onclick="saveDailyReport('compliance')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('compliance')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Product</th>
+                <th class="td-num">Target for Month (MT)</th>
+                <th class="td-num">Day's Sales (MT)</th>
+                <th class="td-num">MTD Sales (MT)</th>
+                <th>% Achieved</th>
+              </tr>
+            </thead>
+            <tbody id="compBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRODUCTIVITY -->
+    <div class="page" id="page-productivity">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Productivity Report <span class="freq-badge freq-daily">Daily — By 10:30 AM</span></h2>
+            <div class="meta">Production downtime tracking | CC: VM/AM/DM/GM/SJ/EAs</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="prodDate" style="width:140px"></div>
+            <button class="btn btn-success" onclick="saveDailyReport('productivity')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('productivity')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Description</th>
+                <th class="td-num">Hrs — Today</th>
+                <th class="td-num">Hrs — Till Date</th>
+                <th class="td-num">Loss of Production — Today</th>
+                <th class="td-num">Loss of Production — MTD</th>
+              </tr>
+            </thead>
+            <tbody id="prodBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- VEHICLE PLACEMENT -->
+    <div class="page" id="page-vehicle">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Vehicle Placement Failure Report <span class="freq-badge freq-daily">Daily — By 10:30 AM</span></h2>
+            <div class="meta">Record vehicles that failed to reach destination</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="vehDate" style="width:140px"></div>
+            <button class="btn btn-success" onclick="saveDailyReport('vehicle')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('vehicle')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Customer</th><th>Destination</th>
+                <th>Products</th><th>Name of Transporter</th><th>Reason</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="vehBody"></tbody>
+          </table>
+        </div>
+        <div class="section-pad" style="display:flex;gap:12px;align-items:center">
+          <button class="btn btn-secondary" onclick="addVehRow()">+ Add Row</button>
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer">
+            <input type="checkbox" id="nilVehicle" onchange="toggleNilVehicle()"> Mark as NIL (No vehicle failure today)
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- OFFICIAL TRAVEL -->
+    <div class="page" id="page-travel">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Official Travel Report <span class="freq-badge freq-daily">Daily — By 11:00 AM</span></h2>
+            <div class="meta">Responsibility: HR | CC: VK/AM/DM/GM/SJ/Eas/AVS</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="travDate" style="width:140px"></div>
+            <button class="btn btn-success" onclick="saveDailyReport('travel')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('travel')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Sr. No.</th><th>Name of Officer</th><th>Travel Destination</th><th>Action</th></tr>
+            </thead>
+            <tbody id="travBody"></tbody>
+          </table>
+        </div>
+        <div class="section-pad">
+          <button class="btn btn-secondary" onclick="addTravRow()">+ Add Row</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- PRICE LIST COMPLIANCE -->
+    <div class="page" id="page-pricelist">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Price List Compliance Report <span class="freq-badge freq-daily">Daily — By 12:00 PM</span></h2>
+            <div class="meta">Deviations from approved price list</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group"><input type="date" id="priceDate" style="width:140px"></div>
+            <button class="btn btn-secondary" onclick="loadPriceListReport()">⟳ Auto-fill from POS</button>
+            <button class="btn btn-success" onclick="saveDailyReport('pricelist')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('pricelist')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SR. NO.</th><th>Customer</th><th>Sales Person</th><th>Product</th>
+                <th class="td-num">Deviation from Price List</th><th>Impact on BWPL</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="priceBody"></tbody>
+          </table>
+        </div>
+        <div class="section-pad">
+          <button class="btn btn-secondary" onclick="addPriceRow()">+ Add Row</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP 10 VOLUME -->
+    <div class="page" id="page-top10vol">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Top 10 Customers by Volume <span class="freq-badge freq-monthly">Monthly — By 3rd Working Day</span></h2>
+            <div class="meta">Auto-computed from MTD dispatch data</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group">
+              <select id="top10VolMonth" style="width:130px">
+                <option value="2026-06">Jun 2026</option>
+                <option value="2026-05">May 2026</option>
+                <option value="2026-04">Apr 2026</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="loadTop10Vol()">⟳ Compute</button>
+            <button class="btn btn-primary" onclick="downloadReport('top10vol')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Customer</th>
+                <th class="td-num">Qty (MT)</th>
+                <th class="td-num">Value (Rs. Lakhs)</th>
+              </tr>
+            </thead>
+            <tbody id="top10VolBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TOP 10 VALUE -->
+    <div class="page" id="page-top10val">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Top 10 Customers by Value <span class="freq-badge freq-monthly">Monthly — By 3rd Working Day</span></h2>
+          </div>
+          <div class="report-actions">
+            <div class="form-group">
+              <select id="top10ValMonth" style="width:130px">
+                <option value="2026-06">Jun 2026</option>
+                <option value="2026-05">May 2026</option>
+                <option value="2026-04">Apr 2026</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="loadTop10Val()">⟳ Compute</button>
+            <button class="btn btn-primary" onclick="downloadReport('top10val')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr><th>Sr. No.</th><th>Customer</th><th class="td-num">Qty (MT)</th><th class="td-num">Value (Rs. Lakhs)</th></tr>
+            </thead>
+            <tbody id="top10ValBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM 10 VOLUME -->
+    <div class="page" id="page-bot10vol">
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2>Bottom 10 Customers by Volume <span class="freq-badge freq-monthly">Monthly</span></h2></div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="loadBot10Vol()">⟳ Compute</button>
+            <button class="btn btn-primary" onclick="downloadReport('bot10vol')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Sr. No.</th><th>Customer</th><th class="td-num">Qty (MT)</th><th class="td-num">Value (Rs. Lakhs)</th></tr></thead>
+            <tbody id="bot10VolBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- BOTTOM 10 VALUE -->
+    <div class="page" id="page-bot10val">
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2>Bottom 10 Customers by Value <span class="freq-badge freq-monthly">Monthly</span></h2></div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="loadBot10Val()">⟳ Compute</button>
+            <button class="btn btn-primary" onclick="downloadReport('bot10val')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Sr. No.</th><th>Customer</th><th class="td-num">Qty (MT)</th><th class="td-num">Value (Rs. Lakhs)</th></tr></thead>
+            <tbody id="bot10ValBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- CUSTOMER COMPLAINTS -->
+    <div class="page" id="page-complaints">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Customer Complaint Register <span class="freq-badge freq-monthly">Monthly — By 3rd Working Day</span></h2>
+            <div class="meta">Responsibility: QA Head</div>
+          </div>
+          <div class="report-actions">
+            <button class="btn btn-success" onclick="saveMonthlyReport('complaints')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('complaints')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Customer</th>
+                <th class="td-num">Qty (MT)</th>
+                <th class="td-num">Qty Rejected</th>
+                <th class="td-num">Cost of Quality (Rs.)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="compltBody"></tbody>
+          </table>
+        </div>
+        <div class="section-pad">
+          <button class="btn btn-secondary" onclick="addComplaintRow()">+ Add Row</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCIALS -->
+    <div class="page" id="page-financials">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Financials for BWPL <span class="freq-badge freq-monthly">Monthly — By 10th of Month</span></h2>
+          </div>
+          <div class="report-actions">
+            <button class="btn btn-success" onclick="saveMonthlyReport('financials')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('financials')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Metric</th>
+                <th class="td-num">Apr-26</th><th class="td-num">May-26</th>
+                <th class="td-num">Jun-26</th><th class="td-num">Jul-26</th>
+                <th class="td-num">Aug-26</th><th class="td-num">Sep-26</th>
+              </tr>
+            </thead>
+            <tbody id="finBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- MANUFACTURING & SALES -->
+    <div class="page" id="page-manufacturing">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Manufacturing & Sales Records <span class="freq-badge freq-monthly">Monthly — 7th Working Day</span></h2>
+          </div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="loadManufacturing()">⟳ Auto-fill Sales</button>
+            <button class="btn btn-success" onclick="saveMonthlyReport('manufacturing')">💾 Save</button>
+            <button class="btn btn-primary" onclick="downloadReport('manufacturing')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="mfgTable">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th class="td-num">Apr-26 Prod</th><th class="td-num">Apr-26 Sales</th>
+                <th class="td-num">May-26 Prod</th><th class="td-num">May-26 Sales</th>
+                <th class="td-num">Jun-26 Prod</th><th class="td-num">Jun-26 Sales</th>
+              </tr>
+            </thead>
+            <tbody id="mfgBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- HISTORY -->
+    <div class="page" id="page-history">
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2>Report History</h2><div class="meta">All saved reports — browse and re-download</div></div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="clearHistory()">🗑 Clear All</button>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab active" onclick="filterHistory('all', this)">All</div>
+          <div class="tab" onclick="filterHistory('daily', this)">Daily</div>
+          <div class="tab" onclick="filterHistory('monthly', this)">Monthly</div>
+        </div>
+        <div class="history-list" id="historyList">
+          <div class="empty-state"><div class="icon">📁</div>No saved reports yet. Generate and save reports to see them here.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETUP -->
+    <div class="page" id="page-setup">
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2>Setup & Data Source</h2><div class="meta">Connect POS Google Sheet or upload Excel file</div></div>
+        </div>
+
+        <div class="setup-steps">
+          <div class="step">
+            <div class="step-num">1</div>
+            <div>
+              <h4>Upload POS with EMS Excel File</h4>
+              <p>Download the latest POS with EMS file and upload here. All dispatch data will be extracted automatically for report generation.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="upload-zone" onclick="document.getElementById('posFile').click()">
+          <div style="font-size:32px">📤</div>
+          <h3 style="margin-top:8px">Drop POS with EMS Excel File Here</h3>
+          <p>Click to browse — supports .xlsx, .xls files</p>
+          <p style="margin-top:6px;font-size:11px;color:var(--wire)">POS_With_EMS_2026-27.xlsx</p>
+          <input type="file" id="posFile" accept=".xlsx,.xls" style="display:none" onchange="handleFileUpload(event)">
+        </div>
+
+        <div id="uploadStatus" style="padding:0 20px 16px;font-size:13px;color:var(--muted)"></div>
+
+        <div class="divider"></div>
+
+        <div class="setup-steps" style="padding-top:20px">
+          <div class="step">
+            <div class="step-num">2</div>
+            <div>
+              <h4>Daily Routine</h4>
+              <p>
+                POS sheet private hai, isliye har din latest "POS with EMS" Excel file Google Sheet se download karein
+                (File → Download → Microsoft Excel .xlsx) aur upar diye gaye box me upload kar dein.<br><br>
+                App automatically saare daily reports (Sales Register, Collection, Compliance, etc.) ke liye
+                aaj ki tareekh ka data nikal lega. Data browser me save rehta hai, agar nayi file upload na karein
+                toh purana data hi dikhega.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+
+        <div class="section-pad">
+          <h4 style="margin-bottom:12px;font-size:14px">Data Status</h4>
+          <div id="dataStatus" style="font-size:13px;color:var(--muted)">No data loaded yet.</div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end main -->
+</div><!-- end layout -->
+
+<div id="toast"></div>
+
+<script>
+// ─── STATE ──────────────────────────────────────────────
+let dispatchData = [];  // All rows from Dispatch Planning
+let today = new Date();
+let todayStr = formatDate(today);
+let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
+
+// BWPL products for compliance
+const PRODUCTS = [
+  '3.00 MM Drn PC','3.00 Mm X 3.00 MM SRPC','4.00 MM Drn PC','4.00 MM SR PC Ind.',
+  '4.00 MM SRPC Ind. Comm.','3.80 MM SRPC Ind. Comm.','HB Wire','Rolling Shutter Wire (RSW)',
+  'Tiller Spring Wire','ACSR Wire','ACSR Stranded','Earth Wire','Earth Wire Strand',
+  'GI Wire (Commercial)','GI Wire (90 GSM)','GI Wire (120 GSM)','GI Wire (Heavy Coated - 260 GSM)',
+  'Round Cable Armour Wire (RCA)','Flat Cable Armour Wire (FCA)','RCA (Commercial)','FCA (Commercial)',
+  'LRPC (9.6 MM)','LRPC (12.60 MM)','LRPC (15.20 MM)','Rejected Wire'
+];
+const MFG_PRODUCTS = [
+  '3.00 MM Drn PC','3X3 Mm SR PC','4.00 MM Drn PC','4.00 MM SRINd PC','3.80 MM SR PC Ind.',
+  '2.80 Mm SR PC Ind.','Comm. PC - Single','ACSR Wire','ACSR Wire (Comm.)','ACSR Strand',
+  'GI Wire (Comm.)','GI Wire (Light Coating)','GI Wire (Medium Coating)','GI Wire (Heavy Coated)',
+  'RCA (ISI)','RCA (Comm.)'
+];
+const FIN_METRICS = [
+  'Collection for the Month (Rs. CR)',
+  'Outstanding as on last day of the month (Rs. CR)',
+  'Overdue Outstanding as on last day of the month (Rs. CR)',
+  'Outstanding overdue for >90 Days as on last day of the month',
+  'Bad debts as on last day of the Month (Rs. CR)',
+  'Collection of bad debts during the Month (Rs. CR)'
+];
+
+// ─── INIT ────────────────────────────────────────────────
+window.onload = () => {
+  document.getElementById('todayBadge').textContent = '📅 ' + today.toLocaleDateString('en-IN', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
+  setAllDatesToToday();
+  initProductivity();
+  initFinancials();
+  initManufacturing();
+  initComplaints();
+  initVehicle();
+  initTravel();
+  initPriceList();
+  renderHistory();
+
+  // Try loading saved dispatch data
+  const saved = localStorage.getItem('bwplDispatch');
+  if (saved) {
+    dispatchData = JSON.parse(saved);
+    refreshDashboard();
+    showToast('✅ Loaded saved dispatch data (' + dispatchData.length + ' rows)');
+    document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} dispatch rows loaded from saved data.</span>`;
+  }
+};
+
+function formatDate(d) {
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
+}
+function toInputDate(d) {
+  return d.toISOString().split('T')[0];
+}
+
+function setAllDatesToToday() {
+  const t = toInputDate(today);
+  ['salesDate','collDate','compDate','prodDate','vehDate','travDate','priceDate'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = t;
+  });
+}
+
+// ─── NAVIGATION ──────────────────────────────────────────
+function showPage(name, el) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+  document.getElementById('page-'+name).classList.add('active');
+  if (el) el.classList.add('active');
+}
+
+// ─── FILE UPLOAD ─────────────────────────────────────────
+function handleFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('uploadStatus');
+  status.textContent = '⏳ Reading file...';
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, {type:'array', cellDates:true});
+      // Find Dispatch Planing sheet
+      const sheetName = wb.SheetNames.find(n => n.toLowerCase().includes('dispatch'));
+      if (!sheetName) { status.textContent = '❌ Dispatch Planning sheet not found in file.'; return; }
+      const ws = wb.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      parseDispatchRows(rows);
+      status.innerHTML = `<span style="color:var(--success)">✅ Loaded ${dispatchData.length} dispatch rows from "${file.name}"</span>`;
+      showPage('dashboard', document.querySelector('.sidebar-item'));
+    } catch(err) {
+      status.textContent = '❌ Error reading file: ' + err.message;
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseDispatchRows(rows) {
+  // Row 5 (index 5) is header, data from row 6 (index 6)
+  dispatchData = [];
+  for (let i = 6; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[1]) continue; // Skip if no Sr No
+    dispatchData.push({
+      srNo: r[1],
+      soNo: r[2],
+      party: r[3],
+      location: r[4],
+      product: r[5],
+      size: r[6],
+      qty: parseFloat(r[7]) || 0,
+      productDetail: r[8],
+      type: r[9],
+      price: parseFloat(r[10]) || 0,
+      gstType: r[11],
+      unit: r[12],
+      provisionalDate: r[13],
+      freightType: r[14],
+      status: r[30],
+      gstAmount: parseFloat(r[34]) || 0,
+      billAmount: parseFloat(r[35]) || 0,
+      invoiceNo: r[37],
+      transporter: r[40],
+      salesPerson: r[61],
+      dispatchDate: r[62] ? String(r[62]) : ''
+    });
+  }
+  localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
+  refreshDashboard();
+  document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
+}
+
+// ─── DASHBOARD ───────────────────────────────────────────
+function refreshDashboard() {
+  const t = todayStr;
+  const todayRows = dispatchData.filter(r => r.dispatchDate === t);
+  const monthPrefix = t.slice(3); // MM-YYYY
+  const mtdRows = dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === monthPrefix);
+
+  const todayQty = todayRows.reduce((s,r) => s + r.qty, 0);
+  const todayVal = todayRows.reduce((s,r) => s + r.billAmount, 0);
+  const mtdQty = mtdRows.reduce((s,r) => s + r.qty, 0);
+  const mtdVal = mtdRows.reduce((s,r) => s + r.billAmount, 0);
+
+  document.getElementById('todayQty').textContent = todayQty.toFixed(1);
+  document.getElementById('todayVal').textContent = '₹' + fmtL(todayVal);
+  document.getElementById('mtdQty').textContent = mtdQty.toFixed(1);
+  document.getElementById('mtdVal').textContent = '₹' + fmtL(mtdVal);
+  document.getElementById('dashDateMeta').textContent = 'Date: ' + t + ' | ' + todayRows.length + ' dispatches today';
+
+  const tbody = document.getElementById('dashBody');
+  if (todayRows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No dispatches found for ' + t + '. Check file or date.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = todayRows.map((r,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${r.party}</strong></td>
+      <td>${r.product || r.type || '—'}</td>
+      <td>${r.size || '—'}</td>
+      <td class="td-num">${r.qty}</td>
+      <td><span style="font-size:11px;padding:2px 6px;border-radius:3px;background:rgba(232,160,32,0.15);color:var(--wire)">${r.unit}</span></td>
+      <td class="td-num">${r.billAmount ? '₹'+fmtN(r.billAmount) : '—'}</td>
+      <td>${r.salesPerson || '—'}</td>
+      <td><span style="color:var(--success);font-size:11px;font-weight:700">${r.status || 'OK'}</span></td>
+    </tr>`).join('');
+}
+
+// ─── SALES REGISTER ──────────────────────────────────────
+function loadSalesReport() {
+  const dateVal = document.getElementById('salesDate').value;
+  const dd = dateVal.split('-').reverse().join('-'); // Convert yyyy-mm-dd to dd-mm-yyyy
+  const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
+  // MTD
+  const monthSuffix = dd.slice(3);
+  const mtdRows = dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === monthSuffix);
+
+  // Group by customer
+  const byCustomer = {};
+  todayRows.forEach(r => {
+    const key = r.party + '|' + (r.product || r.type);
+    if (!byCustomer[key]) byCustomer[key] = {party:r.party, product:r.product||r.type, qty:0, value:0};
+    byCustomer[key].qty += r.qty;
+    byCustomer[key].value += r.billAmount;
+  });
+  const mtdByCustomer = {};
+  mtdRows.forEach(r => {
+    if (!mtdByCustomer[r.party]) mtdByCustomer[r.party] = {qty:0, value:0};
+    mtdByCustomer[r.party].qty += r.qty;
+    mtdByCustomer[r.party].value += r.billAmount;
+  });
+
+  const rows = Object.values(byCustomer);
+  const totQty = rows.reduce((s,r) => s+r.qty, 0);
+  const totVal = rows.reduce((s,r) => s+r.value, 0);
+  const mtdTotQty = Object.values(mtdByCustomer).reduce((s,r) => s+r.qty, 0);
+  const mtdTotVal = Object.values(mtdByCustomer).reduce((s,r) => s+r.value, 0);
+
+  const tbody = document.getElementById('salesBody');
+  if (rows.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No dispatch data for ${dd}. Upload POS file first.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><input value="${r.party}" style="min-width:180px"></td>
+      <td><input value="${r.product}"></td>
+      <td class="td-num"><input type="number" value="${r.qty}" style="width:80px"></td>
+      <td class="td-num"><input type="number" value="${Math.round(r.value)}" style="width:110px"></td>
+      <td class="td-num"><input type="number" value="${(mtdByCustomer[r.party]?.qty||0).toFixed(1)}" style="width:80px"></td>
+      <td class="td-num"><input type="number" value="${Math.round(mtdByCustomer[r.party]?.value||0)}" style="width:110px"></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>
+    </tr>`).join('') +
+    `<tr class="summary-row">
+      <td colspan="2"><strong>TOTAL</strong></td>
+      <td></td>
+      <td class="td-num"><strong>${totQty.toFixed(1)}</strong></td>
+      <td class="td-num"><strong>₹${fmtN(totVal)}</strong></td>
+      <td class="td-num"><strong>${mtdTotQty.toFixed(1)}</strong></td>
+      <td class="td-num"><strong>₹${fmtN(mtdTotVal)}</strong></td>
+      <td></td>
+    </tr>`;
+}
+
+function addSalesRow() {
+  const tbody = document.getElementById('salesBody');
+  const n = tbody.querySelectorAll('tr:not(.summary-row)').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${n}</td>
+    <td><input placeholder="Customer name" style="min-width:180px"></td>
+    <td><input placeholder="Product"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:80px"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:110px"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:80px"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:110px"></td>
+    <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+// ─── COLLECTION REPORT ───────────────────────────────────
+function loadCollectionReport() {
+  const tbody = document.getElementById('collBody');
+  // Pre-fill from saved or blank rows
+  const key = 'collection_' + document.getElementById('collDate').value;
+  const saved = savedReports[key];
+  if (saved) {
+    renderCollRows(saved);
+  } else {
+    tbody.innerHTML = '';
+    for (let i = 1; i <= 10; i++) addCollRow();
+  }
+}
+function addCollRow() {
+  const tbody = document.getElementById('collBody');
+  const n = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${n}</td>
+    <td><input placeholder="Customer name" style="min-width:200px" oninput="updateCollTotal()"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:130px" oninput="updateCollTotal()"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:130px"></td>
+    <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove();updateCollTotal()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+function updateCollTotal() {
+  const inputs = document.querySelectorAll('#collBody input[type=number]');
+  let total = 0;
+  inputs.forEach((inp,i) => { if (i%2===0) total += parseFloat(inp.value)||0; });
+  document.getElementById('collTotal').textContent = '₹' + fmtN(total);
+}
+function renderCollRows(rows) {
+  const tbody = document.getElementById('collBody');
+  tbody.innerHTML = rows.map((r,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><input value="${r.customer||''}" style="min-width:200px" oninput="updateCollTotal()"></td>
+      <td class="td-num"><input type="number" value="${r.amount||0}" style="width:130px" oninput="updateCollTotal()"></td>
+      <td class="td-num"><input type="number" value="${r.mtd||0}" style="width:130px"></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove();updateCollTotal()">✕</button></td>
+    </tr>`).join('');
+  updateCollTotal();
+}
+
+// ─── COMPLIANCE ──────────────────────────────────────────
+function loadComplianceReport() {
+  const dateVal = document.getElementById('compDate').value;
+  const dd = dateVal.split('-').reverse().join('-');
+  const monthSuffix = dd.slice(3);
+  const mtdRows = dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === monthSuffix);
+
+  // Build MTD by type/product
+  const mtdByType = {};
+  mtdRows.forEach(r => {
+    const k = r.type || r.product || 'Other';
+    mtdByType[k] = (mtdByType[k]||0) + r.qty;
+  });
+  const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
+  const todayByType = {};
+  todayRows.forEach(r => {
+    const k = r.type || r.product || 'Other';
+    todayByType[k] = (todayByType[k]||0) + r.qty;
+  });
+
+  const tbody = document.getElementById('compBody');
+  tbody.innerHTML = PRODUCTS.map((p, i) => {
+    const dayQty = todayByType[p] || 0;
+    const mtdQty = mtdByType[p] || 0;
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${p}</td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:100px" id="target_${i}"></td>
+      <td class="td-num"><input type="number" value="${dayQty||''}" style="width:90px"></td>
+      <td class="td-num"><strong>${mtdQty.toFixed(2)}</strong></td>
+      <td id="pct_${i}" style="color:var(--muted)">—</td>
+    </tr>`;
+  }).join('');
+}
+
+// ─── PRODUCTIVITY ─────────────────────────────────────────
+function initProductivity() {
+  const items = [
+    'Electrical down time','Mechanical down time','ManPower Shortage',
+    'Power outage','Non availability of spares','NON Availability of RM','Others'
+  ];
+  const tbody = document.getElementById('prodBody');
+  tbody.innerHTML = items.map((d,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td>${d}</td>
+      <td class="td-num"><input type="number" placeholder="0.00" style="width:90px"></td>
+      <td class="td-num"><input type="number" placeholder="0.00" style="width:90px"></td>
+      <td class="td-num"><input type="number" placeholder="0.00" style="width:100px"></td>
+      <td class="td-num"><input type="number" placeholder="0.00" style="width:100px"></td>
+    </tr>`).join('') +
+    `<tr class="summary-row">
+      <td colspan="2"><strong>Total</strong></td>
+      <td colspan="4"></td>
+    </tr>`;
+}
+
+// ─── VEHICLE ──────────────────────────────────────────────
+function initVehicle() {
+  const tbody = document.getElementById('vehBody');
+  tbody.innerHTML = `<tr id="nilRow"><td colspan="7" style="text-align:center;color:var(--success);padding:20px">NIL — No Vehicle Failure Today</td></tr>`;
+}
+function addVehRow() {
+  document.getElementById('nilVehicle').checked = false;
+  const tbody = document.getElementById('vehBody');
+  document.getElementById('nilRow')?.remove();
+  const n = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${n}</td>
+    <td><input placeholder="Customer" style="min-width:160px"></td>
+    <td><input placeholder="Destination"></td>
+    <td><input placeholder="Products"></td>
+    <td><input placeholder="Transporter name"></td>
+    <td><input placeholder="Reason"></td>
+    <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+function toggleNilVehicle() {
+  const tbody = document.getElementById('vehBody');
+  if (document.getElementById('nilVehicle').checked) {
+    tbody.innerHTML = `<tr id="nilRow"><td colspan="7" style="text-align:center;color:var(--success);padding:20px">NIL — No Vehicle Failure on ${document.getElementById('vehDate').value}</td></tr>`;
+  } else {
+    tbody.innerHTML = '';
+  }
+}
+
+// ─── TRAVEL ───────────────────────────────────────────────
+function initTravel() {
+  const tbody = document.getElementById('travBody');
+  tbody.innerHTML = '';
+  for (let i = 1; i <= 5; i++) addTravRow();
+}
+function addTravRow() {
+  const tbody = document.getElementById('travBody');
+  const n = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${n}</td>
+    <td><input placeholder="Name of Officer" style="min-width:180px"></td>
+    <td><input placeholder="Travel Destination"></td>
+    <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+// ─── PRICE LIST COMPLIANCE ────────────────────────────────
+function initPriceList() {
+  const tbody = document.getElementById('priceBody');
+  tbody.innerHTML = '';
+  for (let i = 1; i <= 5; i++) addPriceRow();
+}
+function loadPriceListReport() {
+  const dateVal = document.getElementById('priceDate').value;
+  const dd = dateVal.split('-').reverse().join('-');
+  const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
+  const tbody = document.getElementById('priceBody');
+  tbody.innerHTML = '';
+  if (todayRows.length === 0) { initPriceList(); return; }
+  todayRows.slice(0, 10).forEach((r, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><input value="${r.party}" style="min-width:160px"></td>
+      <td><input value="${r.salesPerson||''}"></td>
+      <td><input value="${r.product||r.type||''}"></td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:100px"></td>
+      <td><input placeholder="Remarks"></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+function addPriceRow() {
+  const tbody = document.getElementById('priceBody');
+  const n = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${n}</td>
+    <td><input placeholder="Customer" style="min-width:160px"></td>
+    <td><input placeholder="Sales Person"></td>
+    <td><input placeholder="Product"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:100px"></td>
+    <td><input placeholder="Impact"></td>
+    <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+// ─── MONTHLY: TOP/BOTTOM 10 ───────────────────────────────
+function getMonthData(monthVal) {
+  // monthVal = "2026-06"
+  const [yr, mo] = monthVal.split('-');
+  const suffix = mo + '-' + yr;
+  return dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === suffix);
+}
+function computeCustomerStats(rows) {
+  const stats = {};
+  rows.forEach(r => {
+    if (!stats[r.party]) stats[r.party] = {qty:0, value:0};
+    stats[r.party].qty += r.qty;
+    stats[r.party].value += r.billAmount;
+  });
+  return Object.entries(stats).map(([k,v]) => ({customer:k, qty:v.qty, value:v.value}));
+}
+function renderTop10Table(bodyId, data) {
+  document.getElementById(bodyId).innerHTML = data.map((r,i) => `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${r.customer}</strong></td>
+      <td class="td-num">${r.qty.toFixed(2)}</td>
+      <td class="td-num">${(r.value/100000).toFixed(2)}</td>
+    </tr>`).join('');
+}
+function loadTop10Vol() {
+  const mv = document.getElementById('top10VolMonth').value;
+  const rows = getMonthData(mv);
+  const stats = computeCustomerStats(rows).sort((a,b) => b.qty - a.qty).slice(0,10);
+  renderTop10Table('top10VolBody', stats);
+}
+function loadTop10Val() {
+  const mv = document.getElementById('top10ValMonth').value;
+  const rows = getMonthData(mv);
+  const stats = computeCustomerStats(rows).sort((a,b) => b.value - a.value).slice(0,10);
+  renderTop10Table('top10ValBody', stats);
+}
+function loadBot10Vol() {
+  const rows = getMonthData('2026-06');
+  const stats = computeCustomerStats(rows).filter(r => r.qty > 0).sort((a,b) => a.qty - b.qty).slice(0,10);
+  renderTop10Table('bot10VolBody', stats);
+}
+function loadBot10Val() {
+  const rows = getMonthData('2026-06');
+  const stats = computeCustomerStats(rows).filter(r => r.value > 0).sort((a,b) => a.value - b.value).slice(0,10);
+  renderTop10Table('bot10ValBody', stats);
+}
+
+// ─── COMPLAINTS ───────────────────────────────────────────
+function initComplaints() {
+  const tbody = document.getElementById('compltBody');
+  tbody.innerHTML = '';
+  for (let i = 1; i <= 5; i++) addComplaintRow();
+}
+function addComplaintRow() {
+  const tbody = document.getElementById('compltBody');
+  const n = tbody.querySelectorAll('tr').length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${n}</td>
+    <td><input placeholder="Customer" style="min-width:180px"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:80px"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:80px"></td>
+    <td class="td-num"><input type="number" placeholder="0" style="width:110px"></td>
+    <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
+  tbody.appendChild(tr);
+}
+
+// ─── FINANCIALS ───────────────────────────────────────────
+function initFinancials() {
+  const months = ['Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26'];
+  const tbody = document.getElementById('finBody');
+  tbody.innerHTML = FIN_METRICS.map((m, i) => `
+    <tr>
+      <td style="max-width:250px;font-size:12px">${m}</td>
+      ${months.map((_,j) => `<td class="td-num"><input type="text" placeholder="—" style="width:90px" id="fin_${i}_${j}"></td>`).join('')}
+    </tr>`).join('');
+  // Load saved
+  const saved = savedReports['financials'];
+  if (saved) saved.forEach((row,i) => row.forEach((v,j) => {
+    const el = document.getElementById(`fin_${i}_${j}`);
+    if (el) el.value = v;
+  }));
+}
+
+// ─── MANUFACTURING ────────────────────────────────────────
+function initManufacturing() {
+  const tbody = document.getElementById('mfgBody');
+  tbody.innerHTML = MFG_PRODUCTS.map((p,i) => `
+    <tr>
+      <td style="font-size:12px">${p}</td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:75px" id="mfg_${i}_0"></td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:75px" id="mfg_${i}_1"></td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:75px" id="mfg_${i}_2"></td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:75px" id="mfg_${i}_3"></td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:75px" id="mfg_${i}_4"></td>
+      <td class="td-num"><input type="number" placeholder="0" style="width:75px" id="mfg_${i}_5"></td>
+    </tr>`).join('');
+}
+function loadManufacturing() {
+  // Auto-fill sales columns from dispatch data
+  ['2026-04','2026-05','2026-06'].forEach((mv, mi) => {
+    const rows = getMonthData(mv);
+    MFG_PRODUCTS.forEach((p, pi) => {
+      const qty = rows.filter(r => (r.type||'').includes(p.split(' ')[0]) || (r.product||'').includes(p.split(' ')[0])).reduce((s,r) => s+r.qty, 0);
+      const salesIdx = mi * 2 + 1;
+      const el = document.getElementById(`mfg_${pi}_${salesIdx}`);
+      if (el && qty > 0) el.value = qty.toFixed(2);
+    });
+  });
+  showToast('✅ Sales columns auto-filled from dispatch data');
+}
+
+// ─── GENERATE ALL DAILY ───────────────────────────────────
+function generateAllDaily() {
+  loadSalesReport();
+  loadCollectionReport();
+  loadComplianceReport();
+  showToast('⚡ All daily reports generated for ' + todayStr);
+}
+
+// ─── SAVE REPORTS ─────────────────────────────────────────
+function saveDailyReport(type) {
+  const dateEl = document.getElementById(type === 'sales' ? 'salesDate' : type === 'collection' ? 'collDate' : type === 'compliance' ? 'compDate' : type === 'productivity' ? 'prodDate' : type === 'vehicle' ? 'vehDate' : type === 'travel' ? 'travDate' : 'priceDate');
+  const dateKey = dateEl ? dateEl.value : toInputDate(today);
+  const key = type + '_' + dateKey;
+  savedReports[key] = {type, date:dateKey, saved:new Date().toISOString(), freq:'daily'};
+  localStorage.setItem('bwplReports', JSON.stringify(savedReports));
+  renderHistory();
+  showToast('✅ ' + type + ' report saved for ' + dateKey);
+}
+function saveMonthlyReport(type) {
+  const key = type + '_' + toInputDate(today).slice(0,7);
+  savedReports[key] = {type, date:toInputDate(today).slice(0,7), saved:new Date().toISOString(), freq:'monthly'};
+  localStorage.setItem('bwplReports', JSON.stringify(savedReports));
+  renderHistory();
+  showToast('✅ ' + type + ' monthly report saved');
+}
+
+// ─── DOWNLOAD EXCEL ───────────────────────────────────────
+function downloadReport(type) {
+  const wb = XLSX.utils.book_new();
+  let ws, title;
+
+  if (type === 'sales') {
+    title = 'Daily Sales Register';
+    const dateVal = document.getElementById('salesDate').value;
+    const rows = [
+      ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],
+      ['Daily Sales Register'],
+      ['Date:', dateVal, '', 'Time: BY 10:30 Hrs.'],
+      [],
+      ['Sr. NO.', 'Customer', 'Product', 'Qty. For the day (MT)', 'Value (Rs.)', 'MTD Sales Qty', 'MTD Sales Value']
+    ];
+    document.querySelectorAll('#salesBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 7) {
+        const vals = [cells[0].textContent];
+        for (let i = 1; i <= 6; i++) {
+          const inp = cells[i].querySelector('input');
+          vals.push(inp ? inp.value : cells[i].textContent);
+        }
+        rows.push(vals);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'collection') {
+    title = 'Daily Collection Report';
+    const dateVal = document.getElementById('collDate').value;
+    const rows = [
+      ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],
+      ['Daily Collection Report'],
+      ['Date:', dateVal, '', 'Time: BY 10:30 Hrs.'],
+      [],
+      ['Sr. NO.', 'Customer', 'Amount for the day (Rs.)', 'MTD Collection (Rs.)']
+    ];
+    document.querySelectorAll('#collBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 4) {
+        const vals = [cells[0].textContent];
+        for (let i = 1; i <= 3; i++) {
+          const inp = cells[i].querySelector('input');
+          vals.push(inp ? inp.value : cells[i].textContent);
+        }
+        rows.push(vals);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'compliance') {
+    title = 'Daily Sales Compliance';
+    const dateVal = document.getElementById('compDate').value;
+    const rows = [
+      ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],
+      ['Daily Sales Compliance Report'],
+      ['Date:', dateVal, '', 'Responsibility: HR'],
+      [],
+      ['Sr. NO.', 'Product', 'Target for Month (MT)', "Day's Sales", 'MTD Sales']
+    ];
+    document.querySelectorAll('#compBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 5) {
+        rows.push([
+          cells[0].textContent, cells[1].textContent,
+          cells[2].querySelector('input')?.value || '',
+          cells[3].querySelector('input')?.value || '',
+          cells[4].textContent
+        ]);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'productivity') {
+    title = 'Productivity Report';
+    const rows = [
+      ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Productivity Report'],
+      ['Date:', document.getElementById('prodDate').value, '', 'Time: 10:30 Hrs.'],
+      [],['Sr. NO.','Description','Hrs. - Today','Hrs. - Till Date','Loss Today','Loss MTD']
+    ];
+    document.querySelectorAll('#prodBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 6) {
+        rows.push([cells[0].textContent, cells[1].textContent,
+          ...Array.from({length:4}, (_,i) => cells[i+2].querySelector('input')?.value||'')]);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'vehicle') {
+    title = 'Vehicle Placement Failure';
+    const rows = [
+      ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],
+      ['Vehicle Placement Failure Report'],
+      ['Date:', document.getElementById('vehDate').value],
+      [],['Sr. NO.','Customer','Destination','Products','Transporter','Reason']
+    ];
+    document.querySelectorAll('#vehBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 6) {
+        rows.push([cells[0].textContent,
+          ...Array.from({length:5}, (_,i) => cells[i+1].querySelector('input')?.value || cells[i+1].textContent)]);
+      } else if (cells.length === 1) {
+        rows.push([cells[0].textContent]);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'top10vol') {
+    title = 'Top 10 Customers by Volume';
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Top 10 Customers by Volume'],
+      ['Frequency: Monthly | Date: By 3rd Working Day'],[]
+      ,['Sr. No.','Customer','Qty (MT)','Value (Rs. Lakhs)']];
+    document.querySelectorAll('#top10VolBody tr').forEach(tr => {
+      rows.push(Array.from(tr.querySelectorAll('td')).map(c => c.textContent));
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'top10val') {
+    title = 'Top 10 Customers by Value';
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Top 10 Customers by Value'],
+      ['Frequency: Monthly'],[]
+      ,['Sr. No.','Customer','Qty (MT)','Value (Rs. Lakhs)']];
+    document.querySelectorAll('#top10ValBody tr').forEach(tr => {
+      rows.push(Array.from(tr.querySelectorAll('td')).map(c => c.textContent));
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'bot10vol' || type === 'bot10val') {
+    const label = type === 'bot10vol' ? 'Bottom 10 Customers by Volume' : 'Bottom 10 Customers by Value';
+    const bodyId = type === 'bot10vol' ? 'bot10VolBody' : 'bot10ValBody';
+    title = label;
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],[label],[],
+      ['Sr. No.','Customer','Qty (MT)','Value (Rs. Lakhs)']];
+    document.querySelectorAll('#'+bodyId+' tr').forEach(tr => {
+      rows.push(Array.from(tr.querySelectorAll('td')).map(c => c.textContent));
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'financials') {
+    title = 'Financials BWPL';
+    const months = ['Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26'];
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Financials'],
+      ['Frequency: Monthly — 10th of each month'],[]
+      ,['Metric',...months]];
+    FIN_METRICS.forEach((m,i) => {
+      rows.push([m, ...Array.from({length:6}, (_,j) => document.getElementById(`fin_${i}_${j}`)?.value||'')]);
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'manufacturing') {
+    title = 'Manufacturing & Sales Records';
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Manufacturing & Sales Records'],
+      ['Frequency: Monthly — 7th Working Day'],[]
+      ,['Product','Apr-26 Prod','Apr-26 Sales','May-26 Prod','May-26 Sales','Jun-26 Prod','Jun-26 Sales']];
+    MFG_PRODUCTS.forEach((p,i) => {
+      rows.push([p, ...Array.from({length:6}, (_,j) => document.getElementById(`mfg_${i}_${j}`)?.value||'')]);
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'pricelist') {
+    title = 'Price List Compliance';
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Price List Compliance Report'],
+      ['Date:', document.getElementById('priceDate').value],[]
+      ,['SR. NO.','Customer','Sales Person','Product','Deviation','Impact on BWPL']];
+    document.querySelectorAll('#priceBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 6) {
+        rows.push([cells[0].textContent,
+          ...Array.from({length:5}, (_,i) => cells[i+1].querySelector('input')?.value||'')]);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'complaints') {
+    title = 'Customer Complaints';
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Customer Complaints during the Month'],
+      ['Frequency: Monthly'],[]
+      ,['Sr. No.','Customer','Qty (MT)','Qty Rejected','Cost of Quality (Rs.)']];
+    document.querySelectorAll('#compltBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 5) {
+        rows.push([cells[0].textContent,
+          ...Array.from({length:4}, (_,i) => cells[i+1].querySelector('input')?.value||'')]);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
+  } else if (type === 'travel') {
+    title = 'Official Travel Report';
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Official Travel Report'],
+      ['Date:', document.getElementById('travDate').value, '', 'Responsibility: HR'],[]
+      ,['Sr. No.','Name of Officer','Travel Destination']];
+    document.querySelectorAll('#travBody tr').forEach(tr => {
+      const cells = tr.querySelectorAll('td');
+      if (cells.length >= 3) {
+        rows.push([cells[0].textContent,
+          cells[1].querySelector('input')?.value||'',
+          cells[2].querySelector('input')?.value||'']);
+      }
+    });
+    ws = XLSX.utils.aoa_to_sheet(rows);
+  }
+
+  if (ws) {
+    XLSX.utils.book_append_sheet(wb, ws, title.slice(0,31));
+    XLSX.writeFile(wb, 'BWPL_' + title.replace(/\s+/g,'_') + '_' + toInputDate(today) + '.xlsx');
+    showToast('⬇ Downloaded: ' + title);
+  }
+}
+
+// ─── HISTORY ──────────────────────────────────────────────
+const reportLabels = {
+  sales:'Daily Sales Register', collection:'Daily Collection Report', compliance:'Sales Compliance',
+  productivity:'Productivity Report', vehicle:'Vehicle Placement Failure', travel:'Official Travel',
+  pricelist:'Price List Compliance', top10vol:'Top 10 by Volume', top10val:'Top 10 by Value',
+  bot10vol:'Bottom 10 by Volume', bot10val:'Bottom 10 by Value', complaints:'Customer Complaints',
+  financials:'Financials', manufacturing:'Manufacturing & Sales'
+};
+let currentHistFilter = 'all';
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  const keys = Object.keys(savedReports).filter(k => {
+    const r = savedReports[k];
+    if (currentHistFilter === 'daily') return r.freq === 'daily';
+    if (currentHistFilter === 'monthly') return r.freq === 'monthly';
+    return true;
+  }).reverse();
+  if (keys.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="icon">📁</div>No saved reports yet.</div>';
+    return;
+  }
+  list.innerHTML = keys.map(k => {
+    const r = savedReports[k];
+    return `<div class="history-item" onclick="downloadReport('${r.type}')">
+      <div>
+        <div class="hi-date">${reportLabels[r.type] || r.type}</div>
+        <div class="hi-sub">📅 ${r.date} &nbsp;•&nbsp; Saved: ${new Date(r.saved).toLocaleString('en-IN')}</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="freq-tag ${r.freq === 'daily' ? 'freq-daily':'freq-monthly'}">${r.freq}</span>
+        <span class="hi-badge">Saved</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function filterHistory(type, el) {
+  currentHistFilter = type;
+  document.querySelectorAll('.tabs .tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderHistory();
+}
+function clearHistory() {
+  if (confirm('Clear all saved report history?')) {
+    savedReports = {};
+    localStorage.setItem('bwplReports', '{}');
+    renderHistory();
+    showToast('🗑 History cleared');
+  }
+}
+
+// ─── UTILS ────────────────────────────────────────────────
+function fmtN(n) {
+  return Math.round(n).toLocaleString('en-IN');
+}
+function fmtL(n) { // In Lakhs
+  if (n >= 10000000) return (n/10000000).toFixed(2) + ' Cr';
+  if (n >= 100000) return (n/100000).toFixed(2) + ' L';
+  return fmtN(n);
+}
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.background = isError ? '#e74c3c' : '#2ecc71';
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
+}
+</script>
+</body>
+</html>
