@@ -1118,7 +1118,7 @@ function parseDispatchRows(rows) {
       location: r[4],
       product: r[5],
       size: r[6],
-      qty: parseFloat(r[7]) || 0,
+      qty: r[38] ? parseFloat(r[38]) / 1000 : (parseFloat(r[7]) || 0),
       productDetail: r[8],
       type: r[9],
       price: parseFloat(r[10]) || 0,
