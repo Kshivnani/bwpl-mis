@@ -6,6 +6,7 @@
 <title>BWPL MIS Automation — Bajrang Wire Products</title>
 <link rel="icon" type="image/png" href="logo.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
   :root {
     --steel: #1a2332;
@@ -279,6 +280,9 @@
       <div class="sidebar-item active" onclick="showPage('dashboard', this)">
         <span class="dot dot-daily"></span> Dashboard
       </div>
+      <div class="sidebar-item" onclick="showPage('analytics', this)">
+        <span class="dot dot-monthly"></span> Analytics (Charts)
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -406,6 +410,50 @@
               <tr><td colspan="9" class="empty-state"><div class="icon">📊</div>Upload POS Excel or Sync Google Sheet to load dispatch data</td></tr>
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ANALYTICS DASHBOARD -->
+    <div class="page" id="page-analytics">
+      <div class="report-panel" style="margin-bottom:16px">
+        <div class="report-header">
+          <div>
+            <h2>Analytics Dashboard</h2>
+            <div class="meta">Sales Person &amp; Product-wise charts (MTD)</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group">
+              <select id="anaMonth" style="width:130px">
+                <option value="2026-06">Jun 2026</option>
+                <option value="2026-05">May 2026</option>
+                <option value="2026-04">Apr 2026</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="loadAnalytics()">⟳ Refresh</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="overview-grid" style="grid-template-columns:repeat(2,1fr)">
+        <div class="report-panel">
+          <div class="report-header"><div><h2 style="font-size:14px">Sales Person — Qty (MT) by Product</h2></div></div>
+          <div class="section-pad" style="height:340px"><canvas id="chartSpProduct"></canvas></div>
+        </div>
+        <div class="report-panel">
+          <div class="report-header"><div><h2 style="font-size:14px">Product-wise Share (Qty, MT)</h2></div></div>
+          <div class="section-pad" style="height:340px"><canvas id="chartProductPie"></canvas></div>
+        </div>
+      </div>
+
+      <div class="overview-grid" style="grid-template-columns:repeat(2,1fr); margin-top:16px">
+        <div class="report-panel">
+          <div class="report-header"><div><h2 style="font-size:14px">Sales Person — Total Value (Rs.)</h2></div></div>
+          <div class="section-pad" style="height:340px"><canvas id="chartSpValue"></canvas></div>
+        </div>
+        <div class="report-panel">
+          <div class="report-header"><div><h2 style="font-size:14px">Sales Person — Value Share</h2></div></div>
+          <div class="section-pad" style="height:340px"><canvas id="chartSpPie"></canvas></div>
         </div>
       </div>
     </div>
@@ -1026,6 +1074,9 @@ function showPage(name, el) {
   document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if (el) el.classList.add('active');
+  if (name === 'analytics' && dispatchData.length > 0) {
+    setTimeout(loadAnalytics, 50);
+  }
 }
 
 // ─── FILE UPLOAD ─────────────────────────────────────────
@@ -1443,13 +1494,13 @@ function loadSalesPersonReport() {
   const mv = document.getElementById('spMonth').value;
   const rows = getMonthData(mv);
 
-  // Group by sales person -> party -> product/type
+  // Group by sales person -> party -> product/type ; also sales person -> product totals
   const bySp = {};
   rows.forEach(r => {
     const sp = r.salesPerson || 'Unassigned';
     const party = r.party || 'Unknown';
     const prod = r.type || r.product || 'Other';
-    if (!bySp[sp]) bySp[sp] = {qty:0, value:0, parties:{}};
+    if (!bySp[sp]) bySp[sp] = {qty:0, value:0, parties:{}, products:{}};
     bySp[sp].qty += r.qty;
     bySp[sp].value += r.billAmount;
     if (!bySp[sp].parties[party]) bySp[sp].parties[party] = {qty:0, value:0, products:{}};
@@ -1458,10 +1509,16 @@ function loadSalesPersonReport() {
     if (!bySp[sp].parties[party].products[prod]) bySp[sp].parties[party].products[prod] = {qty:0, value:0};
     bySp[sp].parties[party].products[prod].qty += r.qty;
     bySp[sp].parties[party].products[prod].value += r.billAmount;
+    // sales-person-level product totals (across all parties)
+    if (!bySp[sp].products[prod]) bySp[sp].products[prod] = {qty:0, value:0};
+    bySp[sp].products[prod].qty += r.qty;
+    bySp[sp].products[prod].value += r.billAmount;
   });
 
   const list = Object.entries(bySp).map(([sp, v]) => ({
     sp, qty: v.qty, value: v.value,
+    productTotals: Object.entries(v.products).map(([pr, prv]) => ({product:pr, qty:prv.qty, value:prv.value}))
+      .sort((a,b) => b.value - a.value),
     parties: Object.entries(v.parties).map(([p, pv]) => ({
       party:p, qty:pv.qty, value:pv.value,
       products: Object.entries(pv.products).map(([pr, prv]) => ({product:pr, qty:prv.qty, value:prv.value}))
@@ -1477,6 +1534,14 @@ function loadSalesPersonReport() {
     return;
   }
   tbody.innerHTML = list.map((r,i) => {
+    const productTotalRows = r.productTotals.map(pr => `
+      <tr class="sp-detail-${i}" style="display:none">
+        <td></td>
+        <td style="padding-left:24px;color:var(--wire);font-weight:600">▪ ${pr.product} <span style="color:var(--muted);font-weight:400">(all parties)</span></td>
+        <td class="td-num" style="color:var(--wire);font-weight:600">${pr.qty.toFixed(2)}</td>
+        <td class="td-num" style="color:var(--wire);font-weight:600">₹${fmtN(pr.value)}</td>
+        <td colspan="2"></td>
+      </tr>`).join('');
     const partyRows = r.parties.map((p,j) => {
       const prodRows = p.products.map(pr => `
         <tr class="sp-detail-${i}" style="display:none">
@@ -1505,6 +1570,15 @@ function loadSalesPersonReport() {
       <td>${r.parties.length}</td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleSpDetail(${i}, this)">▼ View</button></td>
     </tr>
+    <tr class="sp-detail-${i}" style="display:none">
+      <td></td>
+      <td colspan="5" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding-top:10px">Product-wise Totals (across all parties)</td>
+    </tr>
+    ${productTotalRows}
+    <tr class="sp-detail-${i}" style="display:none">
+      <td></td>
+      <td colspan="5" style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;padding-top:10px">Party-wise Breakup</td>
+    </tr>
     ${partyRows}`;
   }).join('') +
   `<tr class="summary-row">
@@ -1520,6 +1594,126 @@ function toggleSpDetail(i, btn) {
   const showing = rows[0].style.display !== 'none';
   rows.forEach(r => r.style.display = showing ? 'none' : '');
   btn.textContent = showing ? '▼ View' : '▲ Hide';
+}
+
+// ─── ANALYTICS DASHBOARD ───────────────────────────────────
+let chartInstances = {};
+const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085'];
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+function loadAnalytics() {
+  const mv = document.getElementById('anaMonth').value;
+  const rows = getMonthData(mv);
+
+  if (rows.length === 0) {
+    showToast('❌ No dispatch data for selected month', true);
+    return;
+  }
+
+  // Sales person totals (qty & value)
+  const spTotals = {};
+  // Sales person -> product -> qty
+  const spProduct = {};
+  // Product totals (overall qty)
+  const productTotals = {};
+
+  rows.forEach(r => {
+    const sp = r.salesPerson || 'Unassigned';
+    const prod = r.type || r.product || 'Other';
+    if (!spTotals[sp]) spTotals[sp] = {qty:0, value:0};
+    spTotals[sp].qty += r.qty;
+    spTotals[sp].value += r.billAmount;
+
+    if (!spProduct[sp]) spProduct[sp] = {};
+    if (!spProduct[sp][prod]) spProduct[sp][prod] = 0;
+    spProduct[sp][prod] += r.qty;
+
+    if (!productTotals[prod]) productTotals[prod] = 0;
+    productTotals[prod] += r.qty;
+  });
+
+  const spNames = Object.keys(spTotals).sort((a,b) => spTotals[b].value - spTotals[a].value);
+  const allProducts = [...new Set(Object.values(spProduct).flatMap(o => Object.keys(o)))];
+
+  // ── Chart 1: Stacked bar — Sales Person vs Product Qty ──
+  destroyChart('chartSpProduct');
+  const ctx1 = document.getElementById('chartSpProduct').getContext('2d');
+  chartInstances.chartSpProduct = new Chart(ctx1, {
+    type: 'bar',
+    data: {
+      labels: spNames,
+      datasets: allProducts.map((prod, idx) => ({
+        label: prod,
+        data: spNames.map(sp => +(spProduct[sp][prod] || 0).toFixed(2)),
+        backgroundColor: CHART_COLORS[idx % CHART_COLORS.length]
+      }))
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: { x: { stacked:true, ticks:{color:'#8fa3be'} }, y: { stacked:true, ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'} } },
+      plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
+    }
+  });
+
+  // ── Chart 2: Pie — Product-wise share (qty) ──
+  destroyChart('chartProductPie');
+  const ctx2 = document.getElementById('chartProductPie').getContext('2d');
+  const prodEntries = Object.entries(productTotals).sort((a,b) => b[1]-a[1]);
+  chartInstances.chartProductPie = new Chart(ctx2, {
+    type: 'pie',
+    data: {
+      labels: prodEntries.map(e => e[0]),
+      datasets: [{
+        data: prodEntries.map(e => +e[1].toFixed(2)),
+        backgroundColor: prodEntries.map((_,idx) => CHART_COLORS[idx % CHART_COLORS.length])
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend: { position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
+    }
+  });
+
+  // ── Chart 3: Bar — Sales Person total value ──
+  destroyChart('chartSpValue');
+  const ctx3 = document.getElementById('chartSpValue').getContext('2d');
+  chartInstances.chartSpValue = new Chart(ctx3, {
+    type: 'bar',
+    data: {
+      labels: spNames,
+      datasets: [{
+        label: 'Value (Rs.)',
+        data: spNames.map(sp => Math.round(spTotals[sp].value)),
+        backgroundColor: '#e8a020'
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: { x: { ticks:{color:'#8fa3be'} }, y: { ticks:{color:'#8fa3be'}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} } },
+      plugins: { legend: { display:false } }
+    }
+  });
+
+  // ── Chart 4: Pie — Sales Person value share ──
+  destroyChart('chartSpPie');
+  const ctx4 = document.getElementById('chartSpPie').getContext('2d');
+  chartInstances.chartSpPie = new Chart(ctx4, {
+    type: 'pie',
+    data: {
+      labels: spNames,
+      datasets: [{
+        data: spNames.map(sp => Math.round(spTotals[sp].value)),
+        backgroundColor: spNames.map((_,idx) => CHART_COLORS[idx % CHART_COLORS.length])
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins: { legend: { position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
+    }
+  });
+
+  showToast('✅ Analytics updated for ' + mv);
 }
 
 // ─── COMPLAINTS ───────────────────────────────────────────
@@ -1779,9 +1973,14 @@ function downloadReport(type) {
     const mv = document.getElementById('spMonth').value;
     const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Sales Person Report - MTD'],
       ['Month:', mv],[]
-      ,['Sr. No.','Sales Person / Party / Product','Qty (MT)','Value (Rs.)']];
+      ,['Sr. No.','Sales Person / Product Total / Party / Product','Qty (MT)','Value (Rs.)']];
     spReportData.forEach((r,i) => {
       rows.push([i+1, r.sp, r.qty.toFixed(2), Math.round(r.value)]);
+      rows.push(['', 'Product-wise Totals (all parties)', '', '']);
+      r.productTotals.forEach(pr => {
+        rows.push(['', '  ▪ ' + pr.product, pr.qty.toFixed(2), Math.round(pr.value)]);
+      });
+      rows.push(['', 'Party-wise Breakup', '', '']);
       r.parties.forEach(p => {
         rows.push(['', '   ↳ ' + p.party, p.qty.toFixed(2), Math.round(p.value)]);
         p.products.forEach(pr => {
