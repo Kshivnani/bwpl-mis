@@ -319,10 +319,6 @@
         <span class="dot dot-monthly"></span> Top 10 by Volume
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
-      <div class="sidebar-item" onclick="showPage('top10val', this)">
-        <span class="dot dot-monthly"></span> Top 10 by Value
-        <span class="freq-tag freq-monthly">Monthly</span>
-      </div>
       <div class="sidebar-item" onclick="showPage('bot10vol', this)">
         <span class="dot dot-monthly"></span> Bottom 10 by Volume
         <span class="freq-tag freq-monthly">Monthly</span>
@@ -343,6 +339,10 @@
         <span class="dot dot-monthly"></span> Manufacturing & Sales
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
+      <div class="sidebar-item" onclick="showPage('salesperson', this)">
+        <span class="dot dot-monthly"></span> Sales Person Report
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -361,9 +361,6 @@
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
-      <div style="display:flex; justify-content:center; align-items:center; padding:24px 0; margin-bottom:8px">
-        <img src="logo.png" alt="Bajrang Wire Products" style="max-width:240px; width:100%; height:auto; background:#fff; border-radius:10px; padding:16px; box-shadow:0 2px 12px rgba(0,0,0,0.25)">
-      </div>
       <div class="overview-grid">
         <div class="stat-card" style="--accent-color:var(--wire)">
           <div class="label">Today's Dispatch Qty</div>
@@ -831,6 +828,42 @@
               </tr>
             </thead>
             <tbody id="mfgBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- SALES PERSON REPORT -->
+    <div class="page" id="page-salesperson">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Sales Person Report <span class="freq-badge freq-monthly">Monthly — MTD Summary</span></h2>
+            <div class="meta">Sales person wise total qty/value with party-wise breakup (current month)</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group">
+              <select id="spMonth" style="width:130px">
+                <option value="2026-06">Jun 2026</option>
+                <option value="2026-05">May 2026</option>
+                <option value="2026-04">Apr 2026</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="loadSalesPersonReport()">⟳ Compute</button>
+            <button class="btn btn-primary" onclick="downloadReport('salesperson')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sr. No.</th><th>Sales Person</th>
+                <th class="td-num">Total Qty (MT)</th>
+                <th class="td-num">Total Value (Rs.)</th>
+                <th>Parties Served</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="spBody"></tbody>
           </table>
         </div>
       </div>
@@ -1404,6 +1437,73 @@ function loadBot10Val() {
   renderTop10Table('bot10ValBody', stats);
 }
 
+// ─── SALES PERSON REPORT ──────────────────────────────────
+let spReportData = []; // cached for download
+function loadSalesPersonReport() {
+  const mv = document.getElementById('spMonth').value;
+  const rows = getMonthData(mv);
+
+  // Group by sales person -> party
+  const bySp = {};
+  rows.forEach(r => {
+    const sp = r.salesPerson || 'Unassigned';
+    const party = r.party || 'Unknown';
+    if (!bySp[sp]) bySp[sp] = {qty:0, value:0, parties:{}};
+    bySp[sp].qty += r.qty;
+    bySp[sp].value += r.billAmount;
+    if (!bySp[sp].parties[party]) bySp[sp].parties[party] = {qty:0, value:0};
+    bySp[sp].parties[party].qty += r.qty;
+    bySp[sp].parties[party].value += r.billAmount;
+  });
+
+  const list = Object.entries(bySp).map(([sp, v]) => ({
+    sp, qty: v.qty, value: v.value,
+    parties: Object.entries(v.parties).map(([p, pv]) => ({party:p, qty:pv.qty, value:pv.value}))
+      .sort((a,b) => b.value - a.value)
+  })).sort((a,b) => b.value - a.value);
+
+  spReportData = list;
+
+  const tbody = document.getElementById('spBody');
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No dispatch data for selected month.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((r,i) => {
+    const partyRows = r.parties.map(p => `
+      <tr class="sp-detail-${i}" style="display:none">
+        <td></td>
+        <td style="padding-left:24px;color:var(--muted)">↳ ${p.party}</td>
+        <td class="td-num" style="color:var(--muted)">${p.qty.toFixed(2)}</td>
+        <td class="td-num" style="color:var(--muted)">₹${fmtN(p.value)}</td>
+        <td colspan="2"></td>
+      </tr>`).join('');
+    return `
+    <tr>
+      <td>${i+1}</td>
+      <td><strong>${r.sp}</strong></td>
+      <td class="td-num"><strong>${r.qty.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>₹${fmtN(r.value)}</strong></td>
+      <td>${r.parties.length}</td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleSpDetail(${i}, this)">▼ View</button></td>
+    </tr>
+    ${partyRows}`;
+  }).join('') +
+  `<tr class="summary-row">
+    <td colspan="2"><strong>TOTAL</strong></td>
+    <td class="td-num"><strong>${list.reduce((s,r)=>s+r.qty,0).toFixed(2)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(list.reduce((s,r)=>s+r.value,0))}</strong></td>
+    <td colspan="2"></td>
+  </tr>`;
+}
+function toggleSpDetail(i, btn) {
+  const rows = document.querySelectorAll('.sp-detail-' + i);
+  if (!rows.length) return;
+  const showing = rows[0].style.display !== 'none';
+  rows.forEach(r => r.style.display = showing ? 'none' : '');
+  btn.textContent = showing ? '▼ View' : '▲ Hide';
+}
+
 // ─── COMPLAINTS ───────────────────────────────────────────
 function initComplaints() {
   const tbody = document.getElementById('compltBody');
@@ -1656,6 +1756,23 @@ function downloadReport(type) {
     });
     ws = XLSX.utils.aoa_to_sheet(rows);
 
+  } else if (type === 'salesperson') {
+    title = 'Sales Person Report';
+    const mv = document.getElementById('spMonth').value;
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Sales Person Report - MTD'],
+      ['Month:', mv],[]
+      ,['Sr. No.','Sales Person / Party','Qty (MT)','Value (Rs.)']];
+    spReportData.forEach((r,i) => {
+      rows.push([i+1, r.sp, r.qty.toFixed(2), Math.round(r.value)]);
+      r.parties.forEach(p => {
+        rows.push(['', '   ↳ ' + p.party, p.qty.toFixed(2), Math.round(p.value)]);
+      });
+    });
+    rows.push(['', 'TOTAL',
+      spReportData.reduce((s,r)=>s+r.qty,0).toFixed(2),
+      Math.round(spReportData.reduce((s,r)=>s+r.value,0))]);
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
   } else if (type === 'pricelist') {
     title = 'Price List Compliance';
     const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Price List Compliance Report'],
@@ -1713,7 +1830,7 @@ const reportLabels = {
   productivity:'Productivity Report', vehicle:'Vehicle Placement Failure', travel:'Official Travel',
   pricelist:'Price List Compliance', top10vol:'Top 10 by Volume', top10val:'Top 10 by Value',
   bot10vol:'Bottom 10 by Volume', bot10val:'Bottom 10 by Value', complaints:'Customer Complaints',
-  financials:'Financials', manufacturing:'Manufacturing & Sales'
+  financials:'Financials', manufacturing:'Manufacturing & Sales', salesperson:'Sales Person Report'
 };
 let currentHistFilter = 'all';
 function renderHistory() {
