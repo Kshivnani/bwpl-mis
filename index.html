@@ -1118,8 +1118,7 @@ function parseDispatchRows(rows) {
       location: r[4],
       product: r[5],
       size: r[6],
-      qty: parseFloat(r[7]) || 0,
-      qtyMT: (parseFloat(r[38]) || 0) / 1000, // column AM "Quantity" is in KGS -> convert to MT
+      qty: (parseFloat(r[38]) || 0) / 1000, // column AM "Quantity" is in KGS -> convert to MT (used everywhere as Qty MT)
       productDetail: r[8],
       type: r[9],
       price: parseFloat(r[10]) || 0,
@@ -1502,17 +1501,17 @@ function loadSalesPersonReport() {
     const party = r.party || 'Unknown';
     const prod = r.product || 'Other';
     if (!bySp[sp]) bySp[sp] = {qty:0, value:0, parties:{}, products:{}};
-    bySp[sp].qty += r.qtyMT;
+    bySp[sp].qty += r.qty;
     bySp[sp].value += r.billAmount;
     if (!bySp[sp].parties[party]) bySp[sp].parties[party] = {qty:0, value:0, products:{}};
-    bySp[sp].parties[party].qty += r.qtyMT;
+    bySp[sp].parties[party].qty += r.qty;
     bySp[sp].parties[party].value += r.billAmount;
     if (!bySp[sp].parties[party].products[prod]) bySp[sp].parties[party].products[prod] = {qty:0, value:0};
-    bySp[sp].parties[party].products[prod].qty += r.qtyMT;
+    bySp[sp].parties[party].products[prod].qty += r.qty;
     bySp[sp].parties[party].products[prod].value += r.billAmount;
     // sales-person-level product totals (across all parties)
     if (!bySp[sp].products[prod]) bySp[sp].products[prod] = {qty:0, value:0};
-    bySp[sp].products[prod].qty += r.qtyMT;
+    bySp[sp].products[prod].qty += r.qty;
     bySp[sp].products[prod].value += r.billAmount;
   });
 
@@ -1623,15 +1622,15 @@ function loadAnalytics() {
     const sp = r.salesPerson || 'Unassigned';
     const prod = r.product || 'Other';
     if (!spTotals[sp]) spTotals[sp] = {qty:0, value:0};
-    spTotals[sp].qty += r.qtyMT;
+    spTotals[sp].qty += r.qty;
     spTotals[sp].value += r.billAmount;
 
     if (!spProduct[sp]) spProduct[sp] = {};
     if (!spProduct[sp][prod]) spProduct[sp][prod] = 0;
-    spProduct[sp][prod] += r.qtyMT;
+    spProduct[sp][prod] += r.qty;
 
     if (!productTotals[prod]) productTotals[prod] = 0;
-    productTotals[prod] += r.qtyMT;
+    productTotals[prod] += r.qty;
   });
 
   const spNames = Object.keys(spTotals).sort((a,b) => spTotals[b].value - spTotals[a].value);
