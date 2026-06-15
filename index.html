@@ -94,6 +94,17 @@
   .main { flex:1; overflow-y:auto; padding:24px; }
 
   /* OVERVIEW CARDS */
+  .dash-banner {
+    background: linear-gradient(120deg, var(--steel-mid) 0%, var(--steel-light) 100%);
+    border:1px solid var(--border); border-radius:10px;
+    padding:20px 24px; margin-bottom:20px;
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    flex-wrap:wrap;
+  }
+  .dash-banner-title { font-size:20px; font-weight:800; color:var(--white); letter-spacing:0.3px; }
+  .dash-banner-sub { font-size:13px; color:var(--muted); margin-top:4px; }
+  .dash-banner-actions { display:flex; gap:8px; }
+
   .overview-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
   .stat-card {
     background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
@@ -369,7 +380,20 @@
 
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
-      <div class="overview-grid">
+
+      <!-- Welcome / Title Banner -->
+      <div class="dash-banner">
+        <div>
+          <div class="dash-banner-title">Bajrang Wire Products — MIS Dashboard</div>
+          <div class="dash-banner-sub" id="dashBannerDate">Loading date…</div>
+        </div>
+        <div class="dash-banner-actions">
+          <button class="btn btn-primary" onclick="generateAllDaily()">⚡ Generate All Daily Reports</button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="overview-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="stat-card" style="--accent-color:var(--wire)">
           <div class="label">Today's Dispatch Qty</div>
           <div class="value" id="todayQty">—</div>
@@ -378,7 +402,7 @@
         <div class="stat-card" style="--accent-color:var(--success)">
           <div class="label">Today's Bill Value</div>
           <div class="value" id="todayVal">—</div>
-          <div class="sub">Rs. (with GST)</div>
+          <div class="sub">Rs. (with GST / estimated)</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--info)">
           <div class="label">MTD Dispatch Qty</div>
@@ -389,6 +413,60 @@
           <div class="label">MTD Bill Value</div>
           <div class="value" id="mtdVal">—</div>
           <div class="sub">Rs. Lakhs (MTD)</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--spark)">
+          <div class="label">Pending Orders (Today)</div>
+          <div class="value" id="pendingQty">—</div>
+          <div class="sub" id="pendingSub">Qty (MT) — provisional, truck not out</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#e74c3c">
+          <div class="label">Top Sales Person (MTD)</div>
+          <div class="value" id="topSpName" style="font-size:18px">—</div>
+          <div class="sub" id="topSpSub">By value (MTD)</div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1: Trend + Today's Product Mix -->
+      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-bottom:16px">
+        <div class="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>Dispatch Trend</h2>
+              <div class="meta">Daily Qty (MT) &amp; Value (Rs.) — current month</div>
+            </div>
+          </div>
+          <div class="section-pad" style="height:300px"><canvas id="chartDashTrend"></canvas></div>
+        </div>
+        <div class="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>Today's Product Mix</h2>
+              <div class="meta">Share by Qty (MT)</div>
+            </div>
+          </div>
+          <div class="section-pad" style="height:300px"><canvas id="chartDashProductMix"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Charts Row 2: Sales Person Leaderboard + Top Customers -->
+      <div class="overview-grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px">
+        <div class="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>Sales Person Leaderboard</h2>
+              <div class="meta">MTD Qty (MT) by sales person</div>
+            </div>
+          </div>
+          <div class="section-pad" style="height:280px"><canvas id="chartDashSpLeaderboard"></canvas></div>
+        </div>
+        <div class="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>Top 5 Customers (MTD)</h2>
+              <div class="meta">By dispatch value (Rs.)</div>
+            </div>
+          </div>
+          <div class="section-pad" style="height:280px"><canvas id="chartDashTopCustomers"></canvas></div>
         </div>
       </div>
 
@@ -420,43 +498,89 @@
 
     <!-- ANALYTICS DASHBOARD -->
     <div class="page" id="page-analytics">
-      <div class="report-panel" style="margin-bottom:16px">
-        <div class="report-header">
-          <div>
-            <h2>Analytics Dashboard</h2>
-            <div class="meta">Sales Person &amp; Product-wise charts (MTD)</div>
+
+      <!-- Banner -->
+      <div class="dash-banner">
+        <div>
+          <div class="dash-banner-title">Sales Analytics</div>
+          <div class="dash-banner-sub" id="anaBannerSub">Sales Person &amp; Product-wise breakdown — month to date</div>
+        </div>
+        <div class="dash-banner-actions">
+          <div class="form-group" style="margin:0">
+            <select id="anaMonth" style="width:130px">
+              <option value="2026-06">Jun 2026</option>
+              <option value="2026-05">May 2026</option>
+              <option value="2026-04">Apr 2026</option>
+            </select>
           </div>
-          <div class="report-actions">
-            <div class="form-group">
-              <select id="anaMonth" style="width:130px">
-                <option value="2026-06">Jun 2026</option>
-                <option value="2026-05">May 2026</option>
-                <option value="2026-04">Apr 2026</option>
-              </select>
-            </div>
-            <button class="btn btn-secondary" onclick="loadAnalytics()">⟳ Refresh</button>
-          </div>
+          <button class="btn btn-secondary" onclick="loadAnalytics()">⟳ Refresh</button>
         </div>
       </div>
 
-      <div class="overview-grid" style="grid-template-columns:repeat(2,1fr)">
+      <!-- Summary KPI Cards -->
+      <div class="overview-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card" style="--accent-color:var(--wire)">
+          <div class="label">Total Qty (MTD)</div>
+          <div class="value" id="anaTotalQty">—</div>
+          <div class="sub">MT dispatched this month</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--success)">
+          <div class="label">Total Value (MTD)</div>
+          <div class="value" id="anaTotalVal">—</div>
+          <div class="sub">Rs. (with GST / estimated)</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--info)">
+          <div class="label">Active Sales Persons</div>
+          <div class="value" id="anaSpCount">—</div>
+          <div class="sub" id="anaTopSp">Top: —</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#9b59b6">
+          <div class="label">Product Lines Sold</div>
+          <div class="value" id="anaProductCount">—</div>
+          <div class="sub" id="anaTopProduct">Top: —</div>
+        </div>
+      </div>
+
+      <!-- Charts Row 1 -->
+      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-bottom:16px">
         <div class="report-panel">
-          <div class="report-header"><div><h2 style="font-size:14px">Sales Person — Qty (MT) by Product</h2></div></div>
+          <div class="report-header">
+            <div>
+              <h2>Sales Person — Qty (MT) by Product</h2>
+              <div class="meta">Stacked breakdown across all products</div>
+            </div>
+          </div>
           <div class="section-pad" style="height:340px"><canvas id="chartSpProduct"></canvas></div>
         </div>
         <div class="report-panel">
-          <div class="report-header"><div><h2 style="font-size:14px">Product-wise Share (Qty, MT)</h2></div></div>
+          <div class="report-header">
+            <div>
+              <h2>Product-wise Share</h2>
+              <div class="meta">By Qty (MT), MTD</div>
+            </div>
+          </div>
           <div class="section-pad" style="height:340px"><canvas id="chartProductPie"></canvas></div>
         </div>
       </div>
 
-      <div class="overview-grid" style="grid-template-columns:repeat(2,1fr); margin-top:16px">
+      <!-- Charts Row 2 -->
+      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-top:16px">
         <div class="report-panel">
-          <div class="report-header"><div><h2 style="font-size:14px">Sales Person — Total Value (Rs.)</h2></div></div>
+          <div class="report-header">
+            <div>
+              <h2>Sales Person — Total Value (Rs.)</h2>
+              <div class="meta">MTD revenue contribution by sales person</div>
+            </div>
+          </div>
           <div class="section-pad" style="height:340px"><canvas id="chartSpValue"></canvas></div>
         </div>
         <div class="report-panel">
-          <div class="report-header"><div><h2 style="font-size:14px">Sales Person — Value Share</h2></div></div>
+          <div class="report-header">
+            <div>
+              <h2>Sales Person — Value Share</h2>
+              <div class="meta">% of MTD revenue</div>
+            </div>
+          </div>
           <div class="section-pad" style="height:340px"><canvas id="chartSpPie"></canvas></div>
         </div>
       </div>
@@ -1103,6 +1227,13 @@ function formatDate(d) {
   const yyyy = d.getFullYear();
   return `${dd}-${mm}-${yyyy}`;
 }
+function formatDateDDMMYYYY(val) {
+  // Used for Provisional Date column - can be a JS Date (cellDates:true) or empty/string
+  if (!val) return '';
+  if (val instanceof Date) return formatDate(val);
+  // Already a dd-mm-yyyy style string
+  return String(val);
+}
 function toInputDate(d) {
   return d.toISOString().split('T')[0];
 }
@@ -1171,7 +1302,7 @@ function parseDispatchRows(rows) {
       price: parseFloat(r[10]) || 0,
       gstType: r[11],
       unit: r[12],
-      provisionalDate: r[13],
+      provisionalDate: formatDateDDMMYYYY(r[13]),
       freightType: r[14],
       status: r[30],
       gstAmount: parseFloat(r[34]) || 0,
@@ -1179,12 +1310,21 @@ function parseDispatchRows(rows) {
       invoiceNo: r[37],
       transporter: r[40],
       salesPerson: r[61],
-      dispatchDate: r[62] ? String(r[62]) : ''
+      dispatchDate: r[62] ? String(r[62]) : '',
+      plannedQty: parseFloat(r[7]) || 0, // column H "Qty (MT)" - planned/provisional quantity
+      truckOutTime: r[19] || ''
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
+}
+
+// ─── CHART HELPERS ───────────────────────────────────────
+let chartInstances = {};
+const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085'];
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
 
 // ─── DASHBOARD ───────────────────────────────────────────
@@ -1204,13 +1344,36 @@ function refreshDashboard() {
   document.getElementById('mtdQty').textContent = mtdQty.toFixed(1);
   document.getElementById('mtdVal').textContent = '₹' + fmtL(mtdVal);
   document.getElementById('dashDateMeta').textContent = 'Date: ' + t + ' | ' + todayRows.length + ' dispatches today';
+  document.getElementById('dashBannerDate').textContent = '📅 ' + t + '  •  ' + dispatchData.length + ' total dispatch records loaded';
+
+  // Pending orders for today (provisional date = today, truck out time = NA, not yet dispatched)
+  const pendingToday = dispatchData.filter(r =>
+    !r.dispatchDate && String(r.truckOutTime).toUpperCase() === 'NA' && r.provisionalDate === t
+  );
+  const pendingQty = pendingToday.reduce((s,r) => s + (r.plannedQty || 0), 0);
+  document.getElementById('pendingQty').textContent = pendingQty.toFixed(1);
+  document.getElementById('pendingSub').textContent = pendingToday.length + ' orders — provisional, truck not out';
+
+  // Top sales person by value (MTD)
+  const spVal = {};
+  mtdRows.forEach(r => {
+    const sp = r.salesPerson || 'Unassigned';
+    spVal[sp] = (spVal[sp] || 0) + r.billAmount;
+  });
+  const topSp = Object.entries(spVal).sort((a,b) => b[1]-a[1])[0];
+  if (topSp) {
+    document.getElementById('topSpName').textContent = topSp[0];
+    document.getElementById('topSpSub').textContent = '₹' + fmtL(topSp[1]) + ' (MTD)';
+  } else {
+    document.getElementById('topSpName').textContent = '—';
+    document.getElementById('topSpSub').textContent = 'By value (MTD)';
+  }
 
   const tbody = document.getElementById('dashBody');
   if (todayRows.length === 0) {
     tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No dispatches found for ' + t + '. Check file or date.</td></tr>';
-    return;
-  }
-  tbody.innerHTML = todayRows.map((r,i) => `
+  } else {
+    tbody.innerHTML = todayRows.map((r,i) => `
     <tr>
       <td>${i+1}</td>
       <td><strong>${r.party}</strong></td>
@@ -1222,6 +1385,112 @@ function refreshDashboard() {
       <td>${r.salesPerson || '—'}</td>
       <td><span style="color:var(--success);font-size:11px;font-weight:700">${r.status || 'OK'}</span></td>
     </tr>`).join('');
+  }
+
+  loadDashboardCharts(todayRows, mtdRows, monthPrefix);
+}
+
+// ─── DASHBOARD CHARTS ────────────────────────────────────
+function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
+  if (typeof Chart === 'undefined') return;
+
+  // ── Trend chart: daily qty & value for current month ──
+  const byDate = {};
+  mtdRows.forEach(r => {
+    if (!byDate[r.dispatchDate]) byDate[r.dispatchDate] = {qty:0, value:0};
+    byDate[r.dispatchDate].qty += r.qty;
+    byDate[r.dispatchDate].value += r.billAmount;
+  });
+  const trendDates = Object.keys(byDate).sort((a,b) => {
+    const [da,ma,ya]=a.split('-').map(Number), [db,mb,yb]=b.split('-').map(Number);
+    return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
+  });
+  destroyChart('chartDashTrend');
+  const ctxTrend = document.getElementById('chartDashTrend').getContext('2d');
+  chartInstances.chartDashTrend = new Chart(ctxTrend, {
+    type: 'bar',
+    data: {
+      labels: trendDates,
+      datasets: [
+        { type:'bar', label:'Qty (MT)', data: trendDates.map(d => +byDate[d].qty.toFixed(2)), backgroundColor:'rgba(232,160,32,0.6)', yAxisID:'y' },
+        { type:'line', label:'Value (Rs.)', data: trendDates.map(d => Math.round(byDate[d].value)), borderColor:'#3498db', backgroundColor:'rgba(52,152,219,0.15)', yAxisID:'y1', tension:0.3 }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        x: { ticks:{color:'#8fa3be', maxRotation:60, minRotation:45, font:{size:9}} },
+        y: { position:'left', ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'} },
+        y1:{ position:'right', ticks:{color:'#8fa3be'}, grid:{drawOnChartArea:false}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} }
+      },
+      plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
+    }
+  });
+
+  // ── Today's product mix (pie) ──
+  const prodMix = {};
+  todayRows.forEach(r => {
+    const p = r.product || 'Other';
+    prodMix[p] = (prodMix[p]||0) + r.qty;
+  });
+  const prodEntries = Object.entries(prodMix).sort((a,b)=>b[1]-a[1]);
+  destroyChart('chartDashProductMix');
+  const ctxMix = document.getElementById('chartDashProductMix').getContext('2d');
+  if (prodEntries.length === 0) {
+    ctxMix.canvas.parentElement.innerHTML = '<div class="empty-state" style="padding:60px 20px">No dispatches today</div>';
+  } else {
+    chartInstances.chartDashProductMix = new Chart(ctxMix, {
+      type: 'doughnut',
+      data: {
+        labels: prodEntries.map(e=>e[0]),
+        datasets: [{ data: prodEntries.map(e=>+e[1].toFixed(2)), backgroundColor: prodEntries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]) }]
+      },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } } }
+    });
+  }
+
+  // ── Sales person leaderboard (MTD qty) ──
+  const spQty = {};
+  mtdRows.forEach(r => {
+    const sp = r.salesPerson || 'Unassigned';
+    spQty[sp] = (spQty[sp]||0) + r.qty;
+  });
+  const spEntries = Object.entries(spQty).sort((a,b)=>b[1]-a[1]);
+  destroyChart('chartDashSpLeaderboard');
+  const ctxSp = document.getElementById('chartDashSpLeaderboard').getContext('2d');
+  chartInstances.chartDashSpLeaderboard = new Chart(ctxSp, {
+    type: 'bar',
+    data: {
+      labels: spEntries.map(e=>e[0]),
+      datasets: [{ label:'Qty (MT)', data: spEntries.map(e=>+e[1].toFixed(2)), backgroundColor:'#e8a020' }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'} }, y:{ ticks:{color:'#8fa3be'} } },
+      plugins: { legend:{ display:false } }
+    }
+  });
+
+  // ── Top 5 customers by value (MTD) ──
+  const custVal = {};
+  mtdRows.forEach(r => {
+    custVal[r.party] = (custVal[r.party]||0) + r.billAmount;
+  });
+  const custEntries = Object.entries(custVal).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  destroyChart('chartDashTopCustomers');
+  const ctxCust = document.getElementById('chartDashTopCustomers').getContext('2d');
+  chartInstances.chartDashTopCustomers = new Chart(ctxCust, {
+    type: 'bar',
+    data: {
+      labels: custEntries.map(e=>e[0]),
+      datasets: [{ label:'Value (Rs.)', data: custEntries.map(e=>Math.round(e[1])), backgroundColor:'#2ecc71' }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} }, y:{ ticks:{color:'#8fa3be', font:{size:10}} } },
+      plugins: { legend:{ display:false } }
+    }
+  });
 }
 
 // ─── SALES REGISTER ──────────────────────────────────────
@@ -1662,27 +1931,40 @@ function loadDayWiseReport() {
   let rows = getMonthData(mv);
 
   const specificDate = document.getElementById('dwDate').value; // yyyy-mm-dd
+  let ddmmyyyyFilter = null;
   if (specificDate) {
     const [yr, mo, dy] = specificDate.split('-');
-    const ddmmyyyy = dy + '-' + mo + '-' + yr;
-    rows = rows.filter(r => r.dispatchDate === ddmmyyyy);
+    ddmmyyyyFilter = dy + '-' + mo + '-' + yr;
+    rows = rows.filter(r => r.dispatchDate === ddmmyyyyFilter);
   }
 
-  if (rows.length === 0) {
+  // Pending orders: provisional date set, truck not out yet (TruckOutTime = "NA"), not yet dispatched
+  const [yr2, mo2] = mv.split('-');
+  const monthSuffix = mo2 + '-' + yr2;
+  let pendingRows = dispatchData.filter(r =>
+    !r.dispatchDate &&
+    String(r.truckOutTime).toUpperCase() === 'NA' &&
+    r.provisionalDate && r.provisionalDate.slice(3) === monthSuffix
+  );
+  if (ddmmyyyyFilter) {
+    pendingRows = pendingRows.filter(r => r.provisionalDate === ddmmyyyyFilter);
+  }
+
+  if (rows.length === 0 && pendingRows.length === 0) {
     const msg = specificDate ? 'No dispatch data for selected date.' : 'No dispatch data for selected month.';
     document.getElementById('dwBody').innerHTML = `<tr><td colspan="5" class="empty-state">${msg}</td></tr>`;
     dwReportData = [];
     return;
   }
 
-  // Group: date -> salesPerson -> party -> product
+  // Group dispatched: date -> salesPerson -> party -> product
   const byDate = {};
   rows.forEach(r => {
     const date = r.dispatchDate;
     const sp = r.salesPerson || 'Unassigned';
     const party = r.party || 'Unknown';
     const prod = r.product || 'Other';
-    if (!byDate[date]) byDate[date] = {qty:0, value:0, sp:{}};
+    if (!byDate[date]) byDate[date] = {qty:0, value:0, sp:{}, pendingQty:0, pendingValue:0, pendingSp:{}};
     byDate[date].qty += r.qty;
     byDate[date].value += r.billAmount;
     if (!byDate[date].sp[sp]) byDate[date].sp[sp] = {qty:0, value:0, parties:{}};
@@ -1696,6 +1978,28 @@ function loadDayWiseReport() {
     byDate[date].sp[sp].parties[party].products[prod].value += r.billAmount;
   });
 
+  // Group pending: provisionalDate -> salesPerson -> party -> product (qty from col H, value estimated = qty(MT)*1000*price)
+  pendingRows.forEach(r => {
+    const date = r.provisionalDate;
+    const sp = r.salesPerson || 'Unassigned';
+    const party = r.party || 'Unknown';
+    const prod = r.product || 'Other';
+    const pQty = r.plannedQty || 0;
+    const pValue = pQty * 1000 * (r.price || 0);
+    if (!byDate[date]) byDate[date] = {qty:0, value:0, sp:{}, pendingQty:0, pendingValue:0, pendingSp:{}};
+    byDate[date].pendingQty += pQty;
+    byDate[date].pendingValue += pValue;
+    if (!byDate[date].pendingSp[sp]) byDate[date].pendingSp[sp] = {qty:0, value:0, parties:{}};
+    byDate[date].pendingSp[sp].qty += pQty;
+    byDate[date].pendingSp[sp].value += pValue;
+    if (!byDate[date].pendingSp[sp].parties[party]) byDate[date].pendingSp[sp].parties[party] = {qty:0, value:0, products:{}};
+    byDate[date].pendingSp[sp].parties[party].qty += pQty;
+    byDate[date].pendingSp[sp].parties[party].value += pValue;
+    if (!byDate[date].pendingSp[sp].parties[party].products[prod]) byDate[date].pendingSp[sp].parties[party].products[prod] = {qty:0, value:0};
+    byDate[date].pendingSp[sp].parties[party].products[prod].qty += pQty;
+    byDate[date].pendingSp[sp].parties[party].products[prod].value += pValue;
+  });
+
   // Sort dates ascending (dd-mm-yyyy)
   const dateList = Object.keys(byDate).sort((a,b) => {
     const [da,ma,ya] = a.split('-').map(Number);
@@ -1703,26 +2007,30 @@ function loadDayWiseReport() {
     return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
   });
 
+  const mapSpEntries = (spObj) => Object.entries(spObj).map(([sp,v]) => ({
+    sp, qty:v.qty, value:v.value,
+    parties: Object.entries(v.parties).map(([p,pv]) => ({
+      party:p, qty:pv.qty, value:pv.value,
+      products: Object.entries(pv.products).map(([pr,prv]) => ({product:pr, qty:prv.qty, value:prv.value}))
+        .sort((a,b)=>b.value-a.value)
+    })).sort((a,b)=>b.value-a.value)
+  })).sort((a,b)=>b.value-a.value);
+
   const list = dateList.map(date => ({
     date, qty: byDate[date].qty, value: byDate[date].value,
-    salesPersons: Object.entries(byDate[date].sp).map(([sp,v]) => ({
-      sp, qty:v.qty, value:v.value,
-      parties: Object.entries(v.parties).map(([p,pv]) => ({
-        party:p, qty:pv.qty, value:pv.value,
-        products: Object.entries(pv.products).map(([pr,prv]) => ({product:pr, qty:prv.qty, value:prv.value}))
-          .sort((a,b)=>b.value-a.value)
-      })).sort((a,b)=>b.value-a.value)
-    })).sort((a,b)=>b.value-a.value)
+    pendingQty: byDate[date].pendingQty, pendingValue: byDate[date].pendingValue,
+    salesPersons: mapSpEntries(byDate[date].sp),
+    pendingSalesPersons: mapSpEntries(byDate[date].pendingSp)
   }));
 
   dwReportData = list;
 
   const tbody = document.getElementById('dwBody');
   tbody.innerHTML = list.map((d,i) => {
-    const spRows = d.salesPersons.map((sp,j) => {
+    const renderSpRows = (spList, idx, pending) => spList.map((sp) => {
       const partyRows = sp.parties.map((p) => {
         const prodRows = p.products.map(pr => `
-          <tr class="dw-detail-${i}" style="display:none">
+          <tr class="dw-detail-${idx}" style="display:none">
             <td></td>
             <td style="padding-left:64px;color:var(--muted);font-size:12px">— ${pr.product}</td>
             <td class="td-num" style="color:var(--muted);font-size:12px">${pr.qty.toFixed(2)}</td>
@@ -1730,7 +2038,7 @@ function loadDayWiseReport() {
             <td></td>
           </tr>`).join('');
         return `
-        <tr class="dw-detail-${i}" style="display:none">
+        <tr class="dw-detail-${idx}" style="display:none">
           <td></td>
           <td style="padding-left:44px;color:var(--muted)">↳ ${p.party}</td>
           <td class="td-num" style="color:var(--muted)">${p.qty.toFixed(2)}</td>
@@ -1740,24 +2048,38 @@ function loadDayWiseReport() {
         ${prodRows}`;
       }).join('');
       return `
-      <tr class="dw-detail-${i}" style="display:none">
+      <tr class="dw-detail-${idx}" style="display:none">
         <td></td>
-        <td style="padding-left:24px"><strong>${sp.sp}</strong></td>
+        <td style="padding-left:24px"><strong>${sp.sp}</strong>${pending ? ' <span style="color:var(--spark);font-size:11px">(Pending — Truck Not Out)</span>' : ''}</td>
         <td class="td-num"><strong>${sp.qty.toFixed(2)}</strong></td>
         <td class="td-num"><strong>₹${fmtN(sp.value)}</strong></td>
         <td></td>
       </tr>
       ${partyRows}`;
     }).join('');
+
+    const spRows = renderSpRows(d.salesPersons, i, false);
+
+    const pendingHeader = d.pendingSalesPersons.length > 0 ? `
+    <tr class="dw-detail-${i}" style="display:none">
+      <td></td>
+      <td colspan="4" style="font-size:11px;color:var(--spark);text-transform:uppercase;letter-spacing:1px;padding-top:10px;border-top:1px dashed var(--border)">⏳ Pending Orders — Provisional Date, Truck Out Time = NA (not yet dispatched)</td>
+    </tr>` : '';
+    const pendingRowsHtml = renderSpRows(d.pendingSalesPersons, i, true);
+
+    const pendingBadge = d.pendingQty > 0 ? ` <span style="color:var(--spark);font-size:11px">(+${d.pendingQty.toFixed(2)} pending)</span>` : '';
+
     return `
     <tr>
-      <td><strong>${d.date}</strong></td>
+      <td><strong>${d.date}</strong>${pendingBadge}</td>
       <td>—</td>
       <td class="td-num"><strong>${d.qty.toFixed(2)}</strong></td>
       <td class="td-num"><strong>₹${fmtN(d.value)}</strong></td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleDwDetail(${i}, this)">▼ View</button></td>
     </tr>
-    ${spRows}`;
+    ${spRows}
+    ${pendingHeader}
+    ${pendingRowsHtml}`;
   }).join('') +
   `<tr class="summary-row">
     <td colspan="2"><strong>TOTAL</strong></td>
@@ -1775,11 +2097,6 @@ function toggleDwDetail(i, btn) {
 }
 
 // ─── ANALYTICS DASHBOARD ───────────────────────────────────
-let chartInstances = {};
-const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085'];
-function destroyChart(id) {
-  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
-}
 function loadAnalytics() {
   const mv = document.getElementById('anaMonth').value;
   const rows = getMonthData(mv);
@@ -1813,6 +2130,18 @@ function loadAnalytics() {
 
   const spNames = Object.keys(spTotals).sort((a,b) => spTotals[b].value - spTotals[a].value);
   const allProducts = [...new Set(Object.values(spProduct).flatMap(o => Object.keys(o)))];
+
+  // ── Summary KPI cards ──
+  const totalQty = rows.reduce((s,r) => s + r.qty, 0);
+  const totalVal = rows.reduce((s,r) => s + r.billAmount, 0);
+  document.getElementById('anaTotalQty').textContent = totalQty.toFixed(1);
+  document.getElementById('anaTotalVal').textContent = '₹' + fmtL(totalVal);
+  document.getElementById('anaSpCount').textContent = spNames.length;
+  document.getElementById('anaTopSp').textContent = 'Top: ' + (spNames[0] || '—');
+  const topProductEntry = Object.entries(productTotals).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('anaProductCount').textContent = allProducts.length;
+  document.getElementById('anaTopProduct').textContent = 'Top: ' + (topProductEntry ? topProductEntry[0] : '—');
+  document.getElementById('anaBannerSub').textContent = `Sales Person & Product-wise breakdown — ${mv} (${rows.length} dispatch records)`;
 
   // ── Chart 1: Stacked bar — Sales Person vs Product Qty ──
   destroyChart('chartSpProduct');
