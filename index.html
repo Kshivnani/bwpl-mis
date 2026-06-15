@@ -1128,7 +1128,7 @@ function parseDispatchRows(rows) {
       freightType: r[14],
       status: r[30],
       gstAmount: parseFloat(r[34]) || 0,
-      billAmount: parseFloat(r[35]) || 0,
+      billAmount: parseFloat(r[35]) || ((parseFloat(r[38]) || 0) * (parseFloat(r[10]) || 0)) || 0, // fallback: qty(kg) x price if bill amount not yet generated
       invoiceNo: r[37],
       transporter: r[40],
       salesPerson: r[61],
