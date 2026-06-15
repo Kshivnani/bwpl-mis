@@ -347,6 +347,10 @@
         <span class="dot dot-monthly"></span> Sales Person Report
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
+      <div class="sidebar-item" onclick="showPage('daywise', this)">
+        <span class="dot dot-monthly"></span> Day-wise Sales Report
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -912,6 +916,49 @@
               </tr>
             </thead>
             <tbody id="spBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- DAY-WISE SALES REPORT -->
+    <div class="page" id="page-daywise">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Day-wise Sales Report <span class="freq-badge freq-monthly">Monthly — Date → Sales Person → Party → Product</span></h2>
+            <div class="meta">Daily dispatch breakup, expandable</div>
+          </div>
+          <div class="report-actions">
+            <div class="form-group">
+              <select id="dwMonth" style="width:130px">
+                <option value="2026-06">Jun 2026</option>
+                <option value="2026-05">May 2026</option>
+                <option value="2026-04">Apr 2026</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label style="font-size:11px;color:var(--muted)">Specific Date (optional)</label>
+              <div style="display:flex; gap:6px">
+                <input type="date" id="dwDate" style="width:150px" onchange="syncDwMonthFromDate()">
+                <button class="btn btn-secondary" onclick="document.getElementById('dwDate').value=''; loadDayWiseReport()" title="Show full month">✕</button>
+              </div>
+            </div>
+            <button class="btn btn-secondary" onclick="loadDayWiseReport()">⟳ Compute</button>
+            <button class="btn btn-primary" onclick="downloadReport('daywise')">⬇ Download Excel</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th><th>Sales Person / Party / Product</th>
+                <th class="td-num">Qty (MT)</th>
+                <th class="td-num">Value (Rs.)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="dwBody"></tbody>
           </table>
         </div>
       </div>
@@ -1596,6 +1643,137 @@ function toggleSpDetail(i, btn) {
   btn.textContent = showing ? '▼ View' : '▲ Hide';
 }
 
+// ─── DAY-WISE SALES REPORT ─────────────────────────────────
+let dwReportData = []; // cached for download
+function syncDwMonthFromDate() {
+  const dv = document.getElementById('dwDate').value; // yyyy-mm-dd
+  if (!dv) return;
+  const [yr, mo] = dv.split('-');
+  const opt = document.getElementById('dwMonth');
+  const target = yr + '-' + mo;
+  // select matching month option if it exists, else proceed anyway (filter handles it)
+  for (const o of opt.options) {
+    if (o.value === target) { opt.value = target; break; }
+  }
+  loadDayWiseReport();
+}
+function loadDayWiseReport() {
+  const mv = document.getElementById('dwMonth').value;
+  let rows = getMonthData(mv);
+
+  const specificDate = document.getElementById('dwDate').value; // yyyy-mm-dd
+  if (specificDate) {
+    const [yr, mo, dy] = specificDate.split('-');
+    const ddmmyyyy = dy + '-' + mo + '-' + yr;
+    rows = rows.filter(r => r.dispatchDate === ddmmyyyy);
+  }
+
+  if (rows.length === 0) {
+    const msg = specificDate ? 'No dispatch data for selected date.' : 'No dispatch data for selected month.';
+    document.getElementById('dwBody').innerHTML = `<tr><td colspan="5" class="empty-state">${msg}</td></tr>`;
+    dwReportData = [];
+    return;
+  }
+
+  // Group: date -> salesPerson -> party -> product
+  const byDate = {};
+  rows.forEach(r => {
+    const date = r.dispatchDate;
+    const sp = r.salesPerson || 'Unassigned';
+    const party = r.party || 'Unknown';
+    const prod = r.product || 'Other';
+    if (!byDate[date]) byDate[date] = {qty:0, value:0, sp:{}};
+    byDate[date].qty += r.qty;
+    byDate[date].value += r.billAmount;
+    if (!byDate[date].sp[sp]) byDate[date].sp[sp] = {qty:0, value:0, parties:{}};
+    byDate[date].sp[sp].qty += r.qty;
+    byDate[date].sp[sp].value += r.billAmount;
+    if (!byDate[date].sp[sp].parties[party]) byDate[date].sp[sp].parties[party] = {qty:0, value:0, products:{}};
+    byDate[date].sp[sp].parties[party].qty += r.qty;
+    byDate[date].sp[sp].parties[party].value += r.billAmount;
+    if (!byDate[date].sp[sp].parties[party].products[prod]) byDate[date].sp[sp].parties[party].products[prod] = {qty:0, value:0};
+    byDate[date].sp[sp].parties[party].products[prod].qty += r.qty;
+    byDate[date].sp[sp].parties[party].products[prod].value += r.billAmount;
+  });
+
+  // Sort dates ascending (dd-mm-yyyy)
+  const dateList = Object.keys(byDate).sort((a,b) => {
+    const [da,ma,ya] = a.split('-').map(Number);
+    const [db,mb,yb] = b.split('-').map(Number);
+    return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
+  });
+
+  const list = dateList.map(date => ({
+    date, qty: byDate[date].qty, value: byDate[date].value,
+    salesPersons: Object.entries(byDate[date].sp).map(([sp,v]) => ({
+      sp, qty:v.qty, value:v.value,
+      parties: Object.entries(v.parties).map(([p,pv]) => ({
+        party:p, qty:pv.qty, value:pv.value,
+        products: Object.entries(pv.products).map(([pr,prv]) => ({product:pr, qty:prv.qty, value:prv.value}))
+          .sort((a,b)=>b.value-a.value)
+      })).sort((a,b)=>b.value-a.value)
+    })).sort((a,b)=>b.value-a.value)
+  }));
+
+  dwReportData = list;
+
+  const tbody = document.getElementById('dwBody');
+  tbody.innerHTML = list.map((d,i) => {
+    const spRows = d.salesPersons.map((sp,j) => {
+      const partyRows = sp.parties.map((p) => {
+        const prodRows = p.products.map(pr => `
+          <tr class="dw-detail-${i}" style="display:none">
+            <td></td>
+            <td style="padding-left:64px;color:var(--muted);font-size:12px">— ${pr.product}</td>
+            <td class="td-num" style="color:var(--muted);font-size:12px">${pr.qty.toFixed(2)}</td>
+            <td class="td-num" style="color:var(--muted);font-size:12px">₹${fmtN(pr.value)}</td>
+            <td></td>
+          </tr>`).join('');
+        return `
+        <tr class="dw-detail-${i}" style="display:none">
+          <td></td>
+          <td style="padding-left:44px;color:var(--muted)">↳ ${p.party}</td>
+          <td class="td-num" style="color:var(--muted)">${p.qty.toFixed(2)}</td>
+          <td class="td-num" style="color:var(--muted)">₹${fmtN(p.value)}</td>
+          <td></td>
+        </tr>
+        ${prodRows}`;
+      }).join('');
+      return `
+      <tr class="dw-detail-${i}" style="display:none">
+        <td></td>
+        <td style="padding-left:24px"><strong>${sp.sp}</strong></td>
+        <td class="td-num"><strong>${sp.qty.toFixed(2)}</strong></td>
+        <td class="td-num"><strong>₹${fmtN(sp.value)}</strong></td>
+        <td></td>
+      </tr>
+      ${partyRows}`;
+    }).join('');
+    return `
+    <tr>
+      <td><strong>${d.date}</strong></td>
+      <td>—</td>
+      <td class="td-num"><strong>${d.qty.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>₹${fmtN(d.value)}</strong></td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleDwDetail(${i}, this)">▼ View</button></td>
+    </tr>
+    ${spRows}`;
+  }).join('') +
+  `<tr class="summary-row">
+    <td colspan="2"><strong>TOTAL</strong></td>
+    <td class="td-num"><strong>${list.reduce((s,d)=>s+d.qty,0).toFixed(2)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(list.reduce((s,d)=>s+d.value,0))}</strong></td>
+    <td></td>
+  </tr>`;
+}
+function toggleDwDetail(i, btn) {
+  const rows = document.querySelectorAll('.dw-detail-' + i);
+  if (!rows.length) return;
+  const showing = rows[0].style.display !== 'none';
+  rows.forEach(r => r.style.display = showing ? 'none' : '');
+  btn.textContent = showing ? '▼ View' : '▲ Hide';
+}
+
 // ─── ANALYTICS DASHBOARD ───────────────────────────────────
 let chartInstances = {};
 const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085'];
@@ -1993,6 +2171,29 @@ function downloadReport(type) {
       Math.round(spReportData.reduce((s,r)=>s+r.value,0))]);
     ws = XLSX.utils.aoa_to_sheet(rows);
 
+  } else if (type === 'daywise') {
+    title = 'Day-wise Sales Report';
+    const mv = document.getElementById('dwMonth').value;
+    const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Day-wise Sales Report'],
+      ['Month:', mv],[]
+      ,['Date / Sales Person / Party / Product','','Qty (MT)','Value (Rs.)']];
+    dwReportData.forEach(d => {
+      rows.push([d.date, '', d.qty.toFixed(2), Math.round(d.value)]);
+      d.salesPersons.forEach(sp => {
+        rows.push(['', sp.sp, sp.qty.toFixed(2), Math.round(sp.value)]);
+        sp.parties.forEach(p => {
+          rows.push(['', '   ↳ ' + p.party, p.qty.toFixed(2), Math.round(p.value)]);
+          p.products.forEach(pr => {
+            rows.push(['', '      — ' + pr.product, pr.qty.toFixed(2), Math.round(pr.value)]);
+          });
+        });
+      });
+    });
+    rows.push(['TOTAL', '',
+      dwReportData.reduce((s,d)=>s+d.qty,0).toFixed(2),
+      Math.round(dwReportData.reduce((s,d)=>s+d.value,0))]);
+    ws = XLSX.utils.aoa_to_sheet(rows);
+
   } else if (type === 'pricelist') {
     title = 'Price List Compliance';
     const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Price List Compliance Report'],
@@ -2050,7 +2251,7 @@ const reportLabels = {
   productivity:'Productivity Report', vehicle:'Vehicle Placement Failure', travel:'Official Travel',
   pricelist:'Price List Compliance', top10vol:'Top 10 by Volume', top10val:'Top 10 by Value',
   bot10vol:'Bottom 10 by Volume', bot10val:'Bottom 10 by Value', complaints:'Customer Complaints',
-  financials:'Financials', manufacturing:'Manufacturing & Sales', salesperson:'Sales Person Report'
+  financials:'Financials', manufacturing:'Manufacturing & Sales', salesperson:'Sales Person Report', daywise:'Day-wise Sales Report'
 };
 let currentHistFilter = 'all';
 function renderHistory() {
