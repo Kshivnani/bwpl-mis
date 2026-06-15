@@ -441,10 +441,13 @@
           <div class="report-header">
             <div>
               <h2>Today's Product Mix</h2>
-              <div class="meta">Share by Qty (MT)</div>
+              <div class="meta" id="dashProductMixMeta">Share by Qty (MT)</div>
             </div>
           </div>
-          <div class="section-pad" style="height:300px"><canvas id="chartDashProductMix"></canvas></div>
+          <div class="section-pad" style="height:300px; position:relative">
+            <canvas id="chartDashProductMix"></canvas>
+            <div class="empty-state" id="chartDashProductMixEmpty" style="display:none; position:absolute; inset:0; padding:60px 20px; align-items:center; justify-content:center">No dispatch data available</div>
+          </div>
         </div>
       </div>
 
@@ -1322,7 +1325,7 @@ function parseDispatchRows(rows) {
 
 // ─── CHART HELPERS ───────────────────────────────────────
 let chartInstances = {};
-const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085'];
+const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085','#f368e0','#48dbfb','#1dd1a1','#feca57','#54a0ff','#5f27cd','#00d2d3','#ff9f43'];
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
@@ -1407,43 +1410,62 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
   });
   destroyChart('chartDashTrend');
   const ctxTrend = document.getElementById('chartDashTrend').getContext('2d');
+  const trendBarColors = trendDates.map((_,idx) => CHART_COLORS[idx % CHART_COLORS.length]);
   chartInstances.chartDashTrend = new Chart(ctxTrend, {
     type: 'bar',
     data: {
       labels: trendDates,
       datasets: [
-        { type:'bar', label:'Qty (MT)', data: trendDates.map(d => +byDate[d].qty.toFixed(2)), backgroundColor:'rgba(232,160,32,0.6)', yAxisID:'y' },
-        { type:'line', label:'Value (Rs.)', data: trendDates.map(d => Math.round(byDate[d].value)), borderColor:'#3498db', backgroundColor:'rgba(52,152,219,0.15)', yAxisID:'y1', tension:0.3 }
+        { type:'bar', label:'Qty (MT)', data: trendDates.map(d => +byDate[d].qty.toFixed(2)), backgroundColor: trendBarColors, borderRadius:4, yAxisID:'y' },
+        { type:'line', label:'Value (Rs.)', data: trendDates.map(d => Math.round(byDate[d].value)), borderColor:'#3498db', backgroundColor:'rgba(52,152,219,0.15)', pointBackgroundColor:'#3498db', pointRadius:3, yAxisID:'y1', tension:0.35 }
       ]
     },
     options: {
       responsive:true, maintainAspectRatio:false,
       scales: {
-        x: { ticks:{color:'#8fa3be', maxRotation:60, minRotation:45, font:{size:9}} },
-        y: { position:'left', ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'} },
+        x: { ticks:{color:'#8fa3be', maxRotation:60, minRotation:45, font:{size:9}}, grid:{color:'rgba(255,255,255,0.04)'} },
+        y: { position:'left', ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} },
         y1:{ position:'right', ticks:{color:'#8fa3be'}, grid:{drawOnChartArea:false}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} }
       },
       plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
     }
   });
 
-  // ── Today's product mix (pie) ──
-  const prodMix = {};
+  // ── Product mix (pie): today's data, fallback to MTD if today is empty ──
+  const todayProdMix = {};
   todayRows.forEach(r => {
     const p = r.product || 'Other';
-    prodMix[p] = (prodMix[p]||0) + r.qty;
+    todayProdMix[p] = (todayProdMix[p]||0) + r.qty;
   });
-  const prodEntries = Object.entries(prodMix).sort((a,b)=>b[1]-a[1]);
-  destroyChart('chartDashProductMix');
-  const ctxMix = document.getElementById('chartDashProductMix').getContext('2d');
+  let prodEntries = Object.entries(todayProdMix).sort((a,b)=>b[1]-a[1]);
+  let mixLabel = "Today's Product Mix";
+  let mixMeta = 'Share by Qty (MT)';
   if (prodEntries.length === 0) {
-    ctxMix.canvas.parentElement.innerHTML = '<div class="empty-state" style="padding:60px 20px">No dispatches today</div>';
+    const mtdProdMix = {};
+    mtdRows.forEach(r => {
+      const p = r.product || 'Other';
+      mtdProdMix[p] = (mtdProdMix[p]||0) + r.qty;
+    });
+    prodEntries = Object.entries(mtdProdMix).sort((a,b)=>b[1]-a[1]);
+    mixMeta = 'No dispatches today — showing MTD share by Qty (MT)';
+  }
+  const mixEmptyEl = document.getElementById('chartDashProductMixEmpty');
+  const mixCanvas = document.getElementById('chartDashProductMix');
+  const mixMetaEl = document.getElementById('dashProductMixMeta');
+  if (mixMetaEl) mixMetaEl.textContent = mixMeta;
+  destroyChart('chartDashProductMix');
+  if (prodEntries.length === 0) {
+    mixCanvas.style.display = 'none';
+    if (mixEmptyEl) mixEmptyEl.style.display = 'flex';
   } else {
+    mixCanvas.style.display = '';
+    if (mixEmptyEl) mixEmptyEl.style.display = 'none';
+    const ctxMix = mixCanvas.getContext('2d');
     chartInstances.chartDashProductMix = new Chart(ctxMix, {
       type: 'doughnut',
       data: {
         labels: prodEntries.map(e=>e[0]),
-        datasets: [{ data: prodEntries.map(e=>+e[1].toFixed(2)), backgroundColor: prodEntries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]) }]
+        datasets: [{ data: prodEntries.map(e=>+e[1].toFixed(2)), backgroundColor: prodEntries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]), borderColor:'#1a2332', borderWidth:2 }]
       },
       options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } } }
     });
@@ -1462,11 +1484,11 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     type: 'bar',
     data: {
       labels: spEntries.map(e=>e[0]),
-      datasets: [{ label:'Qty (MT)', data: spEntries.map(e=>+e[1].toFixed(2)), backgroundColor:'#e8a020' }]
+      datasets: [{ label:'Qty (MT)', data: spEntries.map(e=>+e[1].toFixed(2)), backgroundColor: spEntries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]), borderRadius:4 }]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'} }, y:{ ticks:{color:'#8fa3be'} } },
+      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ ticks:{color:'#8fa3be'}, grid:{display:false} } },
       plugins: { legend:{ display:false } }
     }
   });
@@ -1483,11 +1505,11 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     type: 'bar',
     data: {
       labels: custEntries.map(e=>e[0]),
-      datasets: [{ label:'Value (Rs.)', data: custEntries.map(e=>Math.round(e[1])), backgroundColor:'#2ecc71' }]
+      datasets: [{ label:'Value (Rs.)', data: custEntries.map(e=>Math.round(e[1])), backgroundColor: custEntries.map((_,idx)=>CHART_COLORS[(idx+3) % CHART_COLORS.length]), borderRadius:4 }]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} }, y:{ ticks:{color:'#8fa3be', font:{size:10}} } },
+      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ ticks:{color:'#8fa3be', font:{size:10}}, grid:{display:false} } },
       plugins: { legend:{ display:false } }
     }
   });
