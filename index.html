@@ -1286,6 +1286,19 @@ function handleFileUpload(event) {
   reader.readAsArrayBuffer(file);
 }
 
+function normalizeType(val) {
+  if (!val) return 'Other';
+  const v = String(val).trim();
+  // Normalize known duplicates
+  if (v === 'HC WIRE ROD ' || v === 'HC WIRE ROD') return 'HC Wire Rod';
+  if (v === 'Zinc ' || v === 'Zinc') return 'Zinc';
+  if (v === 'GI WIRE' || v === 'GI Wire') return 'GI Wire';
+  if (v === 'HC WIRE ROD PC 115/7.00 MM ' || v === 'HC82BCR11.00 MM') return 'HC Wire Rod';
+  if (v === 'HTGS Wire') return 'HTGS Wire';
+  if (v === '3PLY') return 'PC Wire (3 Ply)';
+  return v;
+}
+
 function parseDispatchRows(rows) {
   // Row 5 (index 5) is header, data from row 6 (index 6)
   dispatchData = [];
@@ -1295,9 +1308,9 @@ function parseDispatchRows(rows) {
     dispatchData.push({
       srNo: r[1],
       soNo: r[2],
-      party: r[3],
+      party: (r[3] || '').trim(),
       location: r[4],
-      product: r[9] || r[5] || '', // Column J "TYPE" (primary), fallback Column F
+      product: normalizeType(r[9]), // Column J "TYPE" only — normalized
       productF: r[5] || '',
       size: r[6],
       qty: (parseFloat(r[38]) || 0) / 1000, // column AM "Quantity" is in KGS -> convert to MT (used everywhere as Qty MT)
