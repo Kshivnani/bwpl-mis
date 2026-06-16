@@ -2001,13 +2001,14 @@ function loadDayWiseReport() {
   // Pending orders: provisional date set, truck not out yet (TruckOutTime = "NA"), not yet dispatched
   const [yr2, mo2] = mv.split('-');
   const monthSuffix = mo2 + '-' + yr2;
-  let pendingRows = dispatchData.filter(r =>
-    !r.dispatchDate &&
-    String(r.truckOutTime).toUpperCase() === 'NA' &&
-    r.provisionalDate && r.provisionalDate.slice(3) === monthSuffix
-  );
+  // Pending orders: only show when a specific date is selected
+  let pendingRows = [];
   if (ddmmyyyyFilter) {
-    pendingRows = pendingRows.filter(r => r.provisionalDate === ddmmyyyyFilter);
+    pendingRows = dispatchData.filter(r =>
+      !r.dispatchDate &&
+      String(r.truckOutTime).toUpperCase() === 'NA' &&
+      r.provisionalDate === ddmmyyyyFilter
+    );
   }
 
   if (rows.length === 0 && pendingRows.length === 0) {
