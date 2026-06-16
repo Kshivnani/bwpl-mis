@@ -1215,7 +1215,7 @@ window.onload = () => {
   renderHistory();
 
   // Version key — bump this whenever parse format changes to force re-upload
-  const DATA_VERSION = 'v3-colJ';
+  const DATA_VERSION = 'v4-datefix';
   const savedVersion = localStorage.getItem('bwplDataVersion');
 
   // Try loading saved dispatch data
@@ -1242,11 +1242,24 @@ function formatDate(d) {
   return `${dd}-${mm}-${yyyy}`;
 }
 function formatDateDDMMYYYY(val) {
-  // Used for Provisional Date column - can be a JS Date (cellDates:true) or empty/string
   if (!val) return '';
-  if (val instanceof Date) return formatDate(val);
-  // Already a dd-mm-yyyy style string
-  return String(val);
+  // JS Date object (from cellDates:true)
+  if (val instanceof Date && !isNaN(val)) {
+    const dd = String(val.getDate()).padStart(2,'0');
+    const mm = String(val.getMonth()+1).padStart(2,'0');
+    const yyyy = val.getFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  // Excel serial number fallback (cellDates:false)
+  if (typeof val === 'number') {
+    const d = new Date(Math.round((val - 25569) * 86400 * 1000));
+    const dd = String(d.getUTCDate()).padStart(2,'0');
+    const mm = String(d.getUTCMonth()+1).padStart(2,'0');
+    const yyyy = d.getUTCFullYear();
+    return `${dd}-${mm}-${yyyy}`;
+  }
+  // Already a string
+  return String(val).trim();
 }
 function toInputDate(d) {
   return d.toISOString().split('T')[0];
@@ -1338,13 +1351,13 @@ function parseDispatchRows(rows) {
       invoiceNo: r[37],
       transporter: r[40],
       salesPerson: r[61],
-      dispatchDate: r[62] ? String(r[62]) : '',
+      dispatchDate: formatDateDDMMYYYY(r[62]),
       plannedQty: parseFloat(r[7]) || 0, // column H "Qty (MT)" - planned/provisional quantity
       truckOutTime: r[19] || ''
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v3-colJ');
+  localStorage.setItem('bwplDataVersion', 'v4-datefix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
