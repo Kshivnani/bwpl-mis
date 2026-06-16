@@ -2008,6 +2008,9 @@ function loadDayWiseReport() {
       String(r.truckOutTime).toUpperCase() === 'NA' &&
       r.provisionalDate === ddmmyyyyFilter
     );
+    console.log('[DEBUG] ddmmyyyyFilter:', ddmmyyyyFilter);
+    console.log('[DEBUG] pendingRows count:', pendingRows.length);
+    console.log('[DEBUG] pendingRows:', pendingRows.map(r => ({party:r.party, prov:r.provisionalDate, truck:r.truckOutTime, dispatch:r.dispatchDate})));
   }
 
   if (rows.length === 0 && pendingRows.length === 0) {
