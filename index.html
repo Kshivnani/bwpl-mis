@@ -1215,7 +1215,7 @@ window.onload = () => {
   renderHistory();
 
   // Version key — bump this whenever parse format changes to force re-upload
-  const DATA_VERSION = 'v4-datefix';
+  const DATA_VERSION = 'v5-pendingfix';
   const savedVersion = localStorage.getItem('bwplDataVersion');
 
   // Try loading saved dispatch data
@@ -1226,12 +1226,11 @@ window.onload = () => {
     showToast('✅ Loaded saved dispatch data (' + dispatchData.length + ' rows)');
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} dispatch rows loaded from saved data.</span>`;
   } else if (saved && savedVersion !== DATA_VERSION) {
-    // Stale data — clear and ask user to re-upload
-    localStorage.removeItem('bwplDispatch');
-    localStorage.removeItem('bwplDataVersion');
+    // Stale data — clear ALL bwpl keys and ask user to re-upload
+    Object.keys(localStorage).filter(k => k.startsWith('bwpl')).forEach(k => localStorage.removeItem(k));
     dispatchData = [];
     showToast('⚠️ Data format updated — please re-upload POS file', true);
-    document.getElementById('dataStatus').innerHTML = `<span style="color:var(--spark)">⚠️ Data format updated (Column J fix). Please re-upload POS Excel file from Setup page.</span>`;
+    document.getElementById('dataStatus').innerHTML = `<span style="color:var(--spark)">⚠️ Data updated (v5). Please re-upload POS Excel file from Setup page.</span>`;
   }
 };
 
@@ -1357,7 +1356,7 @@ function parseDispatchRows(rows) {
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v4-datefix');
+  localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
