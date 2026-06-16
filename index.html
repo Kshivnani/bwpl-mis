@@ -2762,6 +2762,8 @@ function showToast(msg, isError) {
 }
 </script>
 
+</div><!-- end appWrapper -->
+
 <!-- FIREBASE AUTH -->
 <script>
 const firebaseConfig = {
@@ -2797,22 +2799,20 @@ function signInWithGoogle() {
 auth.onAuthStateChanged(user => {
   if (user && user.email.endsWith('@bajranggroup.com')) {
     document.getElementById('loginScreen').style.display = 'none';
-    document.getElementById('appWrapper').style.display = '';
-    // Wait for DOM to render before initializing app
+    document.getElementById('appWrapper').style.display = 'block';
     setTimeout(() => {
       initApp();
-      // Show user info in header
       const badge = document.getElementById('todayBadge');
       if (badge && !document.getElementById('userBadge')) {
         badge.insertAdjacentHTML('afterend',
           `<div id="userBadge" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
-            <img src="${user.photoURL || ''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
-            <span>${user.displayName || user.email}</span>
-            <button onclick="auth.signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
+            <img src="${user.photoURL||''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
+            <span>${user.displayName||user.email}</span>
+            <button onclick="firebase.auth().signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
           </div>`
         );
       }
-    }, 100);
+    }, 150);
   } else {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appWrapper').style.display = 'none';
@@ -2824,6 +2824,5 @@ auth.onAuthStateChanged(user => {
   }
 });
 </script>
-</div><!-- end appWrapper -->
 </body>
 </html>
