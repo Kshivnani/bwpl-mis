@@ -1253,7 +1253,10 @@ const FIN_METRICS = [
 ];
 
 // ─── INIT ────────────────────────────────────────────────
-window.onload = () => {
+let appInitialized = false;
+function initApp() {
+  if (appInitialized) return;
+  appInitialized = true;
   document.getElementById('todayBadge').textContent = '📅 ' + today.toLocaleDateString('en-IN', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
   setAllDatesToToday();
   initProductivity();
@@ -2796,12 +2799,14 @@ auth.onAuthStateChanged(user => {
     // Authorised — show app, hide login
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appWrapper').style.display = '';
+    // Init app after showing it
+    initApp();
     // Show user info in header
     const badge = document.getElementById('todayBadge');
-    if (badge) {
+    if (badge && !document.getElementById('userBadge')) {
       badge.insertAdjacentHTML('afterend',
-        `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
-          <img src="${user.photoURL || ''}" style="width:24px;height:24px;border-radius:50%" onerror="this.style.display='none'">
+        `<div id="userBadge" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+          <img src="${user.photoURL || ''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
           <span>${user.displayName || user.email}</span>
           <button onclick="auth.signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
         </div>`
@@ -2811,6 +2816,7 @@ auth.onAuthStateChanged(user => {
     // Not authorised — show login
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appWrapper').style.display = 'none';
+    appInitialized = false;
     if (user) {
       auth.signOut();
       document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com accounts allowed.';
