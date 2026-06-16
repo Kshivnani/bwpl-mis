@@ -463,6 +463,7 @@
     </div>
   </div>
   <div class="header-right">
+    <button class="sync-btn" onclick="syncFromGoogleSheet()" style="background:var(--wire);color:var(--steel);border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">☁ Sync Sheet</button>
     <div class="date-badge" id="todayBadge">📅 Loading...</div>
   </div>
 </div>
@@ -1301,15 +1302,69 @@
     <div class="page" id="page-setup">
       <div class="report-panel">
         <div class="report-header">
-          <div><h2>Setup & Data Source</h2><div class="meta">Connect POS Google Sheet or upload Excel file</div></div>
+          <div><h2>Setup & Data Source</h2><div class="meta">Connect POS Google Sheet (live) or upload Excel file</div></div>
         </div>
 
+        <!-- ── OPTION A: LIVE GOOGLE SHEET SYNC ── -->
         <div class="setup-steps">
           <div class="step">
-            <div class="step-num">1</div>
+            <div class="step-num">A</div>
             <div>
-              <h4>Upload POS with EMS Excel File</h4>
-              <p>Download the latest POS with EMS file and upload here. All dispatch data will be extracted automatically for report generation.</p>
+              <h4>⭐ Live Sync — Google Sheet (Recommended)</h4>
+              <p>
+                Ek baar Google Apps Script deploy karein, phir sirf <strong style="color:var(--wire)">☁ Sync Sheet</strong> button dabayein — koi manual download/upload nahi.<br><br>
+                <strong>Step 1:</strong> Apni Google Sheet kholein → <code>Extensions → Apps Script</code><br>
+                <strong>Step 2:</strong> Neeche diya hua code paste karein aur <code>Deploy → New deployment → Web app</code> karein<br>
+                &nbsp;&nbsp;&nbsp;— Execute as: <strong>Me</strong> &nbsp;|&nbsp; Who has access: <strong>Anyone</strong><br>
+                <strong>Step 3:</strong> Deploy hone ke baad jo URL mile, usse neeche paste karein
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apps Script code box -->
+        <div style="margin:0 20px 16px">
+          <div style="background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:8px;padding:14px 16px;position:relative">
+            <div style="font-size:11px;color:var(--muted);margin-bottom:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase">📋 Google Apps Script Code — Copy & Paste</div>
+            <pre id="appsScriptCode" style="font-size:11px;color:var(--spark);font-family:monospace;line-height:1.7;overflow-x:auto;white-space:pre-wrap">function doGet(e) {
+  var ss = SpreadsheetApp.openById('1YYZ9kRbrT8HYXjA-neTnLIq1BgV3uXr3p9M9KhvN3uM');
+  var sheet = ss.getSheets().find(function(s){
+    return s.getName().toLowerCase().indexOf('dispatch') !== -1;
+  });
+  if (!sheet) return ContentService.createTextOutput(JSON.stringify({error:'Dispatch sheet not found'})).setMimeType(ContentService.MimeType.JSON);
+
+  var data = sheet.getDataRange().getValues();
+  var result = JSON.stringify(data);
+  return ContentService.createTextOutput(result)
+    .setMimeType(ContentService.MimeType.JSON);
+}</pre>
+            <button onclick="copyAppsScript()" style="position:absolute;top:12px;right:12px;background:rgba(232,160,32,0.2);border:1px solid var(--wire);color:var(--wire);padding:4px 10px;border-radius:4px;font-size:11px;font-weight:700;cursor:pointer">📋 Copy</button>
+          </div>
+        </div>
+
+        <!-- URL Input + Sync Button -->
+        <div style="margin:0 20px 20px;display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap">
+          <div class="form-group" style="flex:1;min-width:260px">
+            <label>Apps Script Web App URL</label>
+            <input type="url" id="sheetSyncUrl" placeholder="https://script.google.com/macros/s/...exec"
+              style="width:100%" oninput="saveSheetUrl(this.value)">
+          </div>
+          <button class="btn btn-primary" onclick="syncFromGoogleSheet()" id="syncSheetBtn" style="height:36px;white-space:nowrap">
+            ☁ Sync Sheet Now
+          </button>
+        </div>
+        <div id="syncStatus" style="padding:0 20px 16px;font-size:13px;color:var(--muted)"></div>
+
+        <div class="divider"></div>
+
+        <!-- ── OPTION B: MANUAL UPLOAD ── -->
+        <div class="setup-steps" style="padding-top:20px">
+          <div class="step">
+            <div class="step-num">B</div>
+            <div>
+              <h4>Manual Upload — Excel File</h4>
+              <p>Agar Apps Script setup nahi kiya toh, Google Sheet se Excel (.xlsx) download karein aur yahan upload karein.<br>
+              <em style="color:var(--muted)">File → Download → Microsoft Excel (.xlsx)</em></p>
             </div>
           </div>
         </div>
@@ -1323,24 +1378,6 @@
         </div>
 
         <div id="uploadStatus" style="padding:0 20px 16px;font-size:13px;color:var(--muted)"></div>
-
-        <div class="divider"></div>
-
-        <div class="setup-steps" style="padding-top:20px">
-          <div class="step">
-            <div class="step-num">2</div>
-            <div>
-              <h4>Daily Routine</h4>
-              <p>
-                POS sheet private hai, isliye har din latest "POS with EMS" Excel file Google Sheet se download karein
-                (File → Download → Microsoft Excel .xlsx) aur upar diye gaye box me upload kar dein.<br><br>
-                App automatically saare daily reports (Sales Register, Collection, Compliance, etc.) ke liye
-                aaj ki tareekh ka data nikal lega. Data browser me save rehta hai, agar nayi file upload na karein
-                toh purana data hi dikhega.
-              </p>
-            </div>
-          </div>
-        </div>
 
         <div class="divider"></div>
 
@@ -2916,6 +2953,12 @@ const auth = firebase.auth();
 const provider = new firebase.auth.GoogleAuthProvider();
 provider.setCustomParameters({ hd: 'bajranggroup.com' });
 
+// ── Google Sheets API scope add karo ──
+provider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
+
+// Google OAuth access token store karne ke liye
+let googleAccessToken = null;
+
 function signInWithGoogle() {
   document.getElementById('loginErr').textContent = '';
   auth.signInWithPopup(provider)
@@ -2924,7 +2967,10 @@ function signInWithGoogle() {
       if (!email.endsWith('@bajranggroup.com')) {
         auth.signOut();
         document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com accounts allowed.';
+        return;
       }
+      // Access token save karo — yeh Sheets API ke liye use hoga
+      googleAccessToken = result.credential.accessToken;
     })
     .catch(err => {
       document.getElementById('loginErr').textContent = '❌ ' + (err.message || 'Login failed. Try again.');
@@ -2952,12 +2998,85 @@ auth.onAuthStateChanged(user => {
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appWrapper').style.display = 'none';
     appInitialized = false;
+    googleAccessToken = null;
     if (user) {
       auth.signOut();
       document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com accounts allowed.';
     }
   }
 });
+
+// ── GOOGLE SHEETS LIVE SYNC ──────────────────────────────
+const SHEET_ID = '1YYZ9kRbrT8HYXjA-neTnLIq1BgV3uXr3p9M9KhvN3uM';
+const SHEET_GID = '2128906014';
+
+async function syncFromGoogleSheet() {
+  const btn = document.getElementById('syncSheetBtn');
+  const status = document.getElementById('syncStatus');
+
+  // Agar token nahi hai toh re-login karo
+  if (!googleAccessToken) {
+    status.innerHTML = '<span style="color:var(--spark)">⚠️ Please logout and login again to grant Sheets access.</span>';
+    return;
+  }
+
+  btn.textContent = '⏳ Syncing...';
+  btn.disabled = true;
+  status.innerHTML = '<span style="color:var(--muted)">🔄 Google Sheet se data fetch ho raha hai...</span>';
+
+  try {
+    // Sheet ka naam pehle fetch karo
+    const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
+    const metaRes = await fetch(metaUrl, {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    });
+
+    if (!metaRes.ok) {
+      const err = await metaRes.json();
+      throw new Error(err.error?.message || 'Sheet access failed');
+    }
+
+    const meta = await metaRes.json();
+    const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === SHEET_GID);
+    const sheetName = sheetObj ? sheetObj.properties.title : null;
+
+    if (!sheetName) throw new Error('Dispatch sheet (GID: ' + SHEET_GID + ') nahi mili');
+
+    // Data fetch karo
+    const range = encodeURIComponent(sheetName + '!A1:BQ2000');
+    const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`;
+    const dataRes = await fetch(dataUrl, {
+      headers: { Authorization: 'Bearer ' + googleAccessToken }
+    });
+
+    if (!dataRes.ok) {
+      const err = await dataRes.json();
+      throw new Error(err.error?.message || 'Data fetch failed');
+    }
+
+    const json = await dataRes.json();
+    const rows = json.values || [];
+
+    if (rows.length < 7) throw new Error('Sheet mein data nahi mila (rows < 7)');
+
+    parseDispatchRows(rows);
+
+    const now = new Date().toLocaleTimeString('en-IN');
+    status.innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows synced from Google Sheet — ${now}</span>`;
+    document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ Live sync: ${dispatchData.length} rows. Last sync: ${now}</span>`;
+    showToast('✅ Google Sheet synced! ' + dispatchData.length + ' rows loaded');
+
+    // Dashboard pe jao
+    showPage('dashboard', document.querySelector('.sidebar-item'));
+
+  } catch (err) {
+    status.innerHTML = `<span style="color:var(--danger)">❌ Error: ${err.message}</span>`;
+    showToast('❌ Sync failed: ' + err.message, true);
+  } finally {
+    btn.textContent = '☁ Sync Sheet Now';
+    btn.disabled = false;
+  }
+}
 </script>
 </body>
 </html>
