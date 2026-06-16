@@ -1286,7 +1286,7 @@ function initApp() {
     showToast('⚠️ Data format updated — please re-upload POS file', true);
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--spark)">⚠️ Data updated (v5). Please re-upload POS Excel file from Setup page.</span>`;
   }
-};
+}
 
 function formatDate(d) {
   const dd = String(d.getDate()).padStart(2,'0');
@@ -2796,24 +2796,24 @@ function signInWithGoogle() {
 
 auth.onAuthStateChanged(user => {
   if (user && user.email.endsWith('@bajranggroup.com')) {
-    // Authorised — show app, hide login
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appWrapper').style.display = '';
-    // Init app after showing it
-    initApp();
-    // Show user info in header
-    const badge = document.getElementById('todayBadge');
-    if (badge && !document.getElementById('userBadge')) {
-      badge.insertAdjacentHTML('afterend',
-        `<div id="userBadge" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
-          <img src="${user.photoURL || ''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
-          <span>${user.displayName || user.email}</span>
-          <button onclick="auth.signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
-        </div>`
-      );
-    }
+    // Wait for DOM to render before initializing app
+    setTimeout(() => {
+      initApp();
+      // Show user info in header
+      const badge = document.getElementById('todayBadge');
+      if (badge && !document.getElementById('userBadge')) {
+        badge.insertAdjacentHTML('afterend',
+          `<div id="userBadge" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+            <img src="${user.photoURL || ''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
+            <span>${user.displayName || user.email}</span>
+            <button onclick="auth.signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
+          </div>`
+        );
+      }
+    }, 100);
   } else {
-    // Not authorised — show login
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appWrapper').style.display = 'none';
     appInitialized = false;
