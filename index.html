@@ -1214,13 +1214,24 @@ window.onload = () => {
   initPriceList();
   renderHistory();
 
+  // Version key — bump this whenever parse format changes to force re-upload
+  const DATA_VERSION = 'v3-colJ';
+  const savedVersion = localStorage.getItem('bwplDataVersion');
+
   // Try loading saved dispatch data
   const saved = localStorage.getItem('bwplDispatch');
-  if (saved) {
+  if (saved && savedVersion === DATA_VERSION) {
     dispatchData = JSON.parse(saved);
     refreshDashboard();
     showToast('✅ Loaded saved dispatch data (' + dispatchData.length + ' rows)');
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} dispatch rows loaded from saved data.</span>`;
+  } else if (saved && savedVersion !== DATA_VERSION) {
+    // Stale data — clear and ask user to re-upload
+    localStorage.removeItem('bwplDispatch');
+    localStorage.removeItem('bwplDataVersion');
+    dispatchData = [];
+    showToast('⚠️ Data format updated — please re-upload POS file', true);
+    document.getElementById('dataStatus').innerHTML = `<span style="color:var(--spark)">⚠️ Data format updated (Column J fix). Please re-upload POS Excel file from Setup page.</span>`;
   }
 };
 
@@ -1333,6 +1344,7 @@ function parseDispatchRows(rows) {
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
+  localStorage.setItem('bwplDataVersion', 'v3-colJ');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
