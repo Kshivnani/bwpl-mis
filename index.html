@@ -1394,7 +1394,7 @@ function refreshDashboard() {
     <tr>
       <td>${i+1}</td>
       <td><strong>${r.party}</strong></td>
-      <td>${r.product || r.type || '—'}</td>
+      <td>${r.product || '—'}</td>
       <td>${r.size || '—'}</td>
       <td class="td-num">${r.qty}</td>
       <td><span style="font-size:11px;padding:2px 6px;border-radius:3px;background:rgba(232,160,32,0.15);color:var(--wire)">${r.unit}</span></td>
@@ -1446,8 +1446,8 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
   });
 
   // ── PC Wire vs ACSR — MTD Qty & Value comparison ──
-  const pcRows = mtdRows.filter(r => (r.type || '').trim() === 'PC Wire');
-  const acsrRows = mtdRows.filter(r => (r.type || '').trim() === 'ACSR Core Wire');
+  const pcRows = mtdRows.filter(r => r.product === 'PC Wire');
+  const acsrRows = mtdRows.filter(r => r.product === 'ACSR Core Wire');
   const pcQty = pcRows.reduce((s,r)=>s+r.qty,0);
   const pcVal = pcRows.reduce((s,r)=>s+r.billAmount,0);
   const acsrQty = acsrRows.reduce((s,r)=>s+r.qty,0);
@@ -1540,8 +1540,8 @@ function loadSalesReport() {
   // Group by customer
   const byCustomer = {};
   todayRows.forEach(r => {
-    const key = r.party + '|' + (r.product || r.type);
-    if (!byCustomer[key]) byCustomer[key] = {party:r.party, product:r.product||r.type, qty:0, value:0};
+    const key = r.party + '|' + r.product;
+    if (!byCustomer[key]) byCustomer[key] = {party:r.party, product:r.product, qty:0, value:0};
     byCustomer[key].qty += r.qty;
     byCustomer[key].value += r.billAmount;
   });
@@ -1655,13 +1655,13 @@ function loadComplianceReport() {
   // Build MTD by type/product
   const mtdByType = {};
   mtdRows.forEach(r => {
-    const k = r.type || r.product || 'Other';
+    const k = r.product || 'Other';
     mtdByType[k] = (mtdByType[k]||0) + r.qty;
   });
   const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
   const todayByType = {};
   todayRows.forEach(r => {
-    const k = r.type || r.product || 'Other';
+    const k = r.product || 'Other';
     todayByType[k] = (todayByType[k]||0) + r.qty;
   });
 
@@ -1769,7 +1769,7 @@ function loadPriceListReport() {
       <td>${i+1}</td>
       <td><input value="${r.party}" style="min-width:160px"></td>
       <td><input value="${r.salesPerson||''}"></td>
-      <td><input value="${r.product||r.type||''}"></td>
+      <td><input value="${r.product||''}"></td>
       <td class="td-num"><input type="number" placeholder="0" style="width:100px"></td>
       <td><input placeholder="Remarks"></td>
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
@@ -2314,7 +2314,7 @@ function loadManufacturing() {
   ['2026-04','2026-05','2026-06'].forEach((mv, mi) => {
     const rows = getMonthData(mv);
     MFG_PRODUCTS.forEach((p, pi) => {
-      const qty = rows.filter(r => (r.type||'').includes(p.split(' ')[0]) || (r.product||'').includes(p.split(' ')[0])).reduce((s,r) => s+r.qty, 0);
+      const qty = rows.filter(r => (r.product||'').includes(p.split(' ')[0])).reduce((s,r) => s+r.qty, 0);
       const salesIdx = mi * 2 + 1;
       const el = document.getElementById(`mfg_${pi}_${salesIdx}`);
       if (el && qty > 0) el.value = qty.toFixed(2);
