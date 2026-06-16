@@ -440,8 +440,8 @@
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Today's Product Mix</h2>
-              <div class="meta" id="dashProductMixMeta">Share by Qty (MT)</div>
+              <h2>PC Wire vs ACSR</h2>
+              <div class="meta" id="dashProductMixMeta">MTD Qty (MT) &amp; Value (Rs.) comparison</div>
             </div>
           </div>
           <div class="section-pad" style="height:300px; position:relative">
@@ -1297,7 +1297,8 @@ function parseDispatchRows(rows) {
       soNo: r[2],
       party: r[3],
       location: r[4],
-      product: r[5],
+      product: r[9] || r[5] || '', // Column J "TYPE" (primary), fallback Column F
+      productF: r[5] || '',
       size: r[6],
       qty: (parseFloat(r[38]) || 0) / 1000, // column AM "Quantity" is in KGS -> convert to MT (used everywhere as Qty MT)
       productDetail: r[8],
@@ -1325,7 +1326,7 @@ function parseDispatchRows(rows) {
 
 // ─── CHART HELPERS ───────────────────────────────────────
 let chartInstances = {};
-const CHART_COLORS = ['#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f0c040','#3d5a80','#ff8c69','#7f8c8d','#c0392b','#16a085','#f368e0','#48dbfb','#1dd1a1','#feca57','#54a0ff','#5f27cd','#00d2d3','#ff9f43'];
+const CHART_COLORS = ['#3498db','#2ecc71','#9b59b6','#e74c3c','#1abc9c','#f368e0','#48dbfb','#5f27cd','#ff6b6b','#00d2d3','#ff9ff3','#54a0ff','#10ac84','#ee5253','#a29bfe','#fd79a8','#00b894','#0984e3','#e17055','#6c5ce7'];
 function destroyChart(id) {
   if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
 }
@@ -1431,30 +1432,18 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     }
   });
 
-  // ── Product mix (pie): today's data, fallback to MTD if today is empty ──
-  const todayProdMix = {};
-  todayRows.forEach(r => {
-    const p = r.product || 'Other';
-    todayProdMix[p] = (todayProdMix[p]||0) + r.qty;
-  });
-  let prodEntries = Object.entries(todayProdMix).sort((a,b)=>b[1]-a[1]);
-  let mixLabel = "Today's Product Mix";
-  let mixMeta = 'Share by Qty (MT)';
-  if (prodEntries.length === 0) {
-    const mtdProdMix = {};
-    mtdRows.forEach(r => {
-      const p = r.product || 'Other';
-      mtdProdMix[p] = (mtdProdMix[p]||0) + r.qty;
-    });
-    prodEntries = Object.entries(mtdProdMix).sort((a,b)=>b[1]-a[1]);
-    mixMeta = 'No dispatches today — showing MTD share by Qty (MT)';
-  }
+  // ── PC Wire vs ACSR — MTD Qty & Value comparison ──
+  const pcRows = mtdRows.filter(r => (r.type || '').trim() === 'PC Wire');
+  const acsrRows = mtdRows.filter(r => (r.type || '').trim() === 'ACSR Core Wire');
+  const pcQty = pcRows.reduce((s,r)=>s+r.qty,0);
+  const pcVal = pcRows.reduce((s,r)=>s+r.billAmount,0);
+  const acsrQty = acsrRows.reduce((s,r)=>s+r.qty,0);
+  const acsrVal = acsrRows.reduce((s,r)=>s+r.billAmount,0);
+
   const mixEmptyEl = document.getElementById('chartDashProductMixEmpty');
   const mixCanvas = document.getElementById('chartDashProductMix');
-  const mixMetaEl = document.getElementById('dashProductMixMeta');
-  if (mixMetaEl) mixMetaEl.textContent = mixMeta;
   destroyChart('chartDashProductMix');
-  if (prodEntries.length === 0) {
+  if (pcQty === 0 && acsrQty === 0) {
     mixCanvas.style.display = 'none';
     if (mixEmptyEl) mixEmptyEl.style.display = 'flex';
   } else {
@@ -1462,12 +1451,23 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     if (mixEmptyEl) mixEmptyEl.style.display = 'none';
     const ctxMix = mixCanvas.getContext('2d');
     chartInstances.chartDashProductMix = new Chart(ctxMix, {
-      type: 'doughnut',
+      type: 'bar',
       data: {
-        labels: prodEntries.map(e=>e[0]),
-        datasets: [{ data: prodEntries.map(e=>+e[1].toFixed(2)), backgroundColor: prodEntries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]), borderColor:'#1a2332', borderWidth:2 }]
+        labels: ['PC Wire', 'ACSR Core Wire'],
+        datasets: [
+          { label:'Qty (MT)', data:[+pcQty.toFixed(2), +acsrQty.toFixed(2)], backgroundColor:'#3498db', borderRadius:4, yAxisID:'y' },
+          { label:'Value (Rs.)', data:[Math.round(pcVal), Math.round(acsrVal)], backgroundColor:'#2ecc71', borderRadius:4, yAxisID:'y1' }
+        ]
       },
-      options: { responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } } }
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x: { ticks:{color:'#8fa3be'}, grid:{display:false} },
+          y: { position:'left', ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} },
+          y1: { position:'right', ticks:{color:'#8fa3be'}, grid:{drawOnChartArea:false}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} }
+        },
+        plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
+      }
     });
   }
 
