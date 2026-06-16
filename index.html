@@ -7,6 +7,8 @@
 <link rel="icon" type="image/png" href="logo.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <style>
   :root {
     --steel: #1a2332;
@@ -263,9 +265,58 @@
     background:rgba(0,0,0,0.3); border:1px solid var(--border); border-radius:4px;
     padding:2px 6px; font-family:monospace; font-size:11px; color:var(--spark);
   }
+  /* ── LOGIN SCREEN ── */
+  #loginScreen {
+    position:fixed; inset:0; z-index:9999;
+    background: linear-gradient(135deg, #0f1923 0%, #1a2332 50%, #0f1923 100%);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .login-card {
+    background: var(--card-bg); border:1px solid var(--border);
+    border-radius:16px; padding:48px 40px; width:380px;
+    text-align:center; box-shadow:0 24px 64px rgba(0,0,0,0.5);
+  }
+  .login-logo {
+    background:#fff; border-radius:10px; padding:12px 20px;
+    display:inline-block; margin-bottom:24px;
+  }
+  .login-logo img { height:36px; display:block; }
+  .login-title { font-size:22px; font-weight:800; color:var(--white); margin-bottom:6px; }
+  .login-sub { font-size:13px; color:var(--muted); margin-bottom:32px; }
+  .login-btn {
+    width:100%; padding:14px; border-radius:8px; border:none; cursor:pointer;
+    background:#fff; color:#333; font-size:15px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:box-shadow 0.2s; box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  }
+  .login-btn:hover { box-shadow:0 4px 16px rgba(0,0,0,0.35); }
+  .login-btn img { width:20px; height:20px; }
+  .login-err { color:var(--danger); font-size:12px; margin-top:16px; min-height:18px; }
+  .login-restrict { font-size:11px; color:var(--muted); margin-top:20px; }
+  .login-restrict span { color:var(--wire); font-weight:600; }
+  #appWrapper { display:none; }
 </style>
 </head>
 <body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="logo.png" alt="Bajrang Wire Products" onerror="this.style.display='none'">
+    </div>
+    <div class="login-title">BWPL MIS Automation</div>
+    <div class="login-sub">Bajrang Wire Products — Daily Report System</div>
+    <button class="login-btn" onclick="signInWithGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+      Sign in with Google
+    </button>
+    <div class="login-err" id="loginErr"></div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="appWrapper">
 
 <!-- HEADER -->
 <div class="header">
@@ -2003,14 +2054,17 @@ function loadDayWiseReport() {
   // Pending orders: only show when a specific date is selected
   let pendingRows = [];
   if (ddmmyyyyFilter) {
-    pendingRows = dispatchData.filter(r =>
-      !r.dispatchDate &&
-      String(r.truckOutTime).toUpperCase() === 'NA' &&
-      r.provisionalDate === ddmmyyyyFilter
-    );
-    console.log('[DEBUG] ddmmyyyyFilter:', ddmmyyyyFilter);
-    console.log('[DEBUG] pendingRows count:', pendingRows.length);
-    console.log('[DEBUG] pendingRows:', pendingRows.map(r => ({party:r.party, prov:r.provisionalDate, truck:r.truckOutTime, dispatch:r.dispatchDate})));
+    pendingRows = dispatchData.filter(r => {
+      if (r.dispatchDate) return false; // already dispatched
+      if (String(r.truckOutTime).toUpperCase() !== 'NA') return false;
+      if (!r.provisionalDate) return false;
+      // Normalize both to dd-mm-yyyy before comparing
+      const prov = String(r.provisionalDate).trim();
+      const target = String(ddmmyyyyFilter).trim();
+      console.log('[PENDING CHECK]', r.party, '| prov:', prov, '| target:', target, '| match:', prov === target);
+      return prov === target;
+    });
+    console.log('[DEBUG] ddmmyyyyFilter:', ddmmyyyyFilter, '| pendingRows:', pendingRows.length, pendingRows.map(r=>r.party));
   }
 
   if (rows.length === 0 && pendingRows.length === 0) {
@@ -2704,5 +2758,66 @@ function showToast(msg, isError) {
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 </script>
+
+<!-- FIREBASE AUTH -->
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBC8edm9G487oNvAieYzbP-MaaFVake32c",
+  authDomain: "bwpl-mis-81b85.firebaseapp.com",
+  projectId: "bwpl-mis-81b85",
+  storageBucket: "bwpl-mis-81b85.firebasestorage.app",
+  messagingSenderId: "709187172366",
+  appId: "1:709187172366:web:aac02e382d4908376c245f",
+  measurementId: "G-8KLLTXY47Y"
+};
+
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const provider = new firebase.auth.GoogleAuthProvider();
+provider.setCustomParameters({ hd: 'bajranggroup.com' });
+
+function signInWithGoogle() {
+  document.getElementById('loginErr').textContent = '';
+  auth.signInWithPopup(provider)
+    .then(result => {
+      const email = result.user.email;
+      if (!email.endsWith('@bajranggroup.com')) {
+        auth.signOut();
+        document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com accounts allowed.';
+      }
+    })
+    .catch(err => {
+      document.getElementById('loginErr').textContent = '❌ ' + (err.message || 'Login failed. Try again.');
+    });
+}
+
+auth.onAuthStateChanged(user => {
+  if (user && user.email.endsWith('@bajranggroup.com')) {
+    // Authorised — show app, hide login
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('appWrapper').style.display = '';
+    // Show user info in header
+    const badge = document.getElementById('todayBadge');
+    if (badge) {
+      badge.insertAdjacentHTML('afterend',
+        `<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+          <img src="${user.photoURL || ''}" style="width:24px;height:24px;border-radius:50%" onerror="this.style.display='none'">
+          <span>${user.displayName || user.email}</span>
+          <button onclick="auth.signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
+        </div>`
+      );
+    }
+  } else {
+    // Not authorised — show login
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('appWrapper').style.display = 'none';
+    if (user) {
+      auth.signOut();
+      document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com accounts allowed.';
+    }
+  }
+});
+</script>
+</div><!-- end appWrapper -->
 </body>
 </html>
