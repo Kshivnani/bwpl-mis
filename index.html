@@ -41,26 +41,27 @@
     border-bottom: 2px solid var(--wire);
     padding: 0 24px;
     display: flex; align-items: center; justify-content: space-between;
-    height: 64px; position: sticky; top:0; z-index:100;
+    height: 64px; position: sticky; top:0; z-index:100; gap:12px;
   }
-  .header-brand { display:flex; align-items:center; gap:12px; }
+  .header-brand { display:flex; align-items:center; gap:12px; flex-shrink:0; }
   .header-brand .logo {
-    width:46px; height:38px; background: #ffffff;
+    width:46px; height:38px; background: #ffffff; flex-shrink:0;
     border-radius: 6px; display:flex; align-items:center; justify-content:center;
     overflow:hidden;
   }
-  .header-brand h1 { font-size:18px; font-weight:700; letter-spacing:0.5px; }
-  .header-brand span { font-size:11px; color:var(--muted); display:block; margin-top:1px; }
-  .header-right { display:flex; align-items:center; gap:16px; }
+  .header-title-wrap { display:flex; flex-direction:column; }
+  .header-brand h1 { font-size:18px; font-weight:700; letter-spacing:0.5px; white-space:nowrap; }
+  .header-sub { font-size:11px; color:var(--muted); display:block; margin-top:1px; white-space:nowrap; }
+  .header-right { display:flex; align-items:center; gap:10px; flex-shrink:0; }
   .date-badge {
     background: rgba(232,160,32,0.15); border:1px solid var(--border);
     border-radius:6px; padding:5px 12px; font-size:13px; color:var(--spark);
-    font-weight:600;
+    font-weight:600; white-space:nowrap;
   }
   .sync-btn {
     background:var(--wire); color:var(--steel); border:none; border-radius:6px;
     padding:7px 16px; font-size:13px; font-weight:700; cursor:pointer;
-    display:flex; align-items:center; gap:6px; transition:all 0.2s;
+    display:flex; align-items:center; gap:6px; transition:all 0.2s; white-space:nowrap;
   }
   .sync-btn:hover { background:var(--spark); transform:translateY(-1px); }
   .sync-btn.loading { opacity:0.7; pointer-events:none; }
@@ -305,23 +306,33 @@
     /* Layout — stack vertically */
     .layout { flex-direction: column; height: auto; overflow: visible; }
 
-    /* Header */
-    .header { padding: 10px 14px; flex-wrap: wrap; gap: 8px; position: sticky; top: 0; z-index: 200; }
-    .header h1 { font-size: 13px; }
-    .header span { font-size: 10px; display:none; }
-    .header-brand .logo { width: 34px; height: 28px; }
+    /* Header — 2 rows on mobile */
+    .header {
+      height: auto; padding: 8px 12px;
+      flex-wrap: wrap; gap: 6px;
+      position: sticky; top: 0; z-index: 200;
+    }
+    .header-brand { gap: 8px; flex: 1; min-width: 0; }
+    .header-brand .logo { width: 32px; height: 26px; flex-shrink: 0; }
+    .header-title-wrap { min-width: 0; }
+    .header-brand h1 { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .header-sub { display: none; }
+    .header-right { gap: 6px; flex-shrink: 0; }
     .date-badge { font-size: 10px; padding: 4px 8px; }
+    .sync-btn { font-size: 11px; padding: 5px 10px; }
+    #userBadge { gap: 5px !important; font-size: 11px !important; }
     #userBadge span { display: none; }
-    #userBadge { gap: 6px !important; }
+    #userBadge img { width: 22px !important; height: 22px !important; }
+    #userBadge button { font-size: 10px !important; padding: 2px 6px !important; }
 
     /* Sidebar — sticky horizontal pill tabs */
     .sidebar {
       width: 100%; height: auto; border-right: none;
       border-bottom: 1px solid var(--border);
       flex-direction: row; overflow-x: auto; overflow-y: hidden;
-      padding: 8px 10px; gap: 6px; display: flex;
+      padding: 6px 10px; gap: 6px; display: flex;
       -webkit-overflow-scrolling: touch;
-      position: sticky; top: 54px; z-index: 100;
+      position: sticky; top: 52px; z-index: 100;
       background: var(--steel); scrollbar-width: none;
     }
     .sidebar::-webkit-scrollbar { display: none; }
@@ -483,14 +494,14 @@
 <div class="header">
   <div class="header-brand">
     <div class="logo"><img src="logo.png" alt="Bajrang" style="width:100%;height:100%;object-fit:contain;padding:4px"></div>
-    <div>
+    <div class="header-title-wrap">
       <h1>BWPL MIS Automation</h1>
-      <span>Bajrang Wire Products — Daily Report System</span>
+      <span class="header-sub">Bajrang Wire Products — Daily Report System</span>
     </div>
   </div>
   <div class="header-right">
-    <button class="sync-btn" onclick="syncFromGoogleSheet()" style="background:var(--wire);color:var(--steel);border:none;border-radius:6px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer">☁ Sync Sheet</button>
     <div class="date-badge" id="todayBadge">📅 Loading...</div>
+    <button class="sync-btn" onclick="syncFromGoogleSheet()">☁ Sync</button>
   </div>
 </div>
 
@@ -3042,13 +3053,16 @@ auth.onAuthStateChanged(user => {
       initApp();
       const badge = document.getElementById('todayBadge');
       if (badge && !document.getElementById('userBadge')) {
-        badge.insertAdjacentHTML('afterend',
-          `<div id="userBadge" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
-            <img src="${user.photoURL||''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
-            <span>${user.displayName||user.email}</span>
-            <button onclick="firebase.auth().signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
-          </div>`
-        );
+        const headerRight = badge.closest('.header-right') || badge.parentElement;
+        const userDiv = document.createElement('div');
+        userDiv.id = 'userBadge';
+        userDiv.style.cssText = 'display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)';
+        userDiv.innerHTML = `
+          <img src="${user.photoURL||''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
+          <span>${user.displayName||user.email}</span>
+          <button onclick="firebase.auth().signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
+        `;
+        headerRight.appendChild(userDiv);
       }
     }, 150);
   } else {
