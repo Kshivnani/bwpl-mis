@@ -445,10 +445,10 @@
 
     <!-- Email/Password Form -->
     <div style="width:100%;margin-bottom:16px">
-      <input type="email" id="loginEmail" placeholder="Email address"
+      <input type="email" id="loginEmail" placeholder="Enter your email"
         style="width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;margin-bottom:10px;box-sizing:border-box;outline:none"
         onkeydown="if(event.key==='Enter')signInWithEmail()">
-      <input type="password" id="loginPassword" placeholder="Password"
+      <input type="password" id="loginPassword" placeholder="Enter your password"
         style="width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;margin-bottom:12px;box-sizing:border-box;outline:none"
         onkeydown="if(event.key==='Enter')signInWithEmail()">
       <button onclick="signInWithEmail()" style="width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;background:var(--wire);color:var(--steel);font-size:15px;font-weight:700">
@@ -2988,7 +2988,7 @@ function signInWithEmail() {
   const errEl = document.getElementById('loginErr');
   errEl.textContent = '';
   if (!email || !password) {
-    errEl.textContent = '❌ Email aur password daalein.';
+    errEl.textContent = '❌ Please enter your email and password.';
     return;
   }
   auth.signInWithEmailAndPassword(email, password)
