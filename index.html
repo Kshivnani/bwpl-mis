@@ -454,6 +454,9 @@
       <button onclick="signInWithEmail()" style="width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;background:var(--wire);color:var(--steel);font-size:15px;font-weight:700">
         Sign In
       </button>
+      <div style="text-align:right;margin-top:8px">
+        <a onclick="forgotPassword()" style="color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Forgot password?</a>
+      </div>
     </div>
 
     <!-- Divider -->
@@ -3062,37 +3065,55 @@ const SHEET_GID = '2128906014';
 
 async function syncFromGoogleSheet() {
   const btn = document.getElementById('syncSheetBtn');
+  const btn2 = document.querySelector('.sync-btn');
   const status = document.getElementById('syncStatus');
 
-  // Agar token nahi hai toh re-login karo
+  const setLoading = (v) => {
+    if (btn) { btn.textContent = v ? '⏳ Syncing...' : '☁ Sync Sheet Now'; btn.disabled = v; }
+    if (btn2) { btn2.textContent = v ? '⏳ Syncing...' : '☁ Sync Sheet'; btn2.disabled = v; }
+  };
+
+  // Agar token nahi hai toh Google re-auth karo
   if (!googleAccessToken) {
-    status.innerHTML = '<span style="color:var(--spark)">⚠️ Please logout and login again to grant Sheets access.</span>';
-    return;
+    try {
+      setLoading(true);
+      const result = await auth.signInWithPopup(provider);
+      googleAccessToken = result.credential.accessToken;
+    } catch(e) {
+      if (status) status.innerHTML = '<span style="color:var(--danger)">❌ Google login required for live sync. Please sign in with Google.</span>';
+      showToast('❌ Google login required for Sheet access', true);
+      setLoading(false);
+      return;
+    }
   }
 
-  btn.textContent = '⏳ Syncing...';
-  btn.disabled = true;
-  status.innerHTML = '<span style="color:var(--muted)">🔄 Google Sheet se data fetch ho raha hai...</span>';
+  setLoading(true);
+  if (status) status.innerHTML = '<span style="color:var(--muted)">🔄 Fetching data from Google Sheet...</span>';
 
   try {
-    // Sheet ka naam pehle fetch karo
     const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
     const metaRes = await fetch(metaUrl, {
       headers: { Authorization: 'Bearer ' + googleAccessToken }
     });
 
+    if (metaRes.status === 401) {
+      googleAccessToken = null;
+      setLoading(false);
+      if (status) status.innerHTML = '<span style="color:var(--spark)">⚠️ Session expired — click Sync again to re-authenticate.</span>';
+      return;
+    }
+
     if (!metaRes.ok) {
       const err = await metaRes.json();
-      throw new Error(err.error?.message || 'Sheet access failed');
+      throw new Error(err.error?.message || 'Sheet access failed — check sheet permissions');
     }
 
     const meta = await metaRes.json();
     const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === SHEET_GID);
     const sheetName = sheetObj ? sheetObj.properties.title : null;
 
-    if (!sheetName) throw new Error('Dispatch sheet (GID: ' + SHEET_GID + ') nahi mili');
+    if (!sheetName) throw new Error('Dispatch sheet (GID: ' + SHEET_GID + ') not found');
 
-    // Data fetch karo
     const range = encodeURIComponent(sheetName + '!A1:BQ2000');
     const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`;
     const dataRes = await fetch(dataUrl, {
@@ -3107,25 +3128,20 @@ async function syncFromGoogleSheet() {
     const json = await dataRes.json();
     const rows = json.values || [];
 
-    if (rows.length < 7) throw new Error('Sheet mein data nahi mila (rows < 7)');
+    if (rows.length < 7) throw new Error('No data found in sheet (rows < 7)');
 
     parseDispatchRows(rows);
 
     const now = new Date().toLocaleTimeString('en-IN');
-    status.innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows synced from Google Sheet — ${now}</span>`;
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows synced from Google Sheet — ${now}</span>`;
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ Live sync: ${dispatchData.length} rows. Last sync: ${now}</span>`;
     showToast('✅ Google Sheet synced! ' + dispatchData.length + ' rows loaded');
 
-    // Dashboard pe jao
-    showPage('dashboard', document.querySelector('.sidebar-item'));
-
-  } catch (err) {
-    status.innerHTML = `<span style="color:var(--danger)">❌ Error: ${err.message}</span>`;
-    showToast('❌ Sync failed: ' + err.message, true);
-  } finally {
-    btn.textContent = '☁ Sync Sheet Now';
-    btn.disabled = false;
+  } catch(e) {
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+    showToast('❌ ' + e.message, true);
   }
+  setLoading(false);
 }
 </script>
 </body>
