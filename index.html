@@ -442,10 +442,33 @@
     </div>
     <div class="login-title">BWPL MIS Automation</div>
     <div class="login-sub">Bajrang Wire Products — Daily Report System</div>
+
+    <!-- Email/Password Form -->
+    <div style="width:100%;margin-bottom:16px">
+      <input type="email" id="loginEmail" placeholder="Email address"
+        style="width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;margin-bottom:10px;box-sizing:border-box;outline:none"
+        onkeydown="if(event.key==='Enter')signInWithEmail()">
+      <input type="password" id="loginPassword" placeholder="Password"
+        style="width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;margin-bottom:12px;box-sizing:border-box;outline:none"
+        onkeydown="if(event.key==='Enter')signInWithEmail()">
+      <button onclick="signInWithEmail()" style="width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;background:var(--wire);color:var(--steel);font-size:15px;font-weight:700">
+        Sign In
+      </button>
+    </div>
+
+    <!-- Divider -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;width:100%">
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+      <span style="color:var(--muted);font-size:12px">or</span>
+      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+    </div>
+
+    <!-- Google Login -->
     <button class="login-btn" onclick="signInWithGoogle()">
       <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
       Sign in with Google
     </button>
+
     <div class="login-err" id="loginErr"></div>
   </div>
 </div>
@@ -2959,6 +2982,29 @@ provider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
 // Google OAuth access token store karne ke liye
 let googleAccessToken = null;
 
+function signInWithEmail() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+  if (!email || !password) {
+    errEl.textContent = '❌ Email aur password daalein.';
+    return;
+  }
+  auth.signInWithEmailAndPassword(email, password)
+    .catch(err => {
+      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
+        errEl.textContent = '❌ Galat email ya password.';
+      } else if (err.code === 'auth/invalid-email') {
+        errEl.textContent = '❌ Invalid email format.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errEl.textContent = '❌ Bahut zyada attempts. Thodi der baad try karein.';
+      } else {
+        errEl.textContent = '❌ ' + (err.message || 'Login failed.');
+      }
+    });
+}
+
 function signInWithGoogle() {
   document.getElementById('loginErr').textContent = '';
   auth.signInWithPopup(provider)
@@ -2978,7 +3024,15 @@ function signInWithGoogle() {
 }
 
 auth.onAuthStateChanged(user => {
-  if (user && user.email.endsWith('@bajranggroup.com')) {
+  if (user) {
+    // Google login: check domain
+    const isGoogle = user.providerData.some(p => p.providerId === 'google.com');
+    if (isGoogle && !user.email.endsWith('@bajranggroup.com')) {
+      auth.signOut();
+      document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com Google accounts allowed.';
+      return;
+    }
+    // Authorised — show app
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appWrapper').style.display = 'block';
     setTimeout(() => {
@@ -2999,10 +3053,6 @@ auth.onAuthStateChanged(user => {
     document.getElementById('appWrapper').style.display = 'none';
     appInitialized = false;
     googleAccessToken = null;
-    if (user) {
-      auth.signOut();
-      document.getElementById('loginErr').textContent = '❌ Access denied. Only @bajranggroup.com accounts allowed.';
-    }
   }
 });
 
