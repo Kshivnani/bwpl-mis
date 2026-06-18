@@ -586,6 +586,10 @@
         <span class="dot dot-monthly"></span> Day-wise Sales Report
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
+      <div class="sidebar-item" onclick="showPage('wirerod', this)">
+        <span class="dot dot-monthly"></span> Wire Rod Report
+        <span class="freq-tag freq-monthly">Monthly</span>
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -1310,6 +1314,80 @@
               </tr>
             </thead>
             <tbody id="dwBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- WIRE ROD REPORT -->
+    <div class="page" id="page-wirerod">
+      <div class="dash-banner">
+        <div>
+          <div class="dash-banner-title">Wire Rod Purchase Report</div>
+          <div class="dash-banner-sub" id="wrBannerSub">Grade-wise & Size-wise incoming Wire Rod summary</div>
+        </div>
+        <div class="dash-banner-actions">
+          <select id="wrMonth" style="width:130px">
+            <option value="Jun-2026">Jun 2026</option>
+            <option value="May-2026">May 2026</option>
+            <option value="Apr-2026">Apr 2026</option>
+          </select>
+          <button class="btn btn-secondary" onclick="loadWireRodReport()">⟳ Compute</button>
+          <button class="btn btn-primary" onclick="syncWireRodSheet()">☁ Sync WR Sheet</button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="overview-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat-card" style="--accent-color:var(--wire)">
+          <div class="label">Total Qty (MT)</div>
+          <div class="value" id="wrTotalQty">—</div>
+          <div class="sub">Total Wire Rod received</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--success)">
+          <div class="label">Total Value (₹)</div>
+          <div class="value" id="wrTotalVal">—</div>
+          <div class="sub">Basic amount</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--info)">
+          <div class="label">Avg. Landing Rate</div>
+          <div class="value" id="wrAvgRate">—</div>
+          <div class="sub">₹/MT (landed)</div>
+        </div>
+      </div>
+
+      <!-- Grade-wise Chart + Table -->
+      <div class="overview-grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px">
+        <div class="report-panel">
+          <div class="report-header"><div><h2>Grade-wise Qty (MT)</h2><div class="meta">Bar chart</div></div></div>
+          <div class="section-pad" style="height:280px"><canvas id="chartWrGrade"></canvas></div>
+        </div>
+        <div class="report-panel">
+          <div class="report-header"><div><h2>Grade Share</h2><div class="meta">By quantity</div></div></div>
+          <div class="section-pad" style="height:280px"><canvas id="chartWrPie"></canvas></div>
+        </div>
+      </div>
+
+      <!-- Detailed Table -->
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2>Grade × Size × Supplier Breakup</h2><div class="meta" id="wrTableMeta">—</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Grade</th><th>Size</th><th>Supplier</th>
+                <th class="td-num">Qty (MT)</th>
+                <th class="td-num">Basic Value (₹)</th>
+                <th class="td-num">Freight (₹)</th>
+                <th class="td-num">Landed Value (₹)</th>
+                <th class="td-num">Landed Rate (₹/MT)</th>
+              </tr>
+            </thead>
+            <tbody id="wrBody">
+              <tr><td colspan="8" class="empty-state">Click "⟳ Compute" to load data</td></tr>
+            </tbody>
           </table>
         </div>
       </div>
@@ -2953,7 +3031,194 @@ function clearHistory() {
   }
 }
 
-// ─── UTILS ────────────────────────────────────────────────
+// ─── WIRE ROD REPORT ──────────────────────────────────────
+const WR_SHEET_ID = '1mKFpEmI7SPW55LE_JTu4Qvh45HxMpFedPxq8AsZ_Blg';
+const WR_SHEET_GID = '1172190452'; // WR Rod Data
+let wrData = []; // parsed rows
+
+async function syncWireRodSheet() {
+  const btn = document.querySelector('[onclick="syncWireRodSheet()"]');
+  if (btn) { btn.textContent = '⏳ Syncing...'; btn.disabled = true; }
+  let token = window._gToken || googleAccessToken;
+  if (!token) {
+    try {
+      const result = await auth.signInWithPopup(provider);
+      token = result.credential.accessToken;
+      window._gToken = token;
+      googleAccessToken = token;
+    } catch(e) {
+      showToast('❌ Google login required for WR Sheet access', true);
+      if (btn) { btn.textContent = '☁ Sync WR Sheet'; btn.disabled = false; }
+      return;
+    }
+  }
+  try {
+    const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${WR_SHEET_ID}?fields=sheets.properties`;
+    const metaRes = await fetch(metaUrl, { headers: { Authorization: 'Bearer ' + token } });
+    if (metaRes.status === 401) {
+      window._gToken = null; googleAccessToken = null;
+      showToast('❌ Session expired — click Sync again', true);
+      if (btn) { btn.textContent = '☁ Sync WR Sheet'; btn.disabled = false; }
+      return;
+    }
+    if (!metaRes.ok) throw new Error('WR Sheet access failed — check permissions');
+    const meta = await metaRes.json();
+    const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === WR_SHEET_GID);
+    const sheetName = sheetObj ? sheetObj.properties.title : 'WR Rod Data';
+    const range = encodeURIComponent(sheetName + '!A1:AF2500');
+    const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${WR_SHEET_ID}/values/${range}`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!dataRes.ok) throw new Error('WR data fetch failed');
+    const json = await dataRes.json();
+    parseWRData(json.values || []);
+    showToast('✅ Wire Rod data synced — ' + wrData.length + ' rows');
+  } catch(e) {
+    showToast('❌ ' + e.message, true);
+  }
+  if (btn) { btn.textContent = '☁ Sync WR Sheet'; btn.disabled = false; }
+}
+
+function parseWRData(rows) {
+  // Header row 3 (index 2): S.NO,Date,Party,Po No.,Invoice No,Grade,Size,Qty,Amount,B.RATE,Order for,...,Received Qty,...,Discount,...,Total Freight IN,...,B Amount,Month,...
+  wrData = [];
+  for (let i = 3; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[0]) continue;
+    const safe = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    wrData.push({
+      sno: r[0], date: r[1], party: (r[2]||'').trim(),
+      grade: (r[5]||'Other').trim(), size: (r[6]||'-').trim(),
+      qty: safe(r[7]), amount: safe(r[8]), bRate: safe(r[9]),
+      discount: safe(r[13]), freight: safe(r[19]),
+      bAmount: safe(r[24]), month: (r[25]||'').trim()
+    });
+  }
+  loadWireRodReport();
+}
+
+function loadWireRodReport() {
+  const mv = document.getElementById('wrMonth').value;
+  const rows = wrData.filter(r => r.month === mv);
+
+  if (rows.length === 0) {
+    document.getElementById('wrBody').innerHTML = '<tr><td colspan="8" class="empty-state">No data — please sync WR Sheet first</td></tr>';
+    return;
+  }
+
+  // Grade × Size × Party grouping
+  const map = {};
+  rows.forEach(r => {
+    const key = r.grade + '|||' + r.size + '|||' + r.party;
+    if (!map[key]) map[key] = {grade:r.grade, size:r.size, party:r.party, qty:0, amount:0, freight:0, bAmount:0};
+    map[key].qty += r.qty;
+    map[key].amount += r.amount;
+    map[key].freight += r.freight;
+    map[key].bAmount += r.bAmount;
+  });
+
+  const entries = Object.values(map).sort((a,b) => {
+    if (a.grade !== b.grade) return a.grade.localeCompare(b.grade);
+    if (a.size !== b.size) return a.size.localeCompare(b.size);
+    return b.qty - a.qty;
+  });
+
+  // Grade totals for KPI
+  const totalQty = rows.reduce((s,r) => s+r.qty, 0);
+  const totalAmt = rows.reduce((s,r) => s+r.bAmount, 0);
+  const totalFreight = rows.reduce((s,r) => s+r.freight, 0);
+  const landedTotal = totalAmt + totalFreight;
+  const avgLanded = totalQty > 0 ? landedTotal / totalQty : 0;
+
+  document.getElementById('wrTotalQty').textContent = totalQty.toFixed(2);
+  document.getElementById('wrTotalVal').textContent = '₹' + fmtL(totalAmt);
+  document.getElementById('wrAvgRate').textContent = '₹' + Math.round(avgLanded).toLocaleString('en-IN');
+  document.getElementById('wrBannerSub').textContent = mv + ' — ' + rows.length + ' receipts, ' + entries.length + ' combinations';
+  document.getElementById('wrTableMeta').textContent = mv + ' — ' + entries.length + ' Grade × Size × Supplier combinations';
+
+  // Grade-wise for charts
+  const gradeMap = {};
+  rows.forEach(r => {
+    if (!gradeMap[r.grade]) gradeMap[r.grade] = 0;
+    gradeMap[r.grade] += r.qty;
+  });
+  const gradeEntries = Object.entries(gradeMap).sort((a,b) => b[1]-a[1]);
+
+  // Charts
+  destroyChart('chartWrGrade');
+  destroyChart('chartWrPie');
+  const ctxG = document.getElementById('chartWrGrade').getContext('2d');
+  chartInstances.chartWrGrade = new Chart(ctxG, {
+    type:'bar',
+    data: { labels: gradeEntries.map(e=>e[0]), datasets:[{ label:'Qty (MT)', data: gradeEntries.map(e=>+e[1].toFixed(2)), backgroundColor: gradeEntries.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ticks:{color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'}}, y:{ticks:{color:'#8fa3be', font:{size:10}}, grid:{display:false}} }, plugins:{legend:{display:false}} }
+  });
+  const ctxP = document.getElementById('chartWrPie').getContext('2d');
+  chartInstances.chartWrPie = new Chart(ctxP, {
+    type:'doughnut',
+    data: { labels: gradeEntries.map(e=>e[0]), datasets:[{ data: gradeEntries.map(e=>+e[1].toFixed(2)), backgroundColor: gradeEntries.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderColor:'#1a2332', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } } }
+  });
+
+  // Table — with grade subtotals
+  let lastGrade = null; let gradeQty=0, gradeAmt=0, gradeFr=0, gradeLanded=0;
+  let html = '';
+  entries.forEach((e,i) => {
+    const landed = e.bAmount + e.freight;
+    const landedRate = e.qty > 0 ? landed/e.qty : 0;
+    // New grade header
+    if (e.grade !== lastGrade) {
+      if (lastGrade !== null) {
+        html += `<tr style="background:rgba(232,160,32,0.1);font-weight:700">
+          <td colspan="3" style="color:var(--wire)">↳ ${lastGrade} Sub-total</td>
+          <td class="td-num">${gradeQty.toFixed(2)}</td>
+          <td class="td-num">₹${fmtN(gradeAmt)}</td>
+          <td class="td-num">₹${fmtN(gradeFr)}</td>
+          <td class="td-num">₹${fmtN(gradeLanded)}</td>
+          <td class="td-num">${gradeQty>0 ? '₹'+Math.round(gradeLanded/gradeQty).toLocaleString('en-IN') : '—'}</td>
+        </tr>`;
+      }
+      html += `<tr style="background:rgba(52,152,219,0.12)">
+        <td colspan="8" style="font-weight:800;color:var(--info);font-size:12px;letter-spacing:0.5px">▪ ${e.grade}</td>
+      </tr>`;
+      lastGrade = e.grade; gradeQty=0; gradeAmt=0; gradeFr=0; gradeLanded=0;
+    }
+    gradeQty+=e.qty; gradeAmt+=e.bAmount; gradeFr+=e.freight; gradeLanded+=landed;
+    html += `<tr>
+      <td style="color:var(--muted);font-size:11px">${e.grade}</td>
+      <td>${e.size}</td>
+      <td>${e.party}</td>
+      <td class="td-num">${e.qty.toFixed(2)}</td>
+      <td class="td-num">₹${fmtN(e.bAmount)}</td>
+      <td class="td-num">₹${fmtN(e.freight)}</td>
+      <td class="td-num">₹${fmtN(landed)}</td>
+      <td class="td-num">${e.qty>0 ? '₹'+Math.round(landedRate).toLocaleString('en-IN') : '—'}</td>
+    </tr>`;
+  });
+  // Last grade subtotal
+  if (lastGrade) {
+    html += `<tr style="background:rgba(232,160,32,0.1);font-weight:700">
+      <td colspan="3" style="color:var(--wire)">↳ ${lastGrade} Sub-total</td>
+      <td class="td-num">${gradeQty.toFixed(2)}</td>
+      <td class="td-num">₹${fmtN(gradeAmt)}</td>
+      <td class="td-num">₹${fmtN(gradeFr)}</td>
+      <td class="td-num">₹${fmtN(gradeQty>0?gradeAmt+gradeFr:0)}</td>
+      <td class="td-num">${gradeQty>0?'₹'+Math.round((gradeAmt+gradeFr)/gradeQty).toLocaleString('en-IN'):'—'}</td>
+    </tr>`;
+  }
+  // Grand total
+  html += `<tr class="summary-row">
+    <td colspan="3"><strong>GRAND TOTAL</strong></td>
+    <td class="td-num"><strong>${totalQty.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(totalAmt)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(totalFreight)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(landedTotal)}</strong></td>
+    <td class="td-num"><strong>₹${Math.round(avgLanded).toLocaleString('en-IN')}</strong></td>
+  </tr>`;
+  document.getElementById('wrBody').innerHTML = html;
+}
+
+
 function fmtN(n) {
   return Math.round(n).toLocaleString('en-IN');
 }
@@ -2990,7 +3255,7 @@ const firebaseConfig = {
 // All other logged-in users = admin (see everything)
 // Page IDs match: page-dashboard, page-sales, page-collection, etc.
 const USER_PERMISSIONS = {
-  'arun@bajranggroup.com': ['dashboard','collection','top10vol','financials'],
+  'arun@bajranggroup.com': ['dashboard','collection','top10vol','financials','wirerod'],
 };
 
 // All page IDs in the app
@@ -2999,7 +3264,7 @@ const ALL_PAGES = [
   'productivity','vehicle','travel','pricelist',
   'top10vol','top10val','bot10vol','bot10val',
   'complaints','financials','manufacturing','salesperson','daywise',
-  'history','setup'
+  'wirerod','history','setup'
 ];
 
 // Sidebar item label → page ID mapping
@@ -3013,6 +3278,7 @@ const SIDEBAR_PAGE_MAP = {
   'bottom 10 by value':'bot10val', 'customer complaints':'complaints',
   'financials':'financials', 'manufacturing & sales':'manufacturing',
   'sales person report':'salesperson', 'day-wise sales report':'daywise',
+  'wire rod report':'wirerod',
   'history':'history', 'setup':'setup'
 };
 
