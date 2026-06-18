@@ -1349,7 +1349,7 @@
             <div>
               <h4>⭐ Live Sync — Google Sheet (Recommended)</h4>
               <p>
-                Deploy the Google Apps Script once, then simply click the <strong style="color:var(--wire)">☁ Sync Sheet</strong> button to synchronize your data automatically no manual downloads or uploads required<br><br>
+                Ek baar Google Apps Script deploy karein, phir sirf <strong style="color:var(--wire)">☁ Sync Sheet</strong> button dabayein — koi manual download/upload nahi.<br><br>
                 <strong>Step 1:</strong> Apni Google Sheet kholein → <code>Extensions → Apps Script</code><br>
                 <strong>Step 2:</strong> Neeche diya hua code paste karein aur <code>Deploy → New deployment → Web app</code> karein<br>
                 &nbsp;&nbsp;&nbsp;— Execute as: <strong>Me</strong> &nbsp;|&nbsp; Who has access: <strong>Anyone</strong><br>
@@ -2985,6 +2985,80 @@ const firebaseConfig = {
   measurementId: "G-8KLLTXY47Y"
 };
 
+// ─── PERMISSION CONFIG ────────────────────────────────────
+// Pages each restricted email can access
+// All other logged-in users = admin (see everything)
+// Page IDs match: page-dashboard, page-sales, page-collection, etc.
+const USER_PERMISSIONS = {
+  'arun@bajranggroup.com': ['dashboard','collection','top10vol','financials'],
+};
+
+// All page IDs in the app
+const ALL_PAGES = [
+  'dashboard','analytics','sales','collection','compliance',
+  'productivity','vehicle','travel','pricelist',
+  'top10vol','top10val','bot10vol','bot10val',
+  'complaints','financials','manufacturing','salesperson','daywise',
+  'history','setup'
+];
+
+// Sidebar item label → page ID mapping
+const SIDEBAR_PAGE_MAP = {
+  'dashboard':'dashboard', 'analytics (charts)':'analytics',
+  'daily sales register':'sales', 'daily collection report':'collection',
+  'sales compliance':'compliance', 'productivity report':'productivity',
+  'vehicle placement failure':'vehicle', 'official travel report':'travel',
+  'price list compliance':'pricelist', 'top 10 by volume':'top10vol',
+  'top 10 by value':'top10val', 'bottom 10 by volume':'bot10vol',
+  'bottom 10 by value':'bot10val', 'customer complaints':'complaints',
+  'financials':'financials', 'manufacturing & sales':'manufacturing',
+  'sales person report':'salesperson', 'day-wise sales report':'daywise',
+  'history':'history', 'setup':'setup'
+};
+
+let currentUserEmail = null;
+
+function applyPermissions(email) {
+  currentUserEmail = email;
+  const allowed = USER_PERMISSIONS[email.toLowerCase()];
+  if (!allowed) return; // Admin — show everything
+
+  // Hide restricted sidebar items
+  document.querySelectorAll('.sidebar-item').forEach(item => {
+    const label = item.textContent.trim().toLowerCase()
+      .replace(/\s+/g,' ')
+      .replace(/daily\s*/,'daily ')
+      .split('  ')[0].trim();
+    // Find page ID for this sidebar item
+    let pageId = null;
+    for (const [key, val] of Object.entries(SIDEBAR_PAGE_MAP)) {
+      if (label.includes(key)) { pageId = val; break; }
+    }
+    if (pageId && !allowed.includes(pageId)) {
+      item.style.display = 'none';
+    }
+  });
+
+  // If user tries to navigate to restricted page, redirect to dashboard
+  const origShowPage = window.showPage;
+  window.showPage = function(name, el) {
+    const restrictedUser = USER_PERMISSIONS[currentUserEmail?.toLowerCase()];
+    if (restrictedUser && !restrictedUser.includes(name)) {
+      showToast('⚠️ You do not have access to this page.', true);
+      origShowPage('dashboard', document.querySelector('.sidebar-item'));
+      return;
+    }
+    origShowPage(name, el);
+  };
+
+  // Hide Setup page link & Sync button for restricted users
+  if (!allowed.includes('setup')) {
+    document.querySelectorAll('.sidebar-item').forEach(item => {
+      if (item.textContent.toLowerCase().includes('setup')) item.style.display = 'none';
+    });
+  }
+}
+
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const provider = new firebase.auth.GoogleAuthProvider();
@@ -3008,11 +3082,11 @@ function signInWithEmail() {
   auth.signInWithEmailAndPassword(email, password)
     .catch(err => {
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential') {
-        errEl.textContent = '❌ Enter Correct Email & Password';
+        errEl.textContent = '❌ Galat email ya password.';
       } else if (err.code === 'auth/invalid-email') {
         errEl.textContent = '❌ Invalid email format.';
       } else if (err.code === 'auth/too-many-requests') {
-        errEl.textContent = '❌ Too many Attempts. Try again Later';
+        errEl.textContent = '❌ Bahut zyada attempts. Thodi der baad try karein.';
       } else {
         errEl.textContent = '❌ ' + (err.message || 'Login failed.');
       }
@@ -3051,6 +3125,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('appWrapper').style.display = 'block';
     setTimeout(() => {
       initApp();
+      applyPermissions(user.email);
       const badge = document.getElementById('todayBadge');
       if (badge && !document.getElementById('userBadge')) {
         const headerRight = badge.closest('.header-right') || badge.parentElement;
