@@ -3177,22 +3177,20 @@ function loadWireRodReport() {
     return;
   }
 
-  // Grade × Size × Supplier grouping
-  const map = {};
-  rows.forEach(r => {
-    const key = r.grade + '|||' + r.size + '|||' + r.party;
-    if (!map[key]) map[key] = {grade:r.grade, size:r.size, party:r.party, qty:0, actualValue:0, freight:0, discount:0, landedValue:0};
-    map[key].qty += r.qty;
-    map[key].actualValue += r.actualValue;
-    map[key].freight += r.freight;
-    map[key].discount += r.discount;
-    map[key].landedValue += r.landedValue;
-  });
-
-  wrEntries = Object.values(map).map(e => ({
-    ...e,
-    baseValue: e.qty > 0 ? e.actualValue / e.qty : 0,
-    landedAvgPrice: e.qty > 0 ? e.landedValue / e.qty : 0
+  // Show every individual receipt row as-is — no grouping/merging.
+  // Grouping by Grade+Size+Party was averaging together rows that have a
+  // blank B.RATE with rows that have a real rate, which skewed the displayed
+  // Base Value. Each row must show exactly what's in the sheet.
+  wrEntries = rows.map(r => ({
+    grade: r.grade, size: r.size, party: r.party,
+    qty: r.qty,
+    // baseValue is only meaningful if the sheet actually had a B.RATE for this row.
+    baseValue: r.baseValue > 0 ? r.baseValue : null,
+    actualValue: r.actualValue,
+    freight: r.freight,
+    discount: r.discount,
+    landedValue: r.landedValue,
+    landedAvgPrice: r.qty > 0 ? r.landedValue / r.qty : null
   })).sort((a,b) => {
     if (a.grade !== b.grade) return a.grade.localeCompare(b.grade);
     if (a.size !== b.size) return a.size.localeCompare(b.size);
@@ -3306,7 +3304,7 @@ function renderWrTable() {
       <td><span ${sClick(e.size)}>▼ ${e.size}</span></td>
       <td>${e.party}</td>
       <td class="td-num">${e.qty.toFixed(2)}</td>
-      <td class="td-num">₹${Math.round(e.baseValue).toLocaleString('en-IN')}</td>
+      <td class="td-num">${e.baseValue != null ? '₹' + Math.round(e.baseValue).toLocaleString('en-IN') : '—'}</td>
       <td class="td-num">₹${fmtN(e.actualValue)}</td>
       <td class="td-num">₹${fmtN(e.freight)}</td>
       <td class="td-num">₹${fmtN(e.discount)}</td>
