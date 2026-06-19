@@ -3136,7 +3136,7 @@ function parseWRData(rows) {
   wrData = [];
   for (let i = 3; i < rows.length; i++) {
     const r = rows[i];
-    if (!r[0]) continue;
+    if (!r[1]) continue; // require a Date — S.No (col A) can be blank on some rows but Date is always filled
     const safe = (v) => {
       if (typeof v === 'number') return v;
       if (v === null || v === undefined || v === '') return 0;
