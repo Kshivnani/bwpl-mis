@@ -1350,9 +1350,9 @@
           <div class="sub">Basic amount</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--info)">
-          <div class="label">Avg. Landing Rate</div>
+          <div class="label">Landed Avg. Price</div>
           <div class="value" id="wrAvgRate">—</div>
-          <div class="sub">₹/MT (landed)</div>
+          <div class="sub">₹/MT (Landed Value ÷ Qty)</div>
         </div>
       </div>
 
@@ -1372,21 +1372,39 @@
       <div class="report-panel">
         <div class="report-header">
           <div><h2>Grade × Size × Supplier Breakup</h2><div class="meta" id="wrTableMeta">—</div></div>
+          <div class="report-actions">
+            <div class="form-group" style="min-width:140px">
+              <label style="font-size:11px;color:var(--muted)">Filter by Grade</label>
+              <select id="wrFilterGrade" onchange="renderWrTable()" style="width:100%">
+                <option value="">All Grades</option>
+              </select>
+            </div>
+            <div class="form-group" style="min-width:120px">
+              <label style="font-size:11px;color:var(--muted)">Filter by Size</label>
+              <select id="wrFilterSize" onchange="renderWrTable()" style="width:100%">
+                <option value="">All Sizes</option>
+              </select>
+            </div>
+            <button class="btn btn-secondary" onclick="clearWrFilters()" style="margin-top:18px">✕ Clear</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Grade</th><th>Size</th><th>Supplier</th>
+                <th>Grade <span style="font-size:10px;color:var(--muted)">(click to filter)</span></th>
+                <th>Size <span style="font-size:10px;color:var(--muted)">(click to filter)</span></th>
+                <th>Supplier</th>
                 <th class="td-num">Qty (MT)</th>
-                <th class="td-num">Basic Value (₹)</th>
+                <th class="td-num">Base Value (₹/MT)</th>
+                <th class="td-num">Actual Value (₹)</th>
                 <th class="td-num">Freight (₹)</th>
+                <th class="td-num">Discount (₹)</th>
                 <th class="td-num">Landed Value (₹)</th>
-                <th class="td-num">Landed Rate (₹/MT)</th>
               </tr>
             </thead>
             <tbody id="wrBody">
-              <tr><td colspan="8" class="empty-state">Click "⟳ Compute" to load data</td></tr>
+              <tr><td colspan="9" class="empty-state">Click "⟳ Compute" to load data</td></tr>
             </tbody>
           </table>
         </div>
@@ -3080,140 +3098,192 @@ async function syncWireRodSheet() {
 }
 
 function parseWRData(rows) {
-  // Header row 3 (index 2): S.NO,Date,Party,Po No.,Invoice No,Grade,Size,Qty,Amount,B.RATE,Order for,...,Received Qty,...,Discount,...,Total Freight IN,...,B Amount,Month,...
+  // Header row 3 (index 2): S.NO,Date,Party,Po No.,Invoice No,Grade,Size,Qty,Amount,B.RATE,Order for,...,Discount,...,Total Freight IN,...,B Amount,Month,...
   wrData = [];
   for (let i = 3; i < rows.length; i++) {
     const r = rows[i];
     if (!r[0]) continue;
     const safe = (v) => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+    const qty = safe(r[7]);
+    const baseValue = safe(r[9]);          // B.RATE = base price per MT
+    const actualValue = qty * baseValue;    // Step 2: Actual Value = Qty × Base Value
+    const freight = safe(r[19]);            // Total Freight IN — as-is
+    const discount = safe(r[13]);           // Discount — as-is
+    const landedValue = actualValue + freight - discount; // Landed = Actual + Freight - Discount
+    const landedAvgPrice = qty > 0 ? landedValue / qty : 0; // Landed Avg = Landed / Qty
     wrData.push({
       sno: r[0], date: r[1], party: (r[2]||'').trim(),
       grade: (r[5]||'Other').trim(), size: (r[6]||'-').trim(),
-      qty: safe(r[7]), amount: safe(r[8]), bRate: safe(r[9]),
-      discount: safe(r[13]), freight: safe(r[19]),
-      bAmount: safe(r[24]), month: (r[25]||'').trim()
+      qty, baseValue, actualValue, freight, discount, landedValue, landedAvgPrice,
+      month: (r[25]||'').trim()
     });
   }
   loadWireRodReport();
 }
+
+let wrEntries = []; // computed entries cached for filtering
 
 function loadWireRodReport() {
   const mv = document.getElementById('wrMonth').value;
   const rows = wrData.filter(r => r.month === mv);
 
   if (rows.length === 0) {
-    document.getElementById('wrBody').innerHTML = '<tr><td colspan="8" class="empty-state">No data — please sync WR Sheet first</td></tr>';
+    document.getElementById('wrBody').innerHTML = '<tr><td colspan="9" class="empty-state">No data — please sync WR Sheet first</td></tr>';
     return;
   }
 
-  // Grade × Size × Party grouping
+  // Grade × Size × Supplier grouping
   const map = {};
   rows.forEach(r => {
     const key = r.grade + '|||' + r.size + '|||' + r.party;
-    if (!map[key]) map[key] = {grade:r.grade, size:r.size, party:r.party, qty:0, amount:0, freight:0, bAmount:0};
+    if (!map[key]) map[key] = {grade:r.grade, size:r.size, party:r.party, qty:0, actualValue:0, freight:0, discount:0, landedValue:0};
     map[key].qty += r.qty;
-    map[key].amount += r.amount;
+    map[key].actualValue += r.actualValue;
     map[key].freight += r.freight;
-    map[key].bAmount += r.bAmount;
+    map[key].discount += r.discount;
+    map[key].landedValue += r.landedValue;
   });
 
-  const entries = Object.values(map).sort((a,b) => {
+  wrEntries = Object.values(map).map(e => ({
+    ...e,
+    baseValue: e.qty > 0 ? e.actualValue / e.qty : 0,
+    landedAvgPrice: e.qty > 0 ? e.landedValue / e.qty : 0
+  })).sort((a,b) => {
     if (a.grade !== b.grade) return a.grade.localeCompare(b.grade);
     if (a.size !== b.size) return a.size.localeCompare(b.size);
     return b.qty - a.qty;
   });
 
-  // Grade totals for KPI
+  // Populate filter dropdowns
+  const grades = [...new Set(wrEntries.map(e => e.grade))].sort();
+  const sizes = [...new Set(wrEntries.map(e => e.size))].sort();
+  const gradeSelect = document.getElementById('wrFilterGrade');
+  const sizeSelect = document.getElementById('wrFilterSize');
+  const curGrade = gradeSelect ? gradeSelect.value : '';
+  const curSize = sizeSelect ? sizeSelect.value : '';
+  if (gradeSelect) gradeSelect.innerHTML = '<option value="">All Grades</option>' + grades.map(g => `<option value="${g}" ${g===curGrade?'selected':''}>${g}</option>`).join('');
+  if (sizeSelect) sizeSelect.innerHTML = '<option value="">All Sizes</option>' + sizes.map(s => `<option value="${s}" ${s===curSize?'selected':''}>${s}</option>`).join('');
+
+  // KPI — all rows for the month (unfiltered)
   const totalQty = rows.reduce((s,r) => s+r.qty, 0);
-  const totalAmt = rows.reduce((s,r) => s+r.bAmount, 0);
+  const totalActual = rows.reduce((s,r) => s+r.actualValue, 0);
   const totalFreight = rows.reduce((s,r) => s+r.freight, 0);
-  const landedTotal = totalAmt + totalFreight;
-  const avgLanded = totalQty > 0 ? landedTotal / totalQty : 0;
+  const totalDiscount = rows.reduce((s,r) => s+r.discount, 0);
+  const totalLanded = totalActual + totalFreight - totalDiscount;
+  const avgLanded = totalQty > 0 ? totalLanded / totalQty : 0;
 
   document.getElementById('wrTotalQty').textContent = totalQty.toFixed(2);
-  document.getElementById('wrTotalVal').textContent = '₹' + fmtL(totalAmt);
+  document.getElementById('wrTotalVal').textContent = '₹' + fmtL(totalActual);
   document.getElementById('wrAvgRate').textContent = '₹' + Math.round(avgLanded).toLocaleString('en-IN');
-  document.getElementById('wrBannerSub').textContent = mv + ' — ' + rows.length + ' receipts, ' + entries.length + ' combinations';
-  document.getElementById('wrTableMeta').textContent = mv + ' — ' + entries.length + ' Grade × Size × Supplier combinations';
+  document.getElementById('wrBannerSub').textContent = mv + ' — ' + rows.length + ' receipts';
 
-  // Grade-wise for charts
+  // Charts — grade-wise qty (clickable to filter)
   const gradeMap = {};
-  rows.forEach(r => {
-    if (!gradeMap[r.grade]) gradeMap[r.grade] = 0;
-    gradeMap[r.grade] += r.qty;
-  });
-  const gradeEntries = Object.entries(gradeMap).sort((a,b) => b[1]-a[1]);
+  rows.forEach(r => { if (!gradeMap[r.grade]) gradeMap[r.grade]=0; gradeMap[r.grade]+=r.qty; });
+  const gradeChartEntries = Object.entries(gradeMap).sort((a,b)=>b[1]-a[1]);
 
-  // Charts
   destroyChart('chartWrGrade');
   destroyChart('chartWrPie');
   const ctxG = document.getElementById('chartWrGrade').getContext('2d');
   chartInstances.chartWrGrade = new Chart(ctxG, {
     type:'bar',
-    data: { labels: gradeEntries.map(e=>e[0]), datasets:[{ label:'Qty (MT)', data: gradeEntries.map(e=>+e[1].toFixed(2)), backgroundColor: gradeEntries.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderRadius:4 }] },
-    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ticks:{color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'}}, y:{ticks:{color:'#8fa3be', font:{size:10}}, grid:{display:false}} }, plugins:{legend:{display:false}} }
+    data:{ labels:gradeChartEntries.map(e=>e[0]), datasets:[{ label:'Qty (MT)', data:gradeChartEntries.map(e=>+e[1].toFixed(2)), backgroundColor:gradeChartEntries.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderRadius:4 }] },
+    options:{ responsive:true, maintainAspectRatio:false, indexAxis:'y',
+      onClick:(evt,els) => { if(els.length){ setWrFilter('grade', gradeChartEntries[els[0].index][0]); } },
+      onHover:(evt,els) => { evt.native.target.style.cursor = els.length ? 'pointer' : 'default'; },
+      scales:{ x:{ticks:{color:'#8fa3be'},grid:{color:'rgba(255,255,255,0.04)'}}, y:{ticks:{color:'#8fa3be',font:{size:10}},grid:{display:false}} }, plugins:{legend:{display:false}} }
   });
   const ctxP = document.getElementById('chartWrPie').getContext('2d');
   chartInstances.chartWrPie = new Chart(ctxP, {
     type:'doughnut',
-    data: { labels: gradeEntries.map(e=>e[0]), datasets:[{ data: gradeEntries.map(e=>+e[1].toFixed(2)), backgroundColor: gradeEntries.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderColor:'#1a2332', borderWidth:2 }] },
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } } }
+    data:{ labels:gradeChartEntries.map(e=>e[0]), datasets:[{ data:gradeChartEntries.map(e=>+e[1].toFixed(2)), backgroundColor:gradeChartEntries.map((_,i)=>CHART_COLORS[i%CHART_COLORS.length]), borderColor:'#1a2332', borderWidth:2 }] },
+    options:{ responsive:true, maintainAspectRatio:false,
+      onClick:(evt,els) => { if(els.length){ setWrFilter('grade', gradeChartEntries[els[0].index][0]); } },
+      plugins:{ legend:{ position:'right', labels:{color:'#f5f7fa',boxWidth:12,font:{size:10}}, onClick:(e,item)=>{ setWrFilter('grade', item.text); } } } }
   });
 
-  // Table — with grade subtotals
-  let lastGrade = null; let gradeQty=0, gradeAmt=0, gradeFr=0, gradeLanded=0;
+  renderWrTable();
+}
+
+function clearWrFilters() {
+  document.getElementById('wrFilterGrade').value = '';
+  document.getElementById('wrFilterSize').value = '';
+  renderWrTable();
+}
+
+function setWrFilter(type, val) {
+  document.getElementById(type === 'grade' ? 'wrFilterGrade' : 'wrFilterSize').value = val;
+  renderWrTable();
+}
+
+function renderWrTable() {
+  const filterGrade = document.getElementById('wrFilterGrade').value;
+  const filterSize = document.getElementById('wrFilterSize').value;
+  const filtered = wrEntries.filter(e =>
+    (!filterGrade || e.grade === filterGrade) &&
+    (!filterSize || e.size === filterSize)
+  );
+  const activeFilters = [filterGrade, filterSize].filter(Boolean);
+  document.getElementById('wrTableMeta').textContent =
+    filtered.length + ' rows' + (activeFilters.length ? ' — filtered: ' + activeFilters.join(', ') : ' (all grades & sizes)');
+
+  if (filtered.length === 0) {
+    document.getElementById('wrBody').innerHTML = '<tr><td colspan="9" class="empty-state">No data for selected filters</td></tr>';
+    return;
+  }
+
+  const gClick = (g) => `onclick="setWrFilter('grade','${g.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--info);text-decoration:underline dotted;font-size:11px" title="Click to filter all ${g}"`;
+  const sClick = (s) => `onclick="setWrFilter('size','${s.replace(/'/g,"\\'")}')" style="cursor:pointer;color:var(--success);text-decoration:underline dotted" title="Click to filter all ${s}"`;
+
+  let lastGrade = null, gQty=0, gActual=0, gFreight=0, gDiscount=0, gLanded=0;
   let html = '';
-  entries.forEach((e,i) => {
-    const landed = e.bAmount + e.freight;
-    const landedRate = e.qty > 0 ? landed/e.qty : 0;
-    // New grade header
+
+  const subtotalRow = (label, qty, actual, freight, discount, landed) => `
+    <tr style="background:rgba(232,160,32,0.08);font-weight:700">
+      <td colspan="3" style="color:var(--wire)">↳ ${label} Sub-total</td>
+      <td class="td-num">${qty.toFixed(2)}</td>
+      <td class="td-num">—</td>
+      <td class="td-num">₹${fmtN(actual)}</td>
+      <td class="td-num">₹${fmtN(freight)}</td>
+      <td class="td-num">₹${fmtN(discount)}</td>
+      <td class="td-num">₹${fmtN(landed)}</td>
+    </tr>`;
+
+  filtered.forEach(e => {
     if (e.grade !== lastGrade) {
-      if (lastGrade !== null) {
-        html += `<tr style="background:rgba(232,160,32,0.1);font-weight:700">
-          <td colspan="3" style="color:var(--wire)">↳ ${lastGrade} Sub-total</td>
-          <td class="td-num">${gradeQty.toFixed(2)}</td>
-          <td class="td-num">₹${fmtN(gradeAmt)}</td>
-          <td class="td-num">₹${fmtN(gradeFr)}</td>
-          <td class="td-num">₹${fmtN(gradeLanded)}</td>
-          <td class="td-num">${gradeQty>0 ? '₹'+Math.round(gradeLanded/gradeQty).toLocaleString('en-IN') : '—'}</td>
-        </tr>`;
-      }
-      html += `<tr style="background:rgba(52,152,219,0.12)">
-        <td colspan="8" style="font-weight:800;color:var(--info);font-size:12px;letter-spacing:0.5px">▪ ${e.grade}</td>
-      </tr>`;
-      lastGrade = e.grade; gradeQty=0; gradeAmt=0; gradeFr=0; gradeLanded=0;
+      if (lastGrade !== null) html += subtotalRow(lastGrade, gQty, gActual, gFreight, gDiscount, gLanded);
+      html += `<tr style="background:rgba(52,152,219,0.1)"><td colspan="9" style="font-weight:800;color:var(--info);font-size:12px;letter-spacing:0.5px">▪ ${e.grade}</td></tr>`;
+      lastGrade=e.grade; gQty=0; gActual=0; gFreight=0; gDiscount=0; gLanded=0;
     }
-    gradeQty+=e.qty; gradeAmt+=e.bAmount; gradeFr+=e.freight; gradeLanded+=landed;
+    gQty+=e.qty; gActual+=e.actualValue; gFreight+=e.freight; gDiscount+=e.discount; gLanded+=e.landedValue;
     html += `<tr>
-      <td style="color:var(--muted);font-size:11px">${e.grade}</td>
-      <td>${e.size}</td>
+      <td><span ${gClick(e.grade)}>▼ ${e.grade}</span></td>
+      <td><span ${sClick(e.size)}>▼ ${e.size}</span></td>
       <td>${e.party}</td>
       <td class="td-num">${e.qty.toFixed(2)}</td>
-      <td class="td-num">₹${fmtN(e.bAmount)}</td>
+      <td class="td-num">₹${Math.round(e.baseValue).toLocaleString('en-IN')}</td>
+      <td class="td-num">₹${fmtN(e.actualValue)}</td>
       <td class="td-num">₹${fmtN(e.freight)}</td>
-      <td class="td-num">₹${fmtN(landed)}</td>
-      <td class="td-num">${e.qty>0 ? '₹'+Math.round(landedRate).toLocaleString('en-IN') : '—'}</td>
+      <td class="td-num">₹${fmtN(e.discount)}</td>
+      <td class="td-num">₹${fmtN(e.landedValue)}</td>
     </tr>`;
   });
-  // Last grade subtotal
-  if (lastGrade) {
-    html += `<tr style="background:rgba(232,160,32,0.1);font-weight:700">
-      <td colspan="3" style="color:var(--wire)">↳ ${lastGrade} Sub-total</td>
-      <td class="td-num">${gradeQty.toFixed(2)}</td>
-      <td class="td-num">₹${fmtN(gradeAmt)}</td>
-      <td class="td-num">₹${fmtN(gradeFr)}</td>
-      <td class="td-num">₹${fmtN(gradeQty>0?gradeAmt+gradeFr:0)}</td>
-      <td class="td-num">${gradeQty>0?'₹'+Math.round((gradeAmt+gradeFr)/gradeQty).toLocaleString('en-IN'):'—'}</td>
-    </tr>`;
-  }
-  // Grand total
+  if (lastGrade) html += subtotalRow(lastGrade, gQty, gActual, gFreight, gDiscount, gLanded);
+
+  const totQty = filtered.reduce((s,e)=>s+e.qty,0);
+  const totActual = filtered.reduce((s,e)=>s+e.actualValue,0);
+  const totFreight = filtered.reduce((s,e)=>s+e.freight,0);
+  const totDiscount = filtered.reduce((s,e)=>s+e.discount,0);
+  const totLanded = filtered.reduce((s,e)=>s+e.landedValue,0);
+
   html += `<tr class="summary-row">
-    <td colspan="3"><strong>GRAND TOTAL</strong></td>
-    <td class="td-num"><strong>${totalQty.toFixed(2)}</strong></td>
-    <td class="td-num"><strong>₹${fmtN(totalAmt)}</strong></td>
-    <td class="td-num"><strong>₹${fmtN(totalFreight)}</strong></td>
-    <td class="td-num"><strong>₹${fmtN(landedTotal)}</strong></td>
-    <td class="td-num"><strong>₹${Math.round(avgLanded).toLocaleString('en-IN')}</strong></td>
+    <td colspan="3"><strong>TOTAL</strong></td>
+    <td class="td-num"><strong>${totQty.toFixed(2)}</strong></td>
+    <td class="td-num">—</td>
+    <td class="td-num"><strong>₹${fmtN(totActual)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(totFreight)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(totDiscount)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(totLanded)}</strong></td>
   </tr>`;
   document.getElementById('wrBody').innerHTML = html;
 }
