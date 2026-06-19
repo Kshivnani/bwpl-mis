@@ -1401,10 +1401,11 @@
                 <th class="td-num">Freight (₹)</th>
                 <th class="td-num">Discount (₹)</th>
                 <th class="td-num">Landed Value (₹)</th>
+                <th class="td-num">Landed Avg. Price (₹/MT)</th>
               </tr>
             </thead>
             <tbody id="wrBody">
-              <tr><td colspan="9" class="empty-state">Click "⟳ Compute" to load data</td></tr>
+              <tr><td colspan="10" class="empty-state">Click "⟳ Compute" to load data</td></tr>
             </tbody>
           </table>
         </div>
@@ -3173,7 +3174,7 @@ function loadWireRodReport() {
   const rows = wrData.filter(r => r.month === mv);
 
   if (rows.length === 0) {
-    document.getElementById('wrBody').innerHTML = '<tr><td colspan="9" class="empty-state">No data — please sync WR Sheet first</td></tr>';
+    document.getElementById('wrBody').innerHTML = '<tr><td colspan="10" class="empty-state">No data — please sync WR Sheet first</td></tr>';
     return;
   }
 
@@ -3271,7 +3272,7 @@ function renderWrTable() {
     filtered.length + ' rows' + (activeFilters.length ? ' — filtered: ' + activeFilters.join(', ') : ' (all grades & sizes)');
 
   if (filtered.length === 0) {
-    document.getElementById('wrBody').innerHTML = '<tr><td colspan="9" class="empty-state">No data for selected filters</td></tr>';
+    document.getElementById('wrBody').innerHTML = '<tr><td colspan="10" class="empty-state">No data for selected filters</td></tr>';
     return;
   }
 
@@ -3290,12 +3291,13 @@ function renderWrTable() {
       <td class="td-num">₹${fmtN(freight)}</td>
       <td class="td-num">₹${fmtN(discount)}</td>
       <td class="td-num">₹${fmtN(landed)}</td>
+      <td class="td-num">${qty > 0 ? '₹' + Math.round(landed/qty).toLocaleString('en-IN') : '—'}</td>
     </tr>`;
 
   filtered.forEach(e => {
     if (e.grade !== lastGrade) {
       if (lastGrade !== null) html += subtotalRow(lastGrade, gQty, gActual, gFreight, gDiscount, gLanded);
-      html += `<tr style="background:rgba(52,152,219,0.1)"><td colspan="9" style="font-weight:800;color:var(--info);font-size:12px;letter-spacing:0.5px">▪ ${e.grade}</td></tr>`;
+      html += `<tr style="background:rgba(52,152,219,0.1)"><td colspan="10" style="font-weight:800;color:var(--info);font-size:12px;letter-spacing:0.5px">▪ ${e.grade}</td></tr>`;
       lastGrade=e.grade; gQty=0; gActual=0; gFreight=0; gDiscount=0; gLanded=0;
     }
     gQty+=e.qty; gActual+=e.actualValue; gFreight+=e.freight; gDiscount+=e.discount; gLanded+=e.landedValue;
@@ -3309,6 +3311,7 @@ function renderWrTable() {
       <td class="td-num">₹${fmtN(e.freight)}</td>
       <td class="td-num">₹${fmtN(e.discount)}</td>
       <td class="td-num">₹${fmtN(e.landedValue)}</td>
+      <td class="td-num">${e.landedAvgPrice != null ? '₹' + Math.round(e.landedAvgPrice).toLocaleString('en-IN') : '—'}</td>
     </tr>`;
   });
   if (lastGrade) html += subtotalRow(lastGrade, gQty, gActual, gFreight, gDiscount, gLanded);
@@ -3327,6 +3330,7 @@ function renderWrTable() {
     <td class="td-num"><strong>₹${fmtN(totFreight)}</strong></td>
     <td class="td-num"><strong>₹${fmtN(totDiscount)}</strong></td>
     <td class="td-num"><strong>₹${fmtN(totLanded)}</strong></td>
+    <td class="td-num"><strong>${totQty > 0 ? '₹' + Math.round(totLanded/totQty).toLocaleString('en-IN') : '—'}</strong></td>
   </tr>`;
   document.getElementById('wrBody').innerHTML = html;
 }
