@@ -3054,6 +3054,33 @@ const WR_SHEET_ID = '1mKFpEmI7SPW55LE_JTu4Qvh45HxMpFedPxq8AsZ_Blg';
 const WR_SHEET_GID = '1172190452'; // WR Rod Data
 let wrData = []; // parsed rows
 
+const WR_MONTH_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function deriveMonthLabel(v) {
+  if (!v && v !== 0) return null;
+  let d = null;
+  if (typeof v === 'number') {
+    // Google Sheets serial date (days since 1899-12-30)
+    d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+  } else {
+    const s = String(v).trim();
+    if (!s) return null;
+    // Try native parse first (handles ISO "2026-06-17" and "6/17/2026")
+    const parsed = new Date(s);
+    if (!isNaN(parsed.getTime())) {
+      d = parsed;
+    } else {
+      // Try DD/MM/YYYY or DD-MM-YYYY explicitly
+      const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
+      if (m) {
+        const yr = m[3].length === 2 ? '20'+m[3] : m[3];
+        d = new Date(Date.UTC(+yr, +m[2]-1, +m[1]));
+      }
+    }
+  }
+  if (!d || isNaN(d.getTime())) return null;
+  return WR_MONTH_NAMES[d.getUTCMonth()] + '-' + d.getUTCFullYear();
+}
+
 async function syncWireRodSheet() {
   const btn = document.querySelector('[onclick="syncWireRodSheet()"]');
   if (btn) { btn.textContent = '⏳ Syncing...'; btn.disabled = true; }
@@ -3079,15 +3106,21 @@ async function syncWireRodSheet() {
       if (btn) { btn.textContent = '☁ Sync WR Sheet'; btn.disabled = false; }
       return;
     }
-    if (!metaRes.ok) throw new Error('WR Sheet access failed — check permissions');
+    if (!metaRes.ok) {
+      const err = await metaRes.json();
+      throw new Error(err.error?.message || 'WR Sheet access failed — check sheet permissions');
+    }
     const meta = await metaRes.json();
     const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === WR_SHEET_GID);
     const sheetName = sheetObj ? sheetObj.properties.title : 'WR Rod Data';
-    const range = encodeURIComponent(sheetName + '!A1:AF2500');
+    const range = encodeURIComponent(sheetName + '!A1:BA5000');
     const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${WR_SHEET_ID}/values/${range}`, {
       headers: { Authorization: 'Bearer ' + token }
     });
-    if (!dataRes.ok) throw new Error('WR data fetch failed');
+    if (!dataRes.ok) {
+      const err = await dataRes.json();
+      throw new Error(err.error?.message || 'WR data fetch failed');
+    }
     const json = await dataRes.json();
     parseWRData(json.values || []);
     showToast('✅ Wire Rod data synced — ' + wrData.length + ' rows');
@@ -3119,11 +3152,15 @@ function parseWRData(rows) {
     const discount = safe(r[13]);           // Discount — as-is
     const landedValue = actualValue + freight - discount; // Landed = Actual + Freight - Discount
     const landedAvgPrice = qty > 0 ? landedValue / qty : 0; // Landed Avg = Landed / Qty
+    // Derive month from the actual Date column rather than trusting the
+    // "Month" text column alone — that column is a formula in the sheet and
+    // can come back blank for newly-added rows even though the Date is filled in.
+    const derivedMonth = deriveMonthLabel(r[1]) || (r[25]||'').trim();
     wrData.push({
       sno: r[0], date: r[1], party: (r[2]||'').trim(),
       grade: (r[5]||'Other').trim(), size: (r[6]||'-').trim(),
       qty, baseValue, actualValue, freight, discount, landedValue, landedAvgPrice,
-      month: (r[25]||'').trim()
+      month: derivedMonth
     });
   }
   loadWireRodReport();
