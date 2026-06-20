@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <style>
   :root {
     --steel: #1a2332;
@@ -996,11 +997,12 @@
             <div class="meta">Responsibility: HR | CC: VK/AM/DM/GM/SJ/Eas/AVS</div>
           </div>
           <div class="report-actions">
-            <div class="form-group"><input type="date" id="travDate" style="width:140px"></div>
-            <button class="btn btn-success" onclick="saveDailyReport('travel')">💾 Save</button>
+            <div class="form-group"><input type="date" id="travDate" style="width:140px" onchange="loadTravelFromCloud()"></div>
+            <button class="btn btn-success" onclick="saveTravelToCloud()">☁ Save to Cloud</button>
             <button class="btn btn-primary" onclick="downloadReport('travel')">⬇ Download Excel</button>
           </div>
         </div>
+        <div id="travCloudStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
         <div class="table-wrap">
           <table>
             <thead>
@@ -2121,6 +2123,10 @@ function initTravel() {
   const tbody = document.getElementById('travBody');
   tbody.innerHTML = '';
   for (let i = 1; i <= 5; i++) addTravRow();
+  // Auto-set today's date and load any existing cloud data
+  const dateEl = document.getElementById('travDate');
+  if (dateEl && !dateEl.value) dateEl.value = toInputDate(today);
+  setTimeout(loadTravelFromCloud, 300); // small delay so Firestore is ready
 }
 function addTravRow() {
   const tbody = document.getElementById('travBody');
@@ -2132,6 +2138,86 @@ function addTravRow() {
     <td><input placeholder="Travel Destination"></td>
     <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>`;
   tbody.appendChild(tr);
+}
+
+// ── TRAVEL REPORT — CLOUD SAVE/LOAD (Firestore) ──
+// Email allowed to save/edit this report (set this to the HR person's email)
+const TRAVEL_EDITOR_EMAIL = ''; // e.g. 'hr@bajranggroup.com' — leave blank to allow any logged-in admin/HR
+
+function canEditTravelReport() {
+  if (!TRAVEL_EDITOR_EMAIL) return true; // unrestricted if not set
+  return (currentUserEmail || '').toLowerCase() === TRAVEL_EDITOR_EMAIL.toLowerCase();
+}
+
+async function saveTravelToCloud() {
+  const status = document.getElementById('travCloudStatus');
+  if (!canEditTravelReport()) {
+    showToast('❌ Only authorised HR can save this report', true);
+    if (status) status.innerHTML = '<span style="color:var(--danger)">❌ You are not authorised to edit this report.</span>';
+    return;
+  }
+  const dateVal = document.getElementById('travDate').value;
+  if (!dateVal) { showToast('❌ Please select a date', true); return; }
+
+  const rows = [];
+  document.querySelectorAll('#travBody tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const name = inputs[0]?.value.trim() || '';
+    const dest = inputs[1]?.value.trim() || '';
+    if (name || dest) rows.push({ name, destination: dest });
+  });
+
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Saving...</span>';
+  try {
+    await db.collection('travelReports').doc(dateVal).set({
+      date: dateVal,
+      rows,
+      savedBy: currentUserEmail || 'unknown',
+      savedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Saved to cloud — ${rows.length} entries for ${dateVal} by ${currentUserEmail || ''}</span>`;
+    showToast('✅ Travel report saved to cloud');
+    renderHistory();
+  } catch(e) {
+    console.error('[Travel Save Error]', e);
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ Save failed: ${e.message}</span>`;
+    showToast('❌ Save failed: ' + e.message, true);
+  }
+}
+
+async function loadTravelFromCloud() {
+  const dateVal = document.getElementById('travDate').value;
+  if (!dateVal) return;
+  const status = document.getElementById('travCloudStatus');
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Loading...</span>';
+  try {
+    const doc = await db.collection('travelReports').doc(dateVal).get();
+    const tbody = document.getElementById('travBody');
+    tbody.innerHTML = '';
+    if (doc.exists) {
+      const data = doc.data();
+      const rows = data.rows || [];
+      if (rows.length === 0) {
+        for (let i = 1; i <= 5; i++) addTravRow();
+      } else {
+        rows.forEach(r => {
+          addTravRow();
+          const lastTr = tbody.lastElementChild;
+          const inputs = lastTr.querySelectorAll('input');
+          inputs[0].value = r.name || '';
+          inputs[1].value = r.destination || '';
+        });
+      }
+      const savedAt = data.savedAt?.toDate ? data.savedAt.toDate().toLocaleString('en-IN') : '';
+      if (status) status.innerHTML = `<span style="color:var(--success)">✅ Loaded from cloud — saved by ${data.savedBy || '—'} ${savedAt ? 'at ' + savedAt : ''}</span>`;
+    } else {
+      for (let i = 1; i <= 5; i++) addTravRow();
+      if (status) status.innerHTML = '<span style="color:var(--muted)">No cloud data yet for this date. Fill and save.</span>';
+    }
+  } catch(e) {
+    console.error('[Travel Load Error]', e);
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ Load failed: ${e.message}</span>`;
+  }
 }
 
 // ─── PRICE LIST COMPLIANCE ────────────────────────────────
@@ -3445,6 +3531,7 @@ function applyPermissions(email) {
 
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
+const db = firebase.firestore();
 const provider = new firebase.auth.GoogleAuthProvider();
 provider.setCustomParameters({ hd: 'bajranggroup.com' });
 
