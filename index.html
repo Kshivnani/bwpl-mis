@@ -3508,10 +3508,18 @@ auth.onAuthStateChanged(user => {
     document.getElementById('loginScreen').style.display = 'none';
     document.getElementById('appWrapper').style.display = 'block';
     setTimeout(() => {
+      // Reset sidebar visibility from any previous restricted session
+      document.querySelectorAll('.sidebar-item').forEach(item => { item.style.display = ''; });
+
       initApp();
       applyPermissions(user.email);
+
+      // Remove any stale user badge before adding fresh one (handles account switch)
+      const oldBadge = document.getElementById('userBadge');
+      if (oldBadge) oldBadge.remove();
+
       const badge = document.getElementById('todayBadge');
-      if (badge && !document.getElementById('userBadge')) {
+      if (badge) {
         const headerRight = badge.closest('.header-right') || badge.parentElement;
         const userDiv = document.createElement('div');
         userDiv.id = 'userBadge';
@@ -3519,18 +3527,44 @@ auth.onAuthStateChanged(user => {
         userDiv.innerHTML = `
           <img src="${user.photoURL||''}" style="width:24px;height:24px;border-radius:50%;object-fit:cover" onerror="this.style.display='none'">
           <span>${user.displayName||user.email}</span>
-          <button onclick="firebase.auth().signOut()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
+          <button onclick="logoutApp()" style="background:none;border:1px solid var(--border);color:var(--muted);padding:2px 8px;border-radius:4px;cursor:pointer;font-size:11px">Logout</button>
         `;
         headerRight.appendChild(userDiv);
       }
     }, 150);
   } else {
+    // Full reset — clear all session state
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('appWrapper').style.display = 'none';
     appInitialized = false;
     googleAccessToken = null;
+    window._gToken = null;
+    currentUserEmail = null;
+    dispatchData = [];
+    wrData = [];
+    wrEntries = [];
+
+    // Reset sidebar visibility (in case a restricted user logged out)
+    document.querySelectorAll('.sidebar-item').forEach(item => { item.style.display = ''; });
+
+    // Remove stale user badge
+    const oldBadge = document.getElementById('userBadge');
+    if (oldBadge) oldBadge.remove();
+
+    // Clear login form fields
+    const emailInput = document.getElementById('loginEmail');
+    const passInput = document.getElementById('loginPassword');
+    if (emailInput) emailInput.value = '';
+    if (passInput) passInput.value = '';
   }
 });
+
+function logoutApp() {
+  auth.signOut().then(() => {
+    // Force a clean reload to fully clear any in-memory state
+    window.location.reload();
+  });
+}
 
 // ── GOOGLE SHEETS LIVE SYNC ──────────────────────────────
 const SHEET_ID = '1YYZ9kRbrT8HYXjA-neTnLIq1BgV3uXr3p9M9KhvN3uM';
