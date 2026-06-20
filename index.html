@@ -3088,14 +3088,12 @@ async function syncWireRodSheet() {
   let token = window._gToken || googleAccessToken;
   if (!token) {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not logged in');
-      const result = await currentUser.reauthenticateWithPopup(provider);
-      token = result.credential.accessToken;
+      token = await getSheetsAccessToken();
       window._gToken = token;
       googleAccessToken = token;
     } catch(e) {
-      showToast('❌ Google Sheets access required for WR Sheet sync', true);
+      console.error('[WR Sync Auth Error]', e.code, e.message, e);
+      showToast('❌ ' + (e.message || 'Google Sheets access required'), true);
       if (btn) { btn.textContent = '☁ Sync WR Sheet'; btn.disabled = false; }
       return;
     }
@@ -3479,6 +3477,30 @@ function signInWithEmail() {
     });
 }
 
+// Secondary Firebase app — used ONLY to get a Google OAuth token for Sheets API,
+// without touching the primary signed-in user/session.
+let secondaryApp, secondaryAuth;
+function getSecondaryAuth() {
+  if (!secondaryAuth) {
+    try {
+      secondaryApp = firebase.initializeApp(firebaseConfig, 'sheetsAccess');
+    } catch(e) {
+      secondaryApp = firebase.app('sheetsAccess');
+    }
+    secondaryAuth = secondaryApp.auth();
+  }
+  return secondaryAuth;
+}
+
+async function getSheetsAccessToken() {
+  const secAuth = getSecondaryAuth();
+  const result = await secAuth.signInWithPopup(provider);
+  const token = result.credential.accessToken;
+  // Sign out of the secondary instance immediately — we only needed the token
+  await secAuth.signOut();
+  return token;
+}
+
 function signInWithGoogle() {
   document.getElementById('loginErr').textContent = '';
   auth.signInWithPopup(provider)
@@ -3582,18 +3604,16 @@ async function syncFromGoogleSheet() {
     if (btn2) { btn2.textContent = v ? '⏳ Syncing...' : '☁ Sync Sheet'; btn2.disabled = v; }
   };
 
-  // Agar token nahi hai toh current user ka hi token refresh karo (session change na ho)
+  // Agar token nahi hai toh secondary auth se Sheets token lo (primary session untouched)
   if (!googleAccessToken) {
     try {
       setLoading(true);
-      const currentUser = auth.currentUser;
-      if (!currentUser) throw new Error('Not logged in');
-      const result = await currentUser.reauthenticateWithPopup(provider);
-      googleAccessToken = result.credential.accessToken;
+      googleAccessToken = await getSheetsAccessToken();
       window._gToken = googleAccessToken;
     } catch(e) {
-      if (status) status.innerHTML = '<span style="color:var(--danger)">❌ Google Sheets access denied. Please grant access when prompted.</span>';
-      showToast('❌ Sheets access required for live sync', true);
+      console.error('[Sync Sheet Auth Error]', e.code, e.message, e);
+      if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.code || 'Error'}: ${e.message}</span>`;
+      showToast('❌ ' + (e.message || 'Sheets access required'), true);
       setLoading(false);
       return;
     }
