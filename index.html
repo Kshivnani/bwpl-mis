@@ -3088,12 +3088,14 @@ async function syncWireRodSheet() {
   let token = window._gToken || googleAccessToken;
   if (!token) {
     try {
-      const result = await auth.signInWithPopup(provider);
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not logged in');
+      const result = await currentUser.reauthenticateWithPopup(provider);
       token = result.credential.accessToken;
       window._gToken = token;
       googleAccessToken = token;
     } catch(e) {
-      showToast('❌ Google login required for WR Sheet access', true);
+      showToast('❌ Google Sheets access required for WR Sheet sync', true);
       if (btn) { btn.textContent = '☁ Sync WR Sheet'; btn.disabled = false; }
       return;
     }
@@ -3580,15 +3582,18 @@ async function syncFromGoogleSheet() {
     if (btn2) { btn2.textContent = v ? '⏳ Syncing...' : '☁ Sync Sheet'; btn2.disabled = v; }
   };
 
-  // Agar token nahi hai toh Google re-auth karo
+  // Agar token nahi hai toh current user ka hi token refresh karo (session change na ho)
   if (!googleAccessToken) {
     try {
       setLoading(true);
-      const result = await auth.signInWithPopup(provider);
+      const currentUser = auth.currentUser;
+      if (!currentUser) throw new Error('Not logged in');
+      const result = await currentUser.reauthenticateWithPopup(provider);
       googleAccessToken = result.credential.accessToken;
+      window._gToken = googleAccessToken;
     } catch(e) {
-      if (status) status.innerHTML = '<span style="color:var(--danger)">❌ Google login required for live sync. Please sign in with Google.</span>';
-      showToast('❌ Google login required for Sheet access', true);
+      if (status) status.innerHTML = '<span style="color:var(--danger)">❌ Google Sheets access denied. Please grant access when prompted.</span>';
+      showToast('❌ Sheets access required for live sync', true);
       setLoading(false);
       return;
     }
