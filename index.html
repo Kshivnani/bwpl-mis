@@ -519,6 +519,9 @@
       <div class="sidebar-item" onclick="showPage('analytics', this)">
         <span class="dot dot-monthly"></span> Analytics (Charts)
       </div>
+      <div class="sidebar-item" onclick="showPage('groupanalytics', this)">
+        <span class="dot dot-monthly"></span> Demand Forecast
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -814,6 +817,91 @@
             </div>
           </div>
           <div class="section-pad" style="height:340px"><canvas id="chartSpPie"></canvas></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEMAND FORECAST -->
+    <div class="page" id="page-groupanalytics">
+
+      <div class="dash-banner">
+        <div>
+          <div class="dash-banner-title">Demand Forecast</div>
+          <div class="dash-banner-sub" id="gaBannerSub">Group-wise sales — companies, qty & value from dispatch data</div>
+        </div>
+        <div class="dash-banner-actions">
+          <div class="form-group" style="margin:0">
+            <select id="gaSpFilter" onchange="loadGroupAnalytics()" style="width:130px">
+              <option value="">All Sales Persons</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
+              <option value="all">All Time</option>
+              <option value="2026-06">Jun 2026</option>
+              <option value="2026-05">May 2026</option>
+              <option value="2026-04">Apr 2026</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" onclick="loadGroupAnalytics()">⟳ Refresh</button>
+        </div>
+      </div>
+
+      <!-- KPI Cards -->
+      <div class="overview-grid" style="grid-template-columns:repeat(4,1fr)">
+        <div class="stat-card" style="--accent-color:var(--wire)">
+          <div class="label">Total Groups</div>
+          <div class="value" id="gaTotalGroups">—</div>
+          <div class="sub">With dispatch data</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--success)">
+          <div class="label">Total Companies</div>
+          <div class="value" id="gaTotalCompanies">—</div>
+          <div class="sub">Active in period</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--info)">
+          <div class="label">Total Qty (MT)</div>
+          <div class="value" id="gaTotalQty">—</div>
+          <div class="sub">All groups combined</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#9b59b6">
+          <div class="label">Total Value</div>
+          <div class="value" id="gaTotalVal">—</div>
+          <div class="sub">Bill amount</div>
+        </div>
+      </div>
+
+      <!-- Search -->
+      <div class="report-panel" style="margin-bottom:12px">
+        <div class="section-pad" style="padding:12px 20px;display:flex;gap:10px;align-items:center">
+          <input type="text" id="gaSearch" placeholder="🔍 Search group or company name..." 
+            oninput="filterGroupTable()" 
+            style="flex:1;padding:8px 14px;border-radius:6px;border:1px solid var(--border);background:var(--steel-mid);color:var(--white);font-size:13px">
+          <span id="gaSearchCount" style="font-size:12px;color:var(--muted);white-space:nowrap"></span>
+        </div>
+      </div>
+
+      <!-- Group Table -->
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2>Group-wise Breakdown</h2><div class="meta" id="gaTableMeta">—</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Group Name</th>
+                <th>Companies</th>
+                <th class="td-num">Qty (MT)</th>
+                <th class="td-num">Value (₹)</th>
+                <th class="td-num">Avg Rate (₹/MT)</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="gaBody">
+              <tr><td colspan="6" class="empty-state">Upload POS file then click ⟳ Refresh</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
@@ -1643,6 +1731,9 @@ function showPage(name, el) {
   if (name === 'analytics' && dispatchData.length > 0) {
     setTimeout(loadAnalytics, 50);
   }
+  if (name === 'groupanalytics' && dispatchData.length > 0) {
+    setTimeout(loadGroupAnalytics, 50);
+  }
 }
 
 // ─── FILE UPLOAD ─────────────────────────────────────────
@@ -1662,6 +1753,15 @@ function handleFileUpload(event) {
       const ws = wb.Sheets[sheetName];
       const rows = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
       parseDispatchRows(rows);
+
+      // Also parse Master sheet for group mapping
+      const masterName = wb.SheetNames.find(n => n.toLowerCase().includes('master'));
+      if (masterName) {
+        const masterWs = wb.Sheets[masterName];
+        const masterRows = XLSX.utils.sheet_to_json(masterWs, {header:1, defval:''});
+        buildGroupMap(masterRows);
+      }
+
       status.innerHTML = `<span style="color:var(--success)">✅ Loaded ${dispatchData.length} dispatch rows from "${file.name}"</span>`;
       showPage('dashboard', document.querySelector('.sidebar-item'));
     } catch(err) {
@@ -1721,6 +1821,146 @@ function parseDispatchRows(rows) {
   localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
+}
+
+// ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
+let groupMap = {};       // { companyName: { group, salesPerson } }
+let gaGroupData = [];    // computed for rendering
+
+function buildGroupMap(masterRows) {
+  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name
+  groupMap = {};
+  if (!masterRows || masterRows.length < 2) return;
+  for (let i = 1; i < masterRows.length; i++) {
+    const r = masterRows[i];
+    const company = (r[1] || '').trim();
+    const group = (r[6] || company || 'Ungrouped').trim();
+    const sp = (r[5] || '').trim();
+    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company };
+  }
+}
+
+function getGroupForParty(party) {
+  if (!party) return 'Ungrouped';
+  return (groupMap[party.trim().toLowerCase()] || {}).group || party.trim();
+}
+
+function loadGroupAnalytics() {
+  if (dispatchData.length === 0) {
+    document.getElementById('gaBody').innerHTML = '<tr><td colspan="6" class="empty-state">No dispatch data — upload POS file first</td></tr>';
+    return;
+  }
+
+  const spFilter = document.getElementById('gaSpFilter').value;
+  const period = document.getElementById('gaPeriod').value;
+
+  // Filter dispatch data
+  let rows = dispatchData;
+  if (period !== 'all') {
+    const [yr, mo] = period.split('-');
+    const suffix = mo + '-' + yr;
+    rows = rows.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === suffix);
+  }
+  if (spFilter) rows = rows.filter(r => r.salesPerson === spFilter);
+
+  // Group by company group
+  const groups = {};
+  rows.forEach(r => {
+    const party = (r.party || '').trim();
+    const group = getGroupForParty(party);
+    if (!groups[group]) groups[group] = { group, companies: {}, qty: 0, value: 0 };
+    groups[group].qty += r.qty;
+    groups[group].value += r.billAmount;
+    if (!groups[group].companies[party]) groups[group].companies[party] = { qty: 0, value: 0 };
+    groups[group].companies[party].qty += r.qty;
+    groups[group].companies[party].value += r.billAmount;
+  });
+
+  gaGroupData = Object.values(groups)
+    .map(g => ({
+      ...g,
+      companies: Object.entries(g.companies)
+        .map(([name, v]) => ({ name, qty: v.qty, value: v.value }))
+        .sort((a, b) => b.value - a.value),
+      avgRate: g.qty > 0 ? g.value / g.qty : 0
+    }))
+    .sort((a, b) => b.value - a.value);
+
+  // Populate SP filter
+  const sps = [...new Set(dispatchData.map(r => r.salesPerson).filter(Boolean))].sort();
+  const spSel = document.getElementById('gaSpFilter');
+  const curSp = spSel.value;
+  spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
+
+  // KPI cards
+  const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
+  const totalVal = gaGroupData.reduce((s, g) => s + g.value, 0);
+  const totalCompanies = gaGroupData.reduce((s, g) => s + g.companies.length, 0);
+  document.getElementById('gaTotalGroups').textContent = gaGroupData.length;
+  document.getElementById('gaTotalCompanies').textContent = totalCompanies;
+  document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
+  document.getElementById('gaTotalVal').textContent = '₹' + fmtL(totalVal);
+  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups, ${totalCompanies} companies`;
+  document.getElementById('gaTableMeta').textContent = `${gaGroupData.length} groups sorted by value`;
+
+  renderGroupTable(gaGroupData);
+}
+
+function filterGroupTable() {
+  const q = (document.getElementById('gaSearch').value || '').toLowerCase().trim();
+  if (!q) {
+    renderGroupTable(gaGroupData);
+    document.getElementById('gaSearchCount').textContent = '';
+    return;
+  }
+  const filtered = gaGroupData.filter(g =>
+    g.group.toLowerCase().includes(q) ||
+    g.companies.some(c => c.name.toLowerCase().includes(q))
+  );
+  document.getElementById('gaSearchCount').textContent = filtered.length + ' results';
+  renderGroupTable(filtered);
+}
+
+function renderGroupTable(data) {
+  const tbody = document.getElementById('gaBody');
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No groups found</td></tr>';
+    return;
+  }
+  tbody.innerHTML = data.map((g, i) => {
+    const companyRows = g.companies.map(c => `
+      <tr class="ga-detail-${i}" style="display:none">
+        <td></td>
+        <td style="padding-left:24px;color:var(--muted);font-size:12px">↳ ${c.name}</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty.toFixed(2)}</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">₹${fmtN(c.value)}</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty > 0 ? '₹' + Math.round(c.value / c.qty).toLocaleString('en-IN') : '—'}</td>
+        <td></td>
+      </tr>`).join('');
+    return `
+    <tr>
+      <td><strong>${g.group}</strong></td>
+      <td style="color:var(--muted);font-size:12px">${g.companies.length} ${g.companies.length === 1 ? 'company' : 'companies'}</td>
+      <td class="td-num"><strong>${g.qty.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>₹${fmtN(g.value)}</strong></td>
+      <td class="td-num">${g.qty > 0 ? '₹' + Math.round(g.avgRate).toLocaleString('en-IN') : '—'}</td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleGaDetail(${i},this)">▼ Companies</button></td>
+    </tr>
+    ${companyRows}`;
+  }).join('') + `
+  <tr class="summary-row">
+    <td colspan="2"><strong>TOTAL</strong></td>
+    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.qty,0).toFixed(2)}</strong></td>
+    <td class="td-num"><strong>₹${fmtN(data.reduce((s,g)=>s+g.value,0))}</strong></td>
+    <td colspan="2"></td>
+  </tr>`;
+}
+
+function toggleGaDetail(i, btn) {
+  const rows = document.querySelectorAll('.ga-detail-' + i);
+  const showing = rows.length && rows[0].style.display !== 'none';
+  rows.forEach(r => r.style.display = showing ? 'none' : '');
+  btn.textContent = showing ? '▼ Companies' : '▲ Hide';
 }
 
 // ─── CHART HELPERS ───────────────────────────────────────
@@ -2142,7 +2382,7 @@ function addTravRow() {
 
 // ── TRAVEL REPORT — CLOUD SAVE/LOAD (Firestore) ──
 // Email allowed to save/edit this report (set this to the HR person's email)
-const TRAVEL_EDITOR_EMAIL = 'inframis@bajranggroup.com'; // e.g. 'hr@bajranggroup.com' — leave blank to allow any logged-in admin/HR
+const TRAVEL_EDITOR_EMAIL = ''; // e.g. 'hr@bajranggroup.com' — leave blank to allow any logged-in admin/HR
 
 function canEditTravelReport() {
   if (!TRAVEL_EDITOR_EMAIL) return true; // unrestricted if not set
@@ -3458,13 +3698,13 @@ const firebaseConfig = {
 // All other logged-in users = admin (see everything)
 // Page IDs match: page-dashboard, page-sales, page-collection, etc.
 const USER_PERMISSIONS = {
-  'arun@bajranggroup.com': ['dashboard','collection','top10vol','financials','wirerod','travel'],
+  'arun@bajranggroup.com': ['dashboard','collection','top10vol','financials','wirerod'],
   'dme@bajranggroup.com': ['dashboard','sales','collection','compliance','productivity','vehicle','travel','pricelist','top10vol','top10val','bot10vol','bot10val','complaints','financials','manufacturing','salesperson','daywise','history']
 };
 
 // All page IDs in the app
 const ALL_PAGES = [
-  'dashboard','analytics','sales','collection','compliance',
+  'dashboard','analytics','groupanalytics','sales','collection','compliance',
   'productivity','vehicle','travel','pricelist',
   'top10vol','top10val','bot10vol','bot10val',
   'complaints','financials','manufacturing','salesperson','daywise',
@@ -3473,7 +3713,7 @@ const ALL_PAGES = [
 
 // Sidebar item label → page ID mapping
 const SIDEBAR_PAGE_MAP = {
-  'dashboard':'dashboard', 'analytics (charts)':'analytics',
+  'dashboard':'dashboard', 'analytics (charts)':'analytics', 'demand forecast':'groupanalytics',
   'daily sales register':'sales', 'daily collection report':'collection',
   'sales compliance':'compliance', 'productivity report':'productivity',
   'vehicle placement failure':'vehicle', 'official travel report':'travel',
@@ -3750,6 +3990,27 @@ async function syncFromGoogleSheet() {
     if (rows.length < 7) throw new Error('No data found in sheet (rows < 7)');
 
     parseDispatchRows(rows);
+
+    // Also fetch Master sheet for group mapping
+    try {
+      const masterGID = '227823128'; // Master sheet GID (from POS file)
+      const masterMetaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
+      const metaRes2 = await fetch(masterMetaUrl, { headers: { Authorization: 'Bearer ' + googleAccessToken } });
+      if (metaRes2.ok) {
+        const meta2 = await metaRes2.json();
+        const masterObj = meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
+        if (masterObj) {
+          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:J2000');
+          const masterRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${masterRange}`, {
+            headers: { Authorization: 'Bearer ' + googleAccessToken }
+          });
+          if (masterRes.ok) {
+            const masterJson = await masterRes.json();
+            buildGroupMap(masterJson.values || []);
+          }
+        }
+      }
+    } catch(me) { console.warn('Master sheet fetch failed:', me.message); }
 
     const now = new Date().toLocaleTimeString('en-IN');
     if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows synced from Google Sheet — ${now}</span>`;
