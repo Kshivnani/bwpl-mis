@@ -827,7 +827,7 @@
       <div class="dash-banner">
         <div>
           <div class="dash-banner-title">Demand Forecast</div>
-          <div class="dash-banner-sub" id="gaBannerSub">Group-wise sales — companies, qty & value from dispatch data</div>
+          <div class="dash-banner-sub" id="gaBannerSub">Group-wise Forecast vs Actual — sync both sheets</div>
         </div>
         <div class="dash-banner-actions">
           <div class="form-group" style="margin:0">
@@ -843,31 +843,28 @@
               <option value="2026-04">Apr 2026</option>
             </select>
           </div>
+          <button class="btn btn-secondary" onclick="syncForecastSheet()">☁ Sync Forecast</button>
           <button class="btn btn-secondary" onclick="loadGroupAnalytics()">⟳ Refresh</button>
         </div>
       </div>
+      <div id="gaForecastStatus" style="padding:4px 20px 8px;font-size:12px;color:var(--muted)"></div>
 
       <!-- KPI Cards -->
-      <div class="overview-grid" style="grid-template-columns:repeat(4,1fr)">
+      <div class="overview-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="stat-card" style="--accent-color:var(--wire)">
           <div class="label">Total Groups</div>
           <div class="value" id="gaTotalGroups">—</div>
           <div class="sub">With dispatch data</div>
         </div>
-        <div class="stat-card" style="--accent-color:var(--success)">
-          <div class="label">Total Companies</div>
-          <div class="value" id="gaTotalCompanies">—</div>
-          <div class="sub">Active in period</div>
-        </div>
         <div class="stat-card" style="--accent-color:var(--info)">
-          <div class="label">Total Qty (MT)</div>
+          <div class="label">Total Actual Qty (MT)</div>
           <div class="value" id="gaTotalQty">—</div>
           <div class="sub">All groups combined</div>
         </div>
-        <div class="stat-card" style="--accent-color:#9b59b6">
-          <div class="label">Total Value</div>
-          <div class="value" id="gaTotalVal">—</div>
-          <div class="sub">Bill amount</div>
+        <div class="stat-card" style="--accent-color:var(--success)">
+          <div class="label">Total Forecast (MT)</div>
+          <div class="value" id="gaTotalForecast">—</div>
+          <div class="sub" id="gaAchievement">vs actual</div>
         </div>
       </div>
 
@@ -891,15 +888,16 @@
             <thead>
               <tr>
                 <th>Group Name</th>
-                <th>Companies</th>
-                <th class="td-num">Qty (MT)</th>
-                <th class="td-num">Value (₹)</th>
-                <th class="td-num">Avg Rate (₹/MT)</th>
+                <th>SP</th>
+                <th class="td-num">June Forecast (MT)</th>
+                <th class="td-num">Actual (MT)</th>
+                <th class="td-num">Diff (MT)</th>
+                <th class="td-num">Achievement %</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody id="gaBody">
-              <tr><td colspan="6" class="empty-state">Upload POS file then click ⟳ Refresh</td></tr>
+              <tr><td colspan="7" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -1824,8 +1822,77 @@ function parseDispatchRows(rows) {
 }
 
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
-let groupMap = {};       // { companyName: { group, salesPerson } }
+let groupMap = {};       // { companyName.lower: { group, salesPerson } }
 let gaGroupData = [];    // computed for rendering
+let forecastMap = {};    // { groupName.lower: { sp, april, may, juneForecast, juneActual, total } }
+
+const FORECAST_SHEET_ID = '1wezkGzQ6ebwI3hDkuJZLVgqI_2Gz1ATkNK3Ez270CZY';
+const FORECAST_SHEET_GID = '343885709';
+
+async function syncForecastSheet() {
+  const btn = document.querySelector('[onclick="syncForecastSheet()"]');
+  const status = document.getElementById('gaForecastStatus');
+  if (btn) { btn.textContent = '⏳ Syncing...'; btn.disabled = true; }
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Fetching forecast data...</span>';
+
+  let token = window._gToken || googleAccessToken;
+  if (!token) {
+    try {
+      token = await getSheetsAccessToken();
+      window._gToken = token; googleAccessToken = token;
+    } catch(e) {
+      if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+      if (btn) { btn.textContent = '☁ Sync Forecast'; btn.disabled = false; }
+      return;
+    }
+  }
+
+  try {
+    // Get sheet name from GID
+    const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}?fields=sheets.properties`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!metaRes.ok) throw new Error('Forecast sheet access failed — check permissions');
+    const meta = await metaRes.json();
+    const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === FORECAST_SHEET_GID);
+    const sheetName = sheetObj ? sheetObj.properties.title : 'Sheet33';
+
+    const range = encodeURIComponent(sheetName + '!A1:I500');
+    const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}/values/${range}`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!dataRes.ok) throw new Error('Forecast data fetch failed');
+    const json = await dataRes.json();
+    const rows = json.values || [];
+
+    parseForecastData(rows);
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Forecast synced — ${Object.keys(forecastMap).length} groups loaded</span>`;
+    showToast('✅ Forecast data synced!');
+    if (dispatchData.length > 0) loadGroupAnalytics();
+  } catch(e) {
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+    showToast('❌ ' + e.message, true);
+  }
+  if (btn) { btn.textContent = '☁ Sync Forecast'; btn.disabled = false; }
+}
+
+function parseForecastData(rows) {
+  // Header row 1 (index 1): Sr No, Group Name, SP, April, May, June forecast, June, Total
+  forecastMap = {};
+  const safe = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+  for (let i = 2; i < rows.length; i++) {
+    const r = rows[i];
+    if (!r[1] || !String(r[1]).trim()) continue;
+    const group = String(r[1]).trim();
+    forecastMap[group.toLowerCase()] = {
+      group, sp: (r[2] || '').trim(),
+      april: safe(r[3]), may: safe(r[4]),
+      juneForecast: safe(r[5]),
+      juneActual: safe(r[6]),
+      total: safe(r[7])
+    };
+  }
+}
 
 function buildGroupMap(masterRows) {
   // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name
@@ -1847,7 +1914,7 @@ function getGroupForParty(party) {
 
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
-    document.getElementById('gaBody').innerHTML = '<tr><td colspan="6" class="empty-state">No dispatch data — upload POS file first</td></tr>';
+    document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
     return;
   }
 
@@ -1876,15 +1943,48 @@ function loadGroupAnalytics() {
     groups[group].companies[party].value += r.billAmount;
   });
 
-  gaGroupData = Object.values(groups)
-    .map(g => ({
-      ...g,
-      companies: Object.entries(g.companies)
-        .map(([name, v]) => ({ name, qty: v.qty, value: v.value }))
-        .sort((a, b) => b.value - a.value),
-      avgRate: g.qty > 0 ? g.value / g.qty : 0
-    }))
-    .sort((a, b) => b.value - a.value);
+  // Merge with forecast data
+  // Also include groups from forecast that have no actual dispatch yet
+  const allGroupKeys = new Set([
+    ...Object.keys(groups),
+    ...Object.keys(forecastMap).map(k => forecastMap[k].group)
+  ]);
+
+  gaGroupData = [...allGroupKeys].map(groupName => {
+    const actual = groups[groupName] || { group: groupName, companies: {}, qty: 0, value: 0 };
+    const fkey = groupName.toLowerCase();
+    const forecast = forecastMap[fkey] || null;
+
+    // Always use June forecast (col F, index 5) from Sheet33
+    const forecastQty = forecast ? forecast.juneForecast : 0;
+
+    const sp = forecast?.sp || (actual.companies && Object.keys(actual.companies).length > 0
+      ? (rows.find(r => (r.party||'').trim() === Object.keys(actual.companies)[0]) || {}).salesPerson || '—'
+      : '—');
+
+    const diff = actual.qty - forecastQty;
+    const achievement = forecastQty > 0 ? (actual.qty / forecastQty) * 100 : null;
+
+    return {
+      group: groupName,
+      sp,
+      companies: Object.entries(actual.companies).map(([name, v]) => ({ name, qty: v.qty, value: v.value })).sort((a,b) => b.value - a.value),
+      qty: actual.qty,
+      value: actual.value,
+      forecastQty,
+      diff,
+      achievement
+    };
+  }).sort((a, b) => {
+    // Sort: groups with forecast first, then by actual qty
+    if (b.forecastQty !== a.forecastQty) return b.forecastQty - a.forecastQty;
+    return b.qty - a.qty;
+  });
+
+  // Filter by SP if selected (forecast SP)
+  if (spFilter) {
+    gaGroupData = gaGroupData.filter(g => g.sp === spFilter || g.qty > 0);
+  }
 
   // Populate SP filter
   const sps = [...new Set(dispatchData.map(r => r.salesPerson).filter(Boolean))].sort();
@@ -1892,16 +1992,17 @@ function loadGroupAnalytics() {
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
 
-  // KPI cards
+  // KPI
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
-  const totalVal = gaGroupData.reduce((s, g) => s + g.value, 0);
-  const totalCompanies = gaGroupData.reduce((s, g) => s + g.companies.length, 0);
-  document.getElementById('gaTotalGroups').textContent = gaGroupData.length;
-  document.getElementById('gaTotalCompanies').textContent = totalCompanies;
+  const totalForecast = gaGroupData.reduce((s, g) => s + g.forecastQty, 0);
+  const overallAch = totalForecast > 0 ? (totalQty / totalForecast * 100).toFixed(1) : '—';
+
+  document.getElementById('gaTotalGroups').textContent = gaGroupData.filter(g => g.forecastQty > 0).length;
   document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
-  document.getElementById('gaTotalVal').textContent = '₹' + fmtL(totalVal);
-  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups, ${totalCompanies} companies`;
-  document.getElementById('gaTableMeta').textContent = `${gaGroupData.length} groups sorted by value`;
+  document.getElementById('gaTotalForecast').textContent = totalForecast.toFixed(1);
+  document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% achieved` : 'Sync forecast to compare';
+  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups`;
+  document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
   renderGroupTable(gaGroupData);
 }
@@ -1924,35 +2025,52 @@ function filterGroupTable() {
 function renderGroupTable(data) {
   const tbody = document.getElementById('gaBody');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No groups found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No groups found</td></tr>';
     return;
   }
+
+  const achColor = (ach) => {
+    if (ach === null) return 'color:var(--muted)';
+    if (ach >= 100) return 'color:var(--success);font-weight:700';
+    if (ach >= 75) return 'color:var(--wire);font-weight:600';
+    return 'color:var(--danger);font-weight:600';
+  };
+
   tbody.innerHTML = data.map((g, i) => {
+    const achText = g.achievement !== null ? g.achievement.toFixed(1) + '%' : '—';
+    const diffText = g.forecastQty > 0 ? (g.diff >= 0 ? '+' : '') + g.diff.toFixed(2) : '—';
+    const diffColor = g.diff >= 0 ? 'color:var(--success)' : 'color:var(--danger)';
+
     const companyRows = g.companies.map(c => `
       <tr class="ga-detail-${i}" style="display:none">
-        <td></td>
-        <td style="padding-left:24px;color:var(--muted);font-size:12px">↳ ${c.name}</td>
+        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="2">↳ ${c.name}</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty.toFixed(2)}</td>
-        <td class="td-num" style="color:var(--muted);font-size:12px">₹${fmtN(c.value)}</td>
-        <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty > 0 ? '₹' + Math.round(c.value / c.qty).toLocaleString('en-IN') : '—'}</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
         <td></td>
       </tr>`).join('');
+
     return `
     <tr>
       <td><strong>${g.group}</strong></td>
-      <td style="color:var(--muted);font-size:12px">${g.companies.length} ${g.companies.length === 1 ? 'company' : 'companies'}</td>
+      <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(232,160,32,0.15);color:var(--wire)">${g.sp || '—'}</span></td>
+      <td class="td-num">${g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
       <td class="td-num"><strong>${g.qty.toFixed(2)}</strong></td>
-      <td class="td-num"><strong>₹${fmtN(g.value)}</strong></td>
-      <td class="td-num">${g.qty > 0 ? '₹' + Math.round(g.avgRate).toLocaleString('en-IN') : '—'}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleGaDetail(${i},this)">▼ Companies</button></td>
+      <td class="td-num" style="${diffColor}">${diffText}</td>
+      <td class="td-num" style="${achColor(g.achievement)}">${achText}</td>
+      <td>${g.companies.length > 0 ? `<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleGaDetail(${i},this)">▼ ${g.companies.length}</button>` : ''}</td>
     </tr>
     ${companyRows}`;
   }).join('') + `
   <tr class="summary-row">
     <td colspan="2"><strong>TOTAL</strong></td>
+    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.forecastQty,0).toFixed(2)}</strong></td>
     <td class="td-num"><strong>${data.reduce((s,g)=>s+g.qty,0).toFixed(2)}</strong></td>
-    <td class="td-num"><strong>₹${fmtN(data.reduce((s,g)=>s+g.value,0))}</strong></td>
-    <td colspan="2"></td>
+    <td class="td-num" style="${data.reduce((s,g)=>s+g.diff,0)>=0?'color:var(--success)':'color:var(--danger)'}">
+      <strong>${((d=data.reduce((s,g)=>s+g.diff,0))>=0?'+':'')+d.toFixed(2)}</strong>
+    </td>
+    <td class="td-num" colspan="2"></td>
   </tr>`;
 }
 
