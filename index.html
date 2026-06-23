@@ -889,17 +889,37 @@
       <div class="report-panel">
         <div class="report-header">
           <div><h2>Group-wise Breakdown</h2><div class="meta" id="gaTableMeta">—</div></div>
+          <div class="report-actions">
+            <div class="form-group" style="min-width:140px">
+              <label style="font-size:11px;color:var(--muted)">Sort by</label>
+              <select id="gaSortCol" onchange="sortAndRenderGA()" style="width:100%">
+                <option value="forecast">June Forecast</option>
+                <option value="actual">Actual (MT)</option>
+                <option value="diff">Diff (MT)</option>
+                <option value="achievement">Achievement %</option>
+                <option value="group">Group Name (A-Z)</option>
+              </select>
+            </div>
+            <div class="form-group" style="min-width:110px">
+              <label style="font-size:11px;color:var(--muted)">Order</label>
+              <select id="gaSortDir" onchange="sortAndRenderGA()" style="width:100%">
+                <option value="desc">↓ Descending</option>
+                <option value="asc">↑ Ascending</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" onclick="downloadGAReport()" style="margin-top:18px">⬇ Download Excel</button>
+          </div>
         </div>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Group Name</th>
+                <th onclick="setGASort('group')" style="cursor:pointer">Group Name ↕</th>
                 <th>SP</th>
-                <th class="td-num">June Forecast (MT)</th>
-                <th class="td-num">Actual (MT)</th>
-                <th class="td-num">Diff (MT)</th>
-                <th class="td-num">Achievement %</th>
+                <th class="td-num" onclick="setGASort('forecast')" style="cursor:pointer">June Forecast (MT) ↕</th>
+                <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">Actual (MT) ↕</th>
+                <th class="td-num" onclick="setGASort('diff')" style="cursor:pointer">Diff (MT) ↕</th>
+                <th class="td-num" onclick="setGASort('achievement')" style="cursor:pointer">Achievement % ↕</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -2016,10 +2036,37 @@ function loadGroupAnalytics() {
   renderGroupTable(gaGroupData);
 }
 
+function setGASort(col) {
+  const colSel = document.getElementById('gaSortCol');
+  const dirSel = document.getElementById('gaSortDir');
+  if (colSel.value === col) {
+    dirSel.value = dirSel.value === 'desc' ? 'asc' : 'desc';
+  } else {
+    colSel.value = col;
+    dirSel.value = 'desc';
+  }
+  sortAndRenderGA();
+}
+
+function sortAndRenderGA() {
+  const col = document.getElementById('gaSortCol').value;
+  const dir = document.getElementById('gaSortDir').value;
+  const sorted = [...gaGroupData].sort((a, b) => {
+    let va, vb;
+    if (col === 'group') { va = a.group.toLowerCase(); vb = b.group.toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
+    if (col === 'forecast') { va = a.forecastQty; vb = b.forecastQty; }
+    else if (col === 'actual') { va = a.qty; vb = b.qty; }
+    else if (col === 'diff') { va = a.diff; vb = b.diff; }
+    else if (col === 'achievement') { va = a.achievement ?? -999; vb = b.achievement ?? -999; }
+    return dir === 'asc' ? va - vb : vb - va;
+  });
+  renderGroupTable(sorted);
+}
+
 function filterGroupTable() {
   const q = (document.getElementById('gaSearch').value || '').toLowerCase().trim();
   if (!q) {
-    renderGroupTable(gaGroupData);
+    sortAndRenderGA();
     document.getElementById('gaSearchCount').textContent = '';
     return;
   }
@@ -2029,6 +2076,40 @@ function filterGroupTable() {
   );
   document.getElementById('gaSearchCount').textContent = filtered.length + ' results';
   renderGroupTable(filtered);
+}
+
+function downloadGAReport() {
+  if (!gaGroupData.length) { showToast('❌ No data to download', true); return; }
+  const period = document.getElementById('gaPeriod').value;
+  const sp = document.getElementById('gaSpFilter').value;
+  const prod = document.getElementById('gaProductFilter').value;
+  const rows = [
+    ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],
+    ['Demand Forecast — Group-wise'],
+    ['Period:', period === 'all' ? 'All Time' : period, 'Sales Person:', sp || 'All', 'Product:', prod || 'All'],
+    [],
+    ['Group Name', 'SP', 'June Forecast (MT)', 'Actual (MT)', 'Diff (MT)', 'Achievement %']
+  ];
+  gaGroupData.forEach(g => {
+    rows.push([
+      g.group, g.sp,
+      g.forecastQty > 0 ? +g.forecastQty.toFixed(2) : '',
+      +g.qty.toFixed(2),
+      g.forecastQty > 0 ? +g.diff.toFixed(2) : '',
+      g.achievement !== null ? +(g.achievement.toFixed(1)) + '%' : ''
+    ]);
+    g.companies.forEach(c => {
+      rows.push(['  ↳ ' + c.name, '', '', +c.qty.toFixed(2), '', '']);
+    });
+  });
+  const totQty = gaGroupData.reduce((s,g)=>s+g.qty,0);
+  const totFc = gaGroupData.reduce((s,g)=>s+g.forecastQty,0);
+  rows.push(['TOTAL', '', +totFc.toFixed(2), +totQty.toFixed(2), +(totQty-totFc).toFixed(2), totFc>0?(totQty/totFc*100).toFixed(1)+'%':'']);
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Demand Forecast');
+  XLSX.writeFile(wb, 'Demand_Forecast_' + (period) + '.xlsx');
+  showToast('✅ Excel downloaded');
 }
 
 function renderGroupTable(data) {
