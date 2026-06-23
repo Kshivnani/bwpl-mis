@@ -1903,6 +1903,12 @@ async function syncForecastSheet() {
   if (btn) { btn.textContent = '☁ Sync Forecast'; btn.disabled = false; }
 }
 
+// Canonical group key: case-insensitive + collapsed whitespace, so
+// "Mamodia Group", "MAMODIA GROUP", "mamodia  group" etc. all merge as one group.
+function canonGroupKey(name) {
+  return String(name || '').trim().toUpperCase().replace(/\s+/g, ' ');
+}
+
 function parseForecastData(rows) {
   // Header row 1 (index 1): Sr No, Group Name, SP, April, May, June forecast, June, Total
   forecastMap = {};
@@ -1911,13 +1917,27 @@ function parseForecastData(rows) {
     const r = rows[i];
     if (!r[1] || !String(r[1]).trim()) continue;
     const group = String(r[1]).trim();
-    forecastMap[group.toLowerCase()] = {
+    const key = canonGroupKey(group);
+    const safeRow = {
       group, sp: (r[2] || '').trim(),
       april: safe(r[3]), may: safe(r[4]),
       juneForecast: safe(r[5]),
       juneActual: safe(r[6]),
       total: safe(r[7])
     };
+    // If this canonical group already exists (duplicate casing within the
+    // forecast sheet itself), merge the numbers instead of overwriting.
+    if (forecastMap[key]) {
+      const ex = forecastMap[key];
+      ex.april += safeRow.april;
+      ex.may += safeRow.may;
+      ex.juneForecast += safeRow.juneForecast;
+      ex.juneActual += safeRow.juneActual;
+      ex.total += safeRow.total;
+      if (!ex.sp) ex.sp = safeRow.sp;
+    } else {
+      forecastMap[key] = safeRow;
+    }
   }
 }
 
@@ -1959,30 +1979,34 @@ function loadGroupAnalytics() {
   if (spFilter) rows = rows.filter(r => r.salesPerson === spFilter);
   if (productFilter) rows = rows.filter(r => r.product === productFilter);
 
-  // Group by company group
+  // Group by company group (canonical, case-insensitive key so
+  // "Mamodia Group" / "MAMODIA GROUP" merge into a single row)
   const groups = {};
   rows.forEach(r => {
     const party = (r.party || '').trim();
-    const group = getGroupForParty(party);
-    if (!groups[group]) groups[group] = { group, companies: {}, qty: 0, value: 0 };
-    groups[group].qty += r.qty;
-    groups[group].value += r.billAmount;
-    if (!groups[group].companies[party]) groups[group].companies[party] = { qty: 0, value: 0 };
-    groups[group].companies[party].qty += r.qty;
-    groups[group].companies[party].value += r.billAmount;
+    const groupDisplay = getGroupForParty(party);
+    const gKey = canonGroupKey(groupDisplay);
+    if (!groups[gKey]) groups[gKey] = { group: groupDisplay, companies: {}, qty: 0, value: 0 };
+    groups[gKey].qty += r.qty;
+    groups[gKey].value += r.billAmount;
+    if (!groups[gKey].companies[party]) groups[gKey].companies[party] = { qty: 0, value: 0 };
+    groups[gKey].companies[party].qty += r.qty;
+    groups[gKey].companies[party].value += r.billAmount;
   });
 
-  // Merge with forecast data
+  // Merge with forecast data (both maps are now keyed canonically)
   // Also include groups from forecast that have no actual dispatch yet
   const allGroupKeys = new Set([
     ...Object.keys(groups),
-    ...Object.keys(forecastMap).map(k => forecastMap[k].group)
+    ...Object.keys(forecastMap)
   ]);
 
-  gaGroupData = [...allGroupKeys].map(groupName => {
-    const actual = groups[groupName] || { group: groupName, companies: {}, qty: 0, value: 0 };
-    const fkey = groupName.toLowerCase();
-    const forecast = forecastMap[fkey] || null;
+  gaGroupData = [...allGroupKeys].map(gKey => {
+    const actual = groups[gKey] || { group: null, companies: {}, qty: 0, value: 0 };
+    const forecast = forecastMap[gKey] || null;
+    // Prefer the forecast sheet's spelling for the display name (it's the
+    // canonical source), falling back to whatever casing appeared in dispatch data.
+    const groupName = (forecast && forecast.group) || actual.group || gKey;
 
     // Always use June forecast (col F, index 5) from Sheet33
     const forecastQty = forecast ? forecast.juneForecast : 0;
