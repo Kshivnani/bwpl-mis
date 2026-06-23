@@ -836,6 +836,13 @@
             </select>
           </div>
           <div class="form-group" style="margin:0">
+            <select id="gaProductFilter" onchange="loadGroupAnalytics()" style="width:130px">
+              <option value="">All Products</option>
+              <option value="PC Wire">PC Wire</option>
+              <option value="ACSR Core Wire">ACSR</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
             <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
               <option value="all">All Time</option>
               <option value="2026-06">Jun 2026</option>
@@ -1920,6 +1927,7 @@ function loadGroupAnalytics() {
 
   const spFilter = document.getElementById('gaSpFilter').value;
   const period = document.getElementById('gaPeriod').value;
+  const productFilter = document.getElementById('gaProductFilter').value;
 
   // Filter dispatch data
   let rows = dispatchData;
@@ -1929,6 +1937,7 @@ function loadGroupAnalytics() {
     rows = rows.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === suffix);
   }
   if (spFilter) rows = rows.filter(r => r.salesPerson === spFilter);
+  if (productFilter) rows = rows.filter(r => r.product === productFilter);
 
   // Group by company group
   const groups = {};
