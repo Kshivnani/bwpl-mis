@@ -1690,7 +1690,7 @@ function initApp() {
   renderHistory();
 
   // Version key — bump this whenever parse format changes to force re-upload
-  const DATA_VERSION = 'v5-pendingfix';
+  const DATA_VERSION = 'v6-nofallback';
   const savedVersion = localStorage.getItem('bwplDataVersion');
 
   // Try loading saved dispatch data
@@ -1833,7 +1833,7 @@ function parseDispatchRows(rows) {
       freightType: r[14],
       status: r[30],
       gstAmount: parseFloat(r[34]) || 0,
-      billAmount: parseFloat(r[35]) || ((parseFloat(r[38]) || 0) * (parseFloat(r[10]) || 0)) || 0, // fallback: qty(kg) x price if bill amount not yet generated
+      billAmount: parseFloat(r[35]) || 0,
       invoiceNo: r[37],
       transporter: r[40],
       salesPerson: r[61],
@@ -1843,7 +1843,7 @@ function parseDispatchRows(rows) {
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
+  localStorage.setItem('bwplDataVersion', 'v6-nofallback');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
