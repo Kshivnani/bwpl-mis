@@ -1012,100 +1012,235 @@
     <!-- ANALYTICS DASHBOARD -->
     <div class="page" id="page-analytics">
 
-      <!-- Banner -->
-      <div class="dash-banner">
+      <!-- ── POWER BI STYLE ANALYTICS DASHBOARD ── -->
+      <style>
+        /* Analytics page overrides */
+        #page-analytics { padding-bottom: 32px; }
+        .pbi-header {
+          display:flex; align-items:center; justify-content:space-between;
+          flex-wrap:wrap; gap:12px; margin-bottom:20px;
+          padding:18px 20px;
+          background: linear-gradient(120deg, var(--steel-mid), var(--card-bg));
+          border:1px solid var(--border); border-radius:12px;
+        }
+        .pbi-title { font-size:22px; font-weight:900; color:var(--white); letter-spacing:0.3px; }
+        .pbi-sub   { font-size:12px; color:var(--muted); margin-top:3px; }
+        .pbi-controls { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+
+        /* KPI row */
+        .pbi-kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px; }
+        .pbi-kpi {
+          background:var(--card-bg); border:1px solid var(--border); border-radius:10px;
+          padding:14px 18px; position:relative; overflow:hidden; cursor:default;
+          transition: transform 0.15s, box-shadow 0.15s;
+        }
+        .pbi-kpi:hover { transform:translateY(-2px); box-shadow:0 6px 24px rgba(0,0,0,0.3); }
+        .pbi-kpi-bar {
+          position:absolute; top:0; left:0; right:0; height:3px;
+          background: var(--kpi-color, var(--wire));
+        }
+        .pbi-kpi-icon { font-size:22px; margin-bottom:6px; }
+        .pbi-kpi-label { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:4px; }
+        .pbi-kpi-value { font-size:28px; font-weight:900; color:var(--white); line-height:1; }
+        .pbi-kpi-sub   { font-size:11px; color:var(--muted); margin-top:5px; }
+
+        /* Chart grid */
+        .pbi-row { display:grid; gap:16px; margin-bottom:16px; }
+        .pbi-row-2-1 { grid-template-columns: 2fr 1fr; }
+        .pbi-row-1-1 { grid-template-columns: 1fr 1fr; }
+        .pbi-row-full { grid-template-columns: 1fr; }
+
+        .pbi-card {
+          background:var(--card-bg); border:1px solid var(--border); border-radius:12px;
+          overflow:hidden; display:flex; flex-direction:column;
+        }
+        .pbi-card-head {
+          padding:14px 18px 10px;
+          border-bottom:1px solid var(--border);
+          display:flex; align-items:center; justify-content:space-between;
+          flex-shrink:0;
+        }
+        .pbi-card-title { font-size:14px; font-weight:700; color:var(--white); }
+        .pbi-card-meta  { font-size:11px; color:var(--muted); margin-top:2px; }
+        .pbi-card-badge {
+          font-size:10px; font-weight:700; padding:3px 8px; border-radius:20px;
+          background:rgba(232,160,32,0.15); color:var(--wire); border:1px solid rgba(232,160,32,0.2);
+        }
+        .pbi-chart-wrap {
+          padding:16px; flex:1; min-height:0;
+          position:relative;
+        }
+
+        /* Leaderboard table inside card */
+        .pbi-lb { width:100%; border-collapse:collapse; font-size:13px; }
+        .pbi-lb tr { border-bottom:1px solid rgba(255,255,255,0.04); }
+        .pbi-lb tr:last-child { border:none; }
+        .pbi-lb td { padding:8px 4px; vertical-align:middle; }
+        .pbi-lb .rank { width:28px; font-weight:900; color:var(--muted); font-size:12px; }
+        .pbi-lb .rank-1 { color:#f0c040; }
+        .pbi-lb .rank-2 { color:#aaa; }
+        .pbi-lb .rank-3 { color:#cd7f32; }
+        .pbi-lb .name   { font-weight:600; color:var(--white); }
+        .pbi-lb .bar-cell { width:40%; padding:8px 8px 8px 12px; }
+        .pbi-lb-bar-bg { background:rgba(255,255,255,0.06); border-radius:4px; height:8px; overflow:hidden; }
+        .pbi-lb-bar-fill { height:100%; border-radius:4px; transition:width 0.6s ease; }
+        .pbi-lb .val { text-align:right; font-weight:700; color:var(--wire); white-space:nowrap; }
+
+        /* Product breakdown table */
+        .pbi-prod-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .pbi-prod-table th { 
+          font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px;
+          padding:6px 8px; text-align:left; border-bottom:1px solid var(--border); font-weight:700;
+        }
+        .pbi-prod-table td { padding:7px 8px; border-bottom:1px solid rgba(255,255,255,0.04); }
+        .pbi-prod-table tr:last-child td { border:none; }
+        .pbi-prod-swatch { width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:6px; vertical-align:middle; }
+
+        @media(max-width:768px) {
+          .pbi-kpi-row { grid-template-columns:repeat(2,1fr); }
+          .pbi-row-2-1, .pbi-row-1-1 { grid-template-columns:1fr; }
+          .pbi-kpi-value { font-size:20px; }
+        }
+      </style>
+
+      <!-- Header -->
+      <div class="pbi-header">
         <div>
-          <div class="dash-banner-title">📊 Sales Analytics — 3D View</div>
-          <div class="dash-banner-sub" id="anaBannerSub">Sales Person &amp; Product-wise breakdown — month to date</div>
+          <div class="pbi-title">📊 Sales Analytics</div>
+          <div class="pbi-sub" id="anaBannerSub">Sales Person &amp; Product-wise breakdown — month to date</div>
         </div>
-        <div class="dash-banner-actions">
-          <div class="form-group" style="margin:0">
-            <select id="anaMonth" style="width:130px">
-              <option value="2026-06">Jun 2026</option>
-              <option value="2026-05">May 2026</option>
-              <option value="2026-04">Apr 2026</option>
-            </select>
-          </div>
-          <button class="btn btn-secondary" onclick="loadAnalytics()">⟳ Refresh</button>
+        <div class="pbi-controls">
+          <select id="anaMonth" class="form-group" style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;padding:7px 12px;color:var(--white);font-size:13px;outline:none;cursor:pointer;">
+            <option value="2026-06">Jun 2026</option>
+            <option value="2026-05">May 2026</option>
+            <option value="2026-04">Apr 2026</option>
+          </select>
+          <button class="btn btn-primary" onclick="loadAnalytics()">⟳ Refresh</button>
         </div>
       </div>
 
-      <!-- Summary KPI Cards -->
-      <div class="overview-grid" style="grid-template-columns:repeat(4,1fr)">
-        <div class="stat-card" style="--accent-color:var(--wire)">
-          <div class="label">Total Qty (MTD)</div>
-          <div class="value" id="anaTotalQty">—</div>
-          <div class="sub">MT dispatched this month</div>
+      <!-- KPI Cards -->
+      <div class="pbi-kpi-row">
+        <div class="pbi-kpi">
+          <div class="pbi-kpi-bar" style="--kpi-color:#e8a020"></div>
+          <div class="pbi-kpi-icon">📦</div>
+          <div class="pbi-kpi-label">Total Qty Dispatched</div>
+          <div class="pbi-kpi-value" id="anaTotalQty">—</div>
+          <div class="pbi-kpi-sub">Metric Tonnes (MTD)</div>
         </div>
-        <div class="stat-card" style="--accent-color:var(--success)">
-          <div class="label">Total Value (MTD)</div>
-          <div class="value" id="anaTotalVal">—</div>
-          <div class="sub">Rs. (with GST / estimated)</div>
+        <div class="pbi-kpi">
+          <div class="pbi-kpi-bar" style="--kpi-color:#2ecc71"></div>
+          <div class="pbi-kpi-icon">💰</div>
+          <div class="pbi-kpi-label">Total Revenue</div>
+          <div class="pbi-kpi-value" id="anaTotalVal">—</div>
+          <div class="pbi-kpi-sub">Incl. GST (estimated)</div>
         </div>
-        <div class="stat-card" style="--accent-color:var(--info)">
-          <div class="label">Active Sales Persons</div>
-          <div class="value" id="anaSpCount">—</div>
-          <div class="sub" id="anaTopSp">Top: —</div>
+        <div class="pbi-kpi">
+          <div class="pbi-kpi-bar" style="--kpi-color:#3498db"></div>
+          <div class="pbi-kpi-icon">👥</div>
+          <div class="pbi-kpi-label">Active Sales Persons</div>
+          <div class="pbi-kpi-value" id="anaSpCount">—</div>
+          <div class="pbi-kpi-sub" id="anaTopSp">Top: —</div>
         </div>
-        <div class="stat-card" style="--accent-color:#9b59b6">
-          <div class="label">Product Lines Sold</div>
-          <div class="value" id="anaProductCount">—</div>
-          <div class="sub" id="anaTopProduct">Top: —</div>
-        </div>
-      </div>
-
-      <!-- Charts Row 1: 3D Bar + 3D Donut -->
-      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-bottom:16px">
-        <div class="report-panel">
-          <div class="report-header">
-            <div>
-              <h2>🏗️ Sales Person — Qty (MT) by Product</h2>
-              <div class="meta">3D stacked cylinders — drag to rotate</div>
-            </div>
-          </div>
-          <div class="section-pad" style="height:360px; padding:0; position:relative;">
-            <canvas id="chart3dBar" style="width:100%;height:100%;display:block;border-radius:0 0 10px 0;"></canvas>
-            <div id="chart3dBarTooltip" style="position:absolute;display:none;background:rgba(20,30,50,0.95);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--white);pointer-events:none;z-index:10;"></div>
-          </div>
-        </div>
-        <div class="report-panel">
-          <div class="report-header">
-            <div>
-              <h2>🍩 Product-wise Share</h2>
-              <div class="meta">3D rotating donut chart</div>
-            </div>
-          </div>
-          <div class="section-pad" style="height:360px; padding:0; position:relative;">
-            <canvas id="chart3dDonut" style="width:100%;height:100%;display:block;"></canvas>
-          </div>
+        <div class="pbi-kpi">
+          <div class="pbi-kpi-bar" style="--kpi-color:#9b59b6"></div>
+          <div class="pbi-kpi-icon">🏷️</div>
+          <div class="pbi-kpi-label">Product Lines</div>
+          <div class="pbi-kpi-value" id="anaProductCount">—</div>
+          <div class="pbi-kpi-sub" id="anaTopProduct">Top: —</div>
         </div>
       </div>
 
-      <!-- Charts Row 2: 3D Value Bar + 3D Pie -->
-      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-top:16px">
-        <div class="report-panel">
-          <div class="report-header">
+      <!-- Row 1: Stacked Bar (big) + Donut (small) -->
+      <div class="pbi-row pbi-row-2-1">
+        <div class="pbi-card">
+          <div class="pbi-card-head">
             <div>
-              <h2>💰 Sales Person — Total Value (Rs.)</h2>
-              <div class="meta">3D bar chart — MTD revenue by sales person</div>
+              <div class="pbi-card-title">Sales Person × Product — Qty (MT)</div>
+              <div class="pbi-card-meta">Stacked bar · hover for details</div>
             </div>
+            <div class="pbi-card-badge">MTD</div>
           </div>
-          <div class="section-pad" style="height:360px; padding:0; position:relative;">
-            <canvas id="chart3dValueBar" style="width:100%;height:100%;display:block;"></canvas>
+          <div class="pbi-chart-wrap" style="height:320px;">
+            <canvas id="anaChartStacked"></canvas>
           </div>
         </div>
-        <div class="report-panel">
-          <div class="report-header">
+        <div class="pbi-card">
+          <div class="pbi-card-head">
             <div>
-              <h2>🥧 Sales Person — Value Share</h2>
-              <div class="meta">3D isometric pie</div>
+              <div class="pbi-card-title">Product Mix</div>
+              <div class="pbi-card-meta">Qty share by product</div>
             </div>
+            <div class="pbi-card-badge">Donut</div>
           </div>
-          <div class="section-pad" style="height:360px; padding:0; position:relative;">
-            <canvas id="chart3dPie" style="width:100%;height:100%;display:block;"></canvas>
+          <div class="pbi-chart-wrap" style="height:320px;">
+            <canvas id="anaChartDonut"></canvas>
           </div>
         </div>
       </div>
+
+      <!-- Row 2: Value Bar (big) + SP Value Pie -->
+      <div class="pbi-row pbi-row-2-1">
+        <div class="pbi-card">
+          <div class="pbi-card-head">
+            <div>
+              <div class="pbi-card-title">Sales Person — Revenue (₹)</div>
+              <div class="pbi-card-meta">MTD billing contribution · hover for details</div>
+            </div>
+            <div class="pbi-card-badge">Revenue</div>
+          </div>
+          <div class="pbi-chart-wrap" style="height:320px;">
+            <canvas id="anaChartValueBar"></canvas>
+          </div>
+        </div>
+        <div class="pbi-card">
+          <div class="pbi-card-head">
+            <div>
+              <div class="pbi-card-title">Revenue Share</div>
+              <div class="pbi-card-meta">% of MTD by sales person</div>
+            </div>
+            <div class="pbi-card-badge">Pie</div>
+          </div>
+          <div class="pbi-chart-wrap" style="height:320px;">
+            <canvas id="anaChartPie"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Row 3: SP Leaderboard + Product Table -->
+      <div class="pbi-row pbi-row-1-1">
+        <div class="pbi-card">
+          <div class="pbi-card-head">
+            <div>
+              <div class="pbi-card-title">🏆 Sales Leaderboard</div>
+              <div class="pbi-card-meta">Ranked by MTD revenue</div>
+            </div>
+          </div>
+          <div class="pbi-chart-wrap" style="padding:12px 16px; overflow-y:auto; max-height:280px;">
+            <table class="pbi-lb" id="anaLeaderboard"></table>
+          </div>
+        </div>
+        <div class="pbi-card">
+          <div class="pbi-card-head">
+            <div>
+              <div class="pbi-card-title">📦 Product Breakdown</div>
+              <div class="pbi-card-meta">All products — qty & share</div>
+            </div>
+          </div>
+          <div class="pbi-chart-wrap" style="padding:0; overflow-y:auto; max-height:280px;">
+            <table class="pbi-prod-table" id="anaProdTable">
+              <thead><tr>
+                <th>Product</th>
+                <th style="text-align:right">Qty (MT)</th>
+                <th style="text-align:right">Share %</th>
+                <th style="width:30%">Bar</th>
+              </tr></thead>
+              <tbody id="anaProdBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <!-- DEMAND FORECAST -->
