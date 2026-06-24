@@ -1690,7 +1690,7 @@ function initApp() {
   renderHistory();
 
   // Version key — bump this whenever parse format changes to force re-upload
-  const DATA_VERSION = 'v6-nofallback';
+  const DATA_VERSION = 'v7-qtyfixed';
   const savedVersion = localStorage.getItem('bwplDataVersion');
 
   // Try loading saved dispatch data
@@ -1823,7 +1823,7 @@ function parseDispatchRows(rows) {
       product: normalizeType(r[9]), // Column J "TYPE" only — normalized
       productF: r[5] || '',
       size: r[6],
-      qty: (parseFloat(r[38]) || 0) / 1000, // column AM "Quantity" is in KGS -> convert to MT (used everywhere as Qty MT)
+      qty: ((parseFloat(r[38]) || 0) > 0 ? parseFloat(r[38]) / 1000 : parseFloat(r[7]) || 0), // col AM (KGS→MT), fallback col H (MT) if AM empty
       productDetail: r[8],
       type: r[9],
       price: parseFloat(r[10]) || 0,
@@ -1836,14 +1836,14 @@ function parseDispatchRows(rows) {
       billAmount: parseFloat(r[35]) || 0,
       invoiceNo: r[37],
       transporter: r[40],
-      salesPerson: r[61],
+      salesPerson: (r[61] || '').toString().trim().toUpperCase() || '',
       dispatchDate: formatDateDDMMYYYY(r[62]),
       plannedQty: parseFloat(r[7]) || 0, // column H "Qty (MT)" - planned/provisional quantity
       truckOutTime: r[19] || ''
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v6-nofallback');
+  localStorage.setItem('bwplDataVersion', 'v7-qtyfixed');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
