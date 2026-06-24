@@ -3398,7 +3398,7 @@ function toggleDwDetail(i, btn) {
 
 // ─── ANALYTICS DASHBOARD ───────────────────────────────────
 // ══════════════════════════════════════════════════════════
-// 3D ANALYTICS ENGINE — pure Canvas 2D with isometric math
+// 3D ANALYTICS ENGINE v2 — robust canvas sizing + tooltips
 // ══════════════════════════════════════════════════════════
 
 const ANA_COLORS = [
@@ -3407,454 +3407,556 @@ const ANA_COLORS = [
   '#00d2d3','#feca57','#ff6b6b','#54a0ff','#10ac84'
 ];
 
-// Isometric projection helpers
-function isoProject(x, y, z, originX, originY, tileW, tileH, scaleY) {
-  const sx = (x - z) * (tileW / 2);
-  const sy = (x + z) * (tileH / 2) - y * scaleY;
-  return { x: originX + sx, y: originY + sy };
+// ── Color helpers ──────────────────────────────────────────
+function _hexRgb(hex) {
+  hex = hex.replace('#','');
+  if (hex.length === 3) hex = hex[0]+hex[0]+hex[1]+hex[1]+hex[2]+hex[2];
+  return { r:parseInt(hex.slice(0,2),16), g:parseInt(hex.slice(2,4),16), b:parseInt(hex.slice(4,6),16) };
 }
+function _dark(hex, a) { const c=_hexRgb(hex); return `rgb(${Math.max(0,c.r-a)},${Math.max(0,c.g-a)},${Math.max(0,c.b-a)})`; }
+function _light(hex, a) { const c=_hexRgb(hex); return `rgb(${Math.min(255,c.r+a)},${Math.min(255,c.g+a)},${Math.min(255,c.b+a)})`; }
+function _alpha(hex, a) { const c=_hexRgb(hex); return `rgba(${c.r},${c.g},${c.b},${a})`; }
+function _cssVar(v) { return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
 
-function hexToRgb(hex) {
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  return {r,g,b};
-}
-function darken(hex, amt) {
-  const {r,g,b} = hexToRgb(hex);
-  return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`;
-}
-function lighten(hex, amt) {
-  const {r,g,b} = hexToRgb(hex);
-  return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
-}
-function hexAlpha(hex, a) {
-  const {r,g,b} = hexToRgb(hex);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-// Draw one isometric 3D bar (box)
-function draw3DBar(ctx, bx, bz, height, color, originX, originY, tileW, tileH, scaleY, barW) {
-  const bw = barW || 0.75;
-  const x0 = bx, z0 = bz;
-  const x1 = bx + bw, z1 = bz + bw;
-
-  // 4 corners at bottom
-  const bl = isoProject(x0, 0,      z0, originX, originY, tileW, tileH, scaleY);
-  const br = isoProject(x1, 0,      z0, originX, originY, tileW, tileH, scaleY);
-  const bf = isoProject(x1, 0,      z1, originX, originY, tileW, tileH, scaleY);
-  const bb = isoProject(x0, 0,      z1, originX, originY, tileW, tileH, scaleY);
-  // 4 corners at top
-  const tl = isoProject(x0, height, z0, originX, originY, tileW, tileH, scaleY);
-  const tr = isoProject(x1, height, z0, originX, originY, tileW, tileH, scaleY);
-  const tf = isoProject(x1, height, z1, originX, originY, tileW, tileH, scaleY);
-  const tb = isoProject(x0, height, z1, originX, originY, tileW, tileH, scaleY);
-
-  // Left face (darker)
-  ctx.beginPath();
-  ctx.moveTo(tl.x, tl.y); ctx.lineTo(bl.x, bl.y);
-  ctx.lineTo(bb.x, bb.y); ctx.lineTo(tb.x, tb.y);
-  ctx.closePath();
-  ctx.fillStyle = darken(color, 40);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
-
-  // Right face (medium)
-  ctx.beginPath();
-  ctx.moveTo(tr.x, tr.y); ctx.lineTo(br.x, br.y);
-  ctx.lineTo(bf.x, bf.y); ctx.lineTo(tf.x, tf.y);
-  ctx.closePath();
-  ctx.fillStyle = darken(color, 20);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
-
-  // Top face (brightest)
-  ctx.beginPath();
-  ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y);
-  ctx.lineTo(tf.x, tf.y); ctx.lineTo(tb.x, tb.y);
-  ctx.closePath();
-  ctx.fillStyle = lighten(color, 15);
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
-}
-
-// Draw floor grid
-function drawFloor(ctx, cols, originX, originY, tileW, tileH, scaleY, gridColor) {
-  for (let x = 0; x <= cols; x++) {
-    const a = isoProject(x, 0, 0,    originX, originY, tileW, tileH, scaleY);
-    const b = isoProject(x, 0, cols, originX, originY, tileW, tileH, scaleY);
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5; ctx.stroke();
-  }
-  for (let z = 0; z <= cols; z++) {
-    const a = isoProject(0,    0, z, originX, originY, tileW, tileH, scaleY);
-    const b = isoProject(cols, 0, z, originX, originY, tileW, tileH, scaleY);
-    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
-    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5; ctx.stroke();
-  }
-}
-
-// ── CHART 1: 3D Stacked Bar (SP × Product) ──────────────
-function render3DStackedBar(canvasId, labels, stackData, colors, maxY, fmtFn) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth  || 600;
-  canvas.height = canvas.offsetHeight || canvas.parentElement.offsetHeight || 360;
+// ── Canvas sizing — always correct even when page was hidden ──
+function _setupCanvas(id, fallbackW, fallbackH) {
+  const canvas = document.getElementById(id);
+  if (!canvas) return null;
+  const parent = canvas.parentElement;
+  const w = parent ? parent.clientWidth  || fallbackW : fallbackW;
+  const h = parent ? parent.clientHeight || fallbackH : fallbackH;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = h + 'px';
   const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+  ctx.scale(dpr, dpr);
+  return { ctx, W: w, H: h, canvas };
+}
+
+// ── Isometric helpers ─────────────────────────────────────
+function _iso(x, y, z, ox, oy, tw, th, sy) {
+  return { x: ox + (x - z) * tw/2,
+           y: oy + (x + z) * th/2 - y * sy };
+}
+
+// ── Draw one 3D box ───────────────────────────────────────
+function _box(ctx, bx, bz, h, color, ox, oy, tw, th, sy, bw) {
+  bw = bw || 0.76;
+  const x0=bx, x1=bx+bw, z0=bz, z1=bz+bw;
+  const BL=_iso(x0,0,z0,ox,oy,tw,th,sy), BR=_iso(x1,0,z0,ox,oy,tw,th,sy);
+  const BB=_iso(x0,0,z1,ox,oy,tw,th,sy), BF=_iso(x1,0,z1,ox,oy,tw,th,sy);
+  const TL=_iso(x0,h,z0,ox,oy,tw,th,sy), TR=_iso(x1,h,z0,ox,oy,tw,th,sy);
+  const TB=_iso(x0,h,z1,ox,oy,tw,th,sy), TF=_iso(x1,h,z1,ox,oy,tw,th,sy);
+
+  // Left face
+  ctx.beginPath(); ctx.moveTo(TL.x,TL.y); ctx.lineTo(BL.x,BL.y); ctx.lineTo(BB.x,BB.y); ctx.lineTo(TB.x,TB.y); ctx.closePath();
+  ctx.fillStyle = _dark(color,50); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
+
+  // Right face
+  ctx.beginPath(); ctx.moveTo(TR.x,TR.y); ctx.lineTo(BR.x,BR.y); ctx.lineTo(BF.x,BF.y); ctx.lineTo(TF.x,TF.y); ctx.closePath();
+  ctx.fillStyle = _dark(color,25); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
+
+  // Top face
+  ctx.beginPath(); ctx.moveTo(TL.x,TL.y); ctx.lineTo(TR.x,TR.y); ctx.lineTo(TF.x,TF.y); ctx.lineTo(TB.x,TB.y); ctx.closePath();
+  ctx.fillStyle = _light(color,20); ctx.fill();
+  ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
+}
+
+// ── Floor grid ────────────────────────────────────────────
+function _grid(ctx, cols, ox, oy, tw, th, sy) {
+  ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth=0.6;
+  for (let i=0; i<=cols; i++) {
+    const a=_iso(i,0,0,ox,oy,tw,th,sy), b=_iso(i,0,cols,ox,oy,tw,th,sy);
+    ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+    const c=_iso(0,0,i,ox,oy,tw,th,sy), d=_iso(cols,0,i,ox,oy,tw,th,sy);
+    ctx.beginPath(); ctx.moveTo(c.x,c.y); ctx.lineTo(d.x,d.y); ctx.stroke();
+  }
+}
+
+// ── Tooltip system ────────────────────────────────────────
+function _showTip(tipEl, x, y, html) {
+  if (!tipEl) return;
+  tipEl.innerHTML = html;
+  tipEl.style.display = 'block';
+  tipEl.style.left = (x + 14) + 'px';
+  tipEl.style.top  = Math.max(0, y - 10) + 'px';
+}
+function _hideTip(tipEl) { if (tipEl) tipEl.style.display = 'none'; }
+
+function _getTip(canvasId) {
+  const id = canvasId + '_tip';
+  let el = document.getElementById(id);
+  if (!el) {
+    el = document.createElement('div');
+    el.id = id;
+    el.style.cssText = 'position:absolute;display:none;background:rgba(10,15,28,0.97);border:1px solid rgba(232,160,32,0.4);border-radius:8px;padding:9px 13px;font-size:12px;color:#f5f7fa;pointer-events:none;z-index:200;min-width:130px;box-shadow:0 4px 20px rgba(0,0,0,0.5);line-height:1.7;';
+    const canvas = document.getElementById(canvasId);
+    if (canvas && canvas.parentElement) canvas.parentElement.appendChild(el);
+  }
+  return el;
+}
+
+// ══════════════════════════════════════════════════════════
+// CHART 1 — 3D Stacked Isometric Bar
+// ══════════════════════════════════════════════════════════
+function render3DStackedBar(canvasId, labels, stackData, colors, maxY, fmtFn) {
+  const setup = _setupCanvas(canvasId, 600, 360);
+  if (!setup) return;
+  const { ctx, W, H, canvas } = setup;
+  const tip = _getTip(canvasId);
+  ctx.clearRect(0,0,W,H);
 
   const n = labels.length;
-  if (n === 0) return;
+  if (!n) { ctx.fillStyle='#8fa3be'; ctx.textAlign='center'; ctx.font='13px Segoe UI'; ctx.fillText('No data loaded — sync Google Sheet first', W/2, H/2); return; }
 
-  const tileW = Math.min(90, Math.max(40, W / (n + 2)));
-  const tileH = tileW * 0.5;
-  const scaleY = H * 0.45;
-  const originX = W * 0.18;
-  const originY = H * 0.78;
-  const barW = 0.72;
+  const tw = Math.min(100, Math.max(42, (W * 0.62) / n));
+  const th = tw * 0.52;
+  const sy = H * 0.44;
+  const ox = W * 0.18, oy = H * 0.80;
+  const muted = _cssVar('--muted') || '#8fa3be';
+  const white = _cssVar('--white') || '#f5f7fa';
 
-  // floor grid
-  drawFloor(ctx, n + 1, originX, originY, tileW, tileH, scaleY,
-    getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)');
+  // hit areas for tooltip
+  const hitBars = [];
 
-  // Draw bars back to front
-  for (let i = n - 1; i >= 0; i--) {
-    let baseH = 0;
-    stackData.forEach((dataset, di) => {
-      const val = dataset[i] || 0;
-      const normH = maxY > 0 ? val / maxY : 0;
-      if (normH > 0) {
-        const color = colors[di % colors.length];
-        // bx offset slight per bar for separation
-        const bx = i + 0.12;
-        const bz = 0.12;
-        draw3DBar(ctx, bx, bz, baseH + normH, color, originX, originY, tileW, tileH, scaleY, barW);
-        baseH += normH;
+  _grid(ctx, n+1, ox, oy, tw, th, sy);
+
+  // Draw bars back→front
+  for (let i = n-1; i >= 0; i--) {
+    let base = 0;
+    let totalH = 0;
+    const stackInfo = [];
+    stackData.forEach((ds, di) => {
+      const val = ds[i] || 0;
+      const nh = maxY > 0 ? val/maxY : 0;
+      if (nh > 0) { stackInfo.push({ val, color: colors[di%colors.length], nh }); }
+    });
+    stackInfo.forEach(s => {
+      _box(ctx, i+0.12, 0.12, base+s.nh, s.color, ox, oy, tw, th, sy, 0.72);
+      base += s.nh;
+    });
+    totalH = base;
+    // store top-center screen pos for hit testing
+    const top = _iso(i+0.5, totalH, 0.5, ox, oy, tw, th, sy);
+    hitBars.push({ i, screenX: top.x, screenY: top.y, label: labels[i], stackInfo });
+  }
+
+  // X labels
+  ctx.font = `bold ${Math.max(9,tw*0.13)}px Segoe UI,sans-serif`;
+  ctx.fillStyle = muted; ctx.textAlign='center';
+  for (let i=0; i<n; i++) {
+    const p = _iso(i+0.5,0,1.12,ox,oy,tw,th,sy);
+    const lbl = labels[i].length>9 ? labels[i].slice(0,9)+'…' : labels[i];
+    ctx.fillText(lbl, p.x, p.y+12);
+  }
+
+  // Y axis steps
+  ctx.font = `${Math.max(8,tw*0.11)}px Segoe UI,sans-serif`;
+  ctx.fillStyle = muted; ctx.textAlign='right';
+  for (let s=0; s<=4; s++) {
+    const p = _iso(-0.15, s/4, 0, ox, oy, tw, th, sy);
+    ctx.fillText(fmtFn ? fmtFn(maxY*s/4) : (maxY*s/4).toFixed(0), p.x-4, p.y+3);
+    const p2 = _iso(n, s/4, 0, ox, oy, tw, th, sy);
+    ctx.beginPath(); ctx.moveTo(p.x,p.y); ctx.lineTo(p2.x,p2.y);
+    ctx.strokeStyle='rgba(255,255,255,0.04)'; ctx.lineWidth=0.8; ctx.stroke();
+  }
+
+  // Title
+  ctx.font = 'bold 11px Segoe UI,sans-serif'; ctx.fillStyle=_cssVar('--wire')||'#e8a020';
+  ctx.textAlign='left'; ctx.fillText('Qty (MT) by Product  ·  hover bars for detail', 12, 16);
+
+  // Mouse hover
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let best = null, bestDist = 60;
+    hitBars.forEach(b => {
+      const d = Math.hypot(mx - b.screenX, my - b.screenY);
+      if (d < bestDist) { bestDist=d; best=b; }
+    });
+    if (best) {
+      let html = `<b style="color:var(--wire)">${best.label}</b><br>`;
+      best.stackInfo.forEach(s => {
+        html += `<span style="color:${s.color}">■</span> ${(fmtFn?fmtFn(s.val*maxY):s.val.toFixed(2))}<br>`;
+      });
+      const total = best.stackInfo.reduce((a,s)=>a+s.val,0);
+      html += `<b>Total: ${total.toFixed(1)} MT</b>`;
+      _showTip(tip, mx, my, html);
+      canvas.style.cursor = 'crosshair';
+    } else {
+      _hideTip(tip); canvas.style.cursor = 'default';
+    }
+  };
+  canvas.onmouseleave = () => _hideTip(tip);
+}
+
+// ══════════════════════════════════════════════════════════
+// CHART 2 — 3D Animated Donut
+// ══════════════════════════════════════════════════════════
+const _donut = { raf: null, angle: 0 };
+
+function render3DDonut(canvasId, labels, values, colors) {
+  const setup = _setupCanvas(canvasId, 300, 360);
+  if (!setup) return;
+  const { ctx, W, H, canvas } = setup;
+  const tip = _getTip(canvasId);
+  const total = values.reduce((a,b)=>a+b,0);
+  if (!total) return;
+
+  if (_donut.raf) { cancelAnimationFrame(_donut.raf); _donut.raf=null; }
+
+  const cx=W/2, cy=H*0.43;
+  const rx=Math.min(W,H)*0.30, ry=rx*0.36;
+  const thick=rx*0.36, innerR=rx*0.46, innerRy=ry*0.46;
+  const muted = _cssVar('--muted')||'#8fa3be';
+  const cardBg = _cssVar('--card-bg')||'#1e2e42';
+  const white  = _cssVar('--white')||'#f5f7fa';
+
+  let hovered = -1;
+
+  function buildSlices(rot) {
+    let a = rot - Math.PI/2;
+    return values.map((v,i) => {
+      const sweep = (v/total)*Math.PI*2;
+      const s = { start:a, end:a+sweep, mid:a+sweep/2, color:colors[i%colors.length], val:v, label:labels[i] };
+      a += sweep; return s;
+    });
+  }
+
+  function draw(rot) {
+    ctx.clearRect(0,0,W,H);
+    const slices = buildSlices(rot);
+    const byDepth = [...slices].sort((a,b)=>Math.sin(b.mid)-Math.sin(a.mid));
+
+    // Depth sides
+    byDepth.forEach((s,ii) => {
+      const ex = hovered===slices.indexOf(s) ? 8 : 0;
+      const offX = Math.cos(s.mid)*ex, offY = Math.sin(s.mid)*ex*0.36;
+      ctx.beginPath();
+      ctx.ellipse(cx+offX, cy+offY+thick*0.6, rx, ry, 0, s.start, s.end);
+      ctx.lineTo(cx+offX+rx*Math.cos(s.end), cy+offY+thick*0.6+ry*Math.sin(s.end));
+      ctx.ellipse(cx+offX, cy+offY, rx, ry, 0, s.end, s.start, true);
+      ctx.closePath();
+      ctx.fillStyle = _dark(s.color, 55); ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
+    });
+
+    // Top donut ring
+    slices.forEach((s,si) => {
+      const ex = hovered===si ? 8 : 0;
+      const offX = Math.cos(s.mid)*ex, offY = Math.sin(s.mid)*ex*0.36;
+      ctx.beginPath();
+      ctx.ellipse(cx+offX, cy+offY, rx, ry, 0, s.start, s.end);
+      ctx.ellipse(cx+offX, cy+offY, innerR, innerRy, 0, s.end, s.start, true);
+      ctx.closePath();
+      const grad = ctx.createRadialGradient(cx+offX,cy+offY,innerR,cx+offX,cy+offY,rx);
+      grad.addColorStop(0, _light(s.color,20));
+      grad.addColorStop(1, s.color);
+      ctx.fillStyle = grad; ctx.fill();
+      ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=0.8; ctx.stroke();
+
+      // % label inside slice if big enough
+      const pct = (s.val/total)*100;
+      if (pct > 6) {
+        const lx = cx+offX+(rx*0.68)*Math.cos(s.mid);
+        const ly = cy+offY+(ry*0.68)*Math.sin(s.mid);
+        ctx.font = `bold ${Math.max(9,rx*0.12)}px Segoe UI,sans-serif`;
+        ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.textBaseline='middle';
+        ctx.fillText(pct.toFixed(0)+'%', lx, ly);
+        ctx.textBaseline='alphabetic';
       }
     });
-  }
 
-  // X axis labels
-  ctx.textAlign = 'center'; ctx.font = `bold ${Math.max(9, tileW * 0.14)}px Segoe UI,sans-serif`;
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
-  ctx.fillStyle = textColor;
-  for (let i = 0; i < n; i++) {
-    const pt = isoProject(i + 0.5, 0, 1.05, originX, originY, tileW, tileH, scaleY);
-    ctx.fillText(labels[i].length > 8 ? labels[i].slice(0,8)+'…' : labels[i], pt.x, pt.y + 10);
-  }
-
-  // Y axis value markers
-  const steps = 4;
-  ctx.font = `${Math.max(8, tileW * 0.12)}px Segoe UI,sans-serif`;
-  ctx.textAlign = 'right';
-  for (let s = 0; s <= steps; s++) {
-    const val = (maxY * s / steps);
-    const normH = s / steps;
-    const pt = isoProject(-0.1, normH, 0, originX, originY, tileW, tileH, scaleY);
-    ctx.fillStyle = textColor;
-    ctx.fillText(fmtFn ? fmtFn(val) : val.toFixed(0), pt.x - 4, pt.y + 3);
-    // horizontal guide line
-    const pt2 = isoProject(n, normH, 0, originX, originY, tileW, tileH, scaleY);
-    ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt2.x, pt2.y);
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 0.8; ctx.stroke();
-  }
-}
-
-// ── CHART 2: 3D Rotating Donut ───────────────────────────
-const _donutState = { angle: 0, raf: null };
-function render3DDonut(canvasId, labels, values, colors) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width  = canvas.offsetWidth  || 300;
-  canvas.height = canvas.offsetHeight || 360;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-
-  const cx = W / 2, cy = H * 0.44;
-  const rx = Math.min(W, H) * 0.32;
-  const ry = rx * 0.38; // ellipse Y = depth illusion
-  const thickness = rx * 0.38;
-  const total = values.reduce((a, b) => a + b, 0);
-  if (total === 0) return;
-
-  if (_donutState.raf) cancelAnimationFrame(_donutState.raf);
-
-  function drawFrame() {
-    ctx.clearRect(0, 0, W, H);
-    const rotOffset = _donutState.angle;
-    let startAngle = rotOffset;
-
-    const slices = values.map((v, i) => {
-      const sweep = (v / total) * Math.PI * 2;
-      const mid = startAngle + sweep / 2;
-      const s = { start: startAngle, end: startAngle + sweep, mid, color: colors[i % colors.length], label: labels[i], val: v };
-      startAngle += sweep;
-      return s;
-    });
-
-    // Draw side (3D depth) — back slices first
-    const sorted = [...slices].sort((a, b) => Math.sin(b.mid) - Math.sin(a.mid));
-    sorted.forEach(s => {
-      ctx.beginPath();
-      ctx.ellipse(cx, cy + thickness * 0.5, rx, ry, 0, s.start, s.end);
-      ctx.lineTo(cx + rx * Math.cos(s.end), cy + thickness * 0.5 + ry * Math.sin(s.end));
-      ctx.ellipse(cx, cy + thickness * 0.5, rx, ry, 0, s.end, s.start, true);
-      ctx.closePath();
-      ctx.fillStyle = darken(s.color, 45);
-      ctx.fill();
-    });
-
-    // Draw top donut face
-    const innerR = rx * 0.48, innerRy = ry * 0.48;
-    slices.forEach(s => {
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, rx, ry, 0, s.start, s.end);
-      ctx.ellipse(cx, cy, innerR, innerRy, 0, s.end, s.start, true);
-      ctx.closePath();
-      ctx.fillStyle = s.color;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
-
-      // Glow on hover slice (largest)
-      const midX = cx + (rx * 0.72) * Math.cos(s.mid);
-      const midY = cy + (ry * 0.72) * Math.sin(s.mid);
-      ctx.fillStyle = lighten(s.color, 30);
-      ctx.font = 'bold 10px Segoe UI,sans-serif';
-      ctx.textAlign = 'center';
-      const pct = ((s.val / total) * 100).toFixed(1) + '%';
-      ctx.fillText(pct, midX, midY);
-    });
-
-    // Center hole label
-    ctx.beginPath();
-    ctx.ellipse(cx, cy, innerR, innerRy, 0, 0, Math.PI * 2);
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#1e2e42';
-    ctx.fill();
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--white').trim() || '#f5f7fa';
-    ctx.font = 'bold 13px Segoe UI,sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText('Products', cx, cy - 7);
-    ctx.font = '10px Segoe UI,sans-serif';
-    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
-    ctx.fillText(total.toFixed(1) + ' MT', cx, cy + 9);
-    ctx.textBaseline = 'alphabetic';
+    // Center hole
+    ctx.beginPath(); ctx.ellipse(cx,cy,innerR,innerRy,0,0,Math.PI*2);
+    ctx.fillStyle = cardBg; ctx.fill();
+    ctx.fillStyle = white; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font = `bold ${Math.max(10,rx*0.13)}px Segoe UI,sans-serif`;
+    ctx.fillText('Products', cx, cy-8);
+    ctx.font = `${Math.max(9,rx*0.11)}px Segoe UI,sans-serif`;
+    ctx.fillStyle = muted;
+    ctx.fillText(total.toFixed(1)+' MT', cx, cy+9);
+    ctx.textBaseline='alphabetic';
 
     // Legend
-    const lx = 14, ly = H * 0.72;
-    ctx.font = '10px Segoe UI,sans-serif'; ctx.textAlign = 'left';
-    slices.forEach((s, i) => {
-      const row = Math.floor(i / 2), col = i % 2;
-      const lbx = lx + col * (W / 2 - 10), lby = ly + row * 16;
-      ctx.fillStyle = s.color;
-      ctx.fillRect(lbx, lby - 8, 10, 10);
-      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
-      const lbl = s.label.length > 11 ? s.label.slice(0,11)+'…' : s.label;
-      ctx.fillText(lbl, lbx + 13, lby);
+    const lx=10, ly=H*0.74;
+    ctx.font='10px Segoe UI,sans-serif'; ctx.textAlign='left';
+    slices.forEach((s,i) => {
+      const col=i%2, row=Math.floor(i/2);
+      const bx=lx+col*(W/2-8), by=ly+row*16;
+      ctx.fillStyle=s.color; ctx.fillRect(bx,by-8,10,10);
+      ctx.fillStyle=muted;
+      ctx.fillText((s.label.length>12?s.label.slice(0,12)+'…':s.label), bx+13, by);
     });
-
-    _donutState.angle += 0.004;
-    _donutState.raf = requestAnimationFrame(drawFrame);
   }
-  drawFrame();
+
+  function frame() {
+    _donut.angle += 0.005;
+    draw(_donut.angle);
+    _donut.raf = requestAnimationFrame(frame);
+  }
+  frame();
+
+  // Mouse hover — pause & show tooltip
+  canvas.onmousemove = function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    const dx=mx-cx, dy=my-cy;
+    const normX=dx/rx, normY=dy/ry;
+    const dist = Math.sqrt(normX*normX+normY*normY);
+    const slices = buildSlices(_donut.angle);
+
+    if (dist > innerR/rx && dist < 1.15) {
+      let angle = Math.atan2(dy, dx);
+      // match to slice
+      let found = -1;
+      slices.forEach((s,i) => {
+        let start=s.start, end=s.end;
+        // normalise angle
+        while (angle < start - Math.PI) angle += Math.PI*2;
+        while (angle > end   + Math.PI) angle -= Math.PI*2;
+        if (angle >= start && angle <= end) found=i;
+      });
+      if (found >= 0) {
+        hovered = found;
+        const s = slices[found];
+        const pct = ((s.val/total)*100).toFixed(1);
+        _showTip(tip, mx, my,
+          `<b style="color:${s.color}">■ ${s.label}</b><br>
+           Qty: <b>${s.val.toFixed(1)} MT</b><br>
+           Share: <b>${pct}%</b>`);
+        canvas.style.cursor='pointer';
+        return;
+      }
+    }
+    hovered=-1; _hideTip(tip); canvas.style.cursor='default';
+  };
+  canvas.onmouseleave=()=>{ hovered=-1; _hideTip(tip); };
 }
 
-// ── CHART 3: 3D Single Bar (Value) ──────────────────────
-function render3DValueBar(canvasId, labels, values, color, fmtFn) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width  = canvas.offsetWidth  || 600;
-  canvas.height = canvas.offsetHeight || 360;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+// ══════════════════════════════════════════════════════════
+// CHART 3 — 3D Value Bar (single dataset, multi-color)
+// ══════════════════════════════════════════════════════════
+function render3DValueBar(canvasId, labels, values, _unused, fmtFn) {
+  const setup = _setupCanvas(canvasId, 600, 360);
+  if (!setup) return;
+  const { ctx, W, H, canvas } = setup;
+  const tip = _getTip(canvasId);
+  ctx.clearRect(0,0,W,H);
 
   const n = labels.length;
-  if (n === 0) return;
-  const maxY = Math.max(...values) * 1.1 || 1;
+  if (!n) { ctx.fillStyle='#8fa3be'; ctx.textAlign='center'; ctx.font='13px Segoe UI'; ctx.fillText('No data', W/2, H/2); return; }
 
-  const tileW = Math.min(80, Math.max(36, W / (n + 2)));
-  const tileH = tileW * 0.5;
-  const scaleY = H * 0.5;
-  const originX = W * 0.16;
-  const originY = H * 0.82;
+  const maxY = (Math.max(...values)||1) * 1.15;
+  const tw = Math.min(90, Math.max(36, (W*0.65)/n));
+  const th = tw*0.52, sy=H*0.46, ox=W*0.18, oy=H*0.82;
+  const muted=_cssVar('--muted')||'#8fa3be';
 
-  drawFloor(ctx, n + 1, originX, originY, tileW, tileH, scaleY,
-    getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)');
+  const hitBars=[];
+  _grid(ctx, n+1, ox, oy, tw, th, sy);
 
-  // gradient palette per bar
-  const palette = ANA_COLORS;
-  for (let i = n - 1; i >= 0; i--) {
-    const normH = values[i] / maxY;
-    const c = palette[i % palette.length];
-    draw3DBar(ctx, i + 0.12, 0.12, normH, c, originX, originY, tileW, tileH, scaleY, 0.72);
+  for (let i=n-1; i>=0; i--) {
+    const nh = values[i]/maxY;
+    const c = ANA_COLORS[i%ANA_COLORS.length];
+    _box(ctx, i+0.12, 0.12, nh, c, ox, oy, tw, th, sy, 0.72);
 
-    // value on top
-    const topPt = isoProject(i + 0.5, normH + 0.03, 0.5, originX, originY, tileW, tileH, scaleY);
-    ctx.fillStyle = lighten(c, 40);
-    ctx.font = `bold ${Math.max(8, tileW * 0.13)}px Segoe UI,sans-serif`;
-    ctx.textAlign = 'center';
-    ctx.fillText(fmtFn ? fmtFn(values[i]) : values[i].toFixed(0), topPt.x, topPt.y - 2);
+    // value label on top
+    const top=_iso(i+0.5,nh+0.04,0.5,ox,oy,tw,th,sy);
+    ctx.font=`bold ${Math.max(8,tw*0.13)}px Segoe UI,sans-serif`;
+    ctx.textAlign='center'; ctx.fillStyle=_light(c,50);
+    ctx.fillText(fmtFn?fmtFn(values[i]):values[i].toFixed(0), top.x, top.y);
+
+    hitBars.push({ i, screenX:top.x, screenY:top.y+8 });
   }
 
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
-  ctx.fillStyle = textColor;
-  ctx.font = `bold ${Math.max(9, tileW * 0.14)}px Segoe UI,sans-serif`;
-  ctx.textAlign = 'center';
-  for (let i = 0; i < n; i++) {
-    const pt = isoProject(i + 0.5, 0, 1.1, originX, originY, tileW, tileH, scaleY);
-    ctx.fillText(labels[i].length > 8 ? labels[i].slice(0,8)+'…' : labels[i], pt.x, pt.y + 10);
+  // X labels
+  ctx.font=`bold ${Math.max(9,tw*0.13)}px Segoe UI,sans-serif`;
+  ctx.fillStyle=muted; ctx.textAlign='center';
+  for (let i=0;i<n;i++) {
+    const p=_iso(i+0.5,0,1.12,ox,oy,tw,th,sy);
+    ctx.fillText(labels[i].length>9?labels[i].slice(0,9)+'…':labels[i], p.x, p.y+12);
   }
 
-  const steps = 4;
-  ctx.font = `${Math.max(8, tileW * 0.12)}px Segoe UI,sans-serif`;
-  ctx.textAlign = 'right';
-  for (let s = 0; s <= steps; s++) {
-    const val = (maxY * s / steps);
-    const pt = isoProject(-0.1, s / steps, 0, originX, originY, tileW, tileH, scaleY);
-    ctx.fillStyle = textColor;
-    ctx.fillText(fmtFn ? fmtFn(val) : val.toFixed(0), pt.x - 4, pt.y + 3);
+  // Y axis
+  ctx.font=`${Math.max(8,tw*0.11)}px Segoe UI,sans-serif`;
+  ctx.fillStyle=muted; ctx.textAlign='right';
+  for (let s=0;s<=4;s++) {
+    const p=_iso(-0.15,s/4,0,ox,oy,tw,th,sy);
+    ctx.fillText(fmtFn?fmtFn(maxY*s/4):(maxY*s/4).toFixed(0), p.x-4, p.y+3);
   }
+
+  ctx.font='bold 11px Segoe UI,sans-serif'; ctx.fillStyle=_cssVar('--wire')||'#e8a020';
+  ctx.textAlign='left'; ctx.fillText('Revenue (₹)  ·  hover for detail', 12, 16);
+
+  canvas.onmousemove=function(e) {
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left, my=e.clientY-rect.top;
+    let best=null, bd=55;
+    hitBars.forEach(b=>{ const d=Math.hypot(mx-b.screenX,my-b.screenY); if(d<bd){bd=d;best=b;} });
+    if (best) {
+      const v=values[best.i], c=ANA_COLORS[best.i%ANA_COLORS.length];
+      _showTip(tip,mx,my,
+        `<b style="color:${c}">■ ${labels[best.i]}</b><br>
+         Value: <b>${fmtFn?fmtFn(v):v.toFixed(0)}</b>`);
+      canvas.style.cursor='crosshair';
+    } else { _hideTip(tip); canvas.style.cursor='default'; }
+  };
+  canvas.onmouseleave=()=>_hideTip(tip);
 }
 
-// ── CHART 4: 3D Isometric Pie ────────────────────────────
+// ══════════════════════════════════════════════════════════
+// CHART 4 — 3D Isometric Pie
+// ══════════════════════════════════════════════════════════
 function render3DPie(canvasId, labels, values, colors) {
-  const canvas = document.getElementById(canvasId);
-  if (!canvas) return;
-  canvas.width  = canvas.offsetWidth  || 300;
-  canvas.height = canvas.offsetHeight || 360;
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width, H = canvas.height;
-  ctx.clearRect(0, 0, W, H);
+  const setup = _setupCanvas(canvasId, 300, 360);
+  if (!setup) return;
+  const { ctx, W, H, canvas } = setup;
+  const tip = _getTip(canvasId);
+  ctx.clearRect(0,0,W,H);
 
-  const cx = W / 2, cy = H * 0.42;
-  const rx = Math.min(W, H) * 0.34;
-  const ry = rx * 0.42;
-  const depth = rx * 0.22;
-  const total = values.reduce((a, b) => a + b, 0);
-  if (total === 0) return;
+  const total=values.reduce((a,b)=>a+b,0);
+  if (!total) return;
 
-  let startAngle = -Math.PI / 2;
-  const slices = values.map((v, i) => {
-    const sweep = (v / total) * Math.PI * 2;
-    const s = { start: startAngle, end: startAngle + sweep, mid: startAngle + sweep / 2, color: colors[i % colors.length], label: labels[i], val: v };
-    startAngle += sweep;
-    return s;
+  const cx=W/2, cy=H*0.40;
+  const rx=Math.min(W,H)*0.30, ry=rx*0.40, depth=rx*0.22;
+  const muted=_cssVar('--muted')||'#8fa3be';
+
+  let startA=-Math.PI/2;
+  const slices=values.map((v,i)=>{
+    const sw=(v/total)*Math.PI*2;
+    const s={start:startA,end:startA+sw,mid:startA+sw/2,color:colors[i%colors.length],val:v,label:labels[i]};
+    startA+=sw; return s;
   });
 
-  // Draw side depth (back to front by sin(mid))
-  const sorted = [...slices].sort((a, b) => Math.sin(b.mid) - Math.sin(a.mid));
-  sorted.forEach(s => {
+  const byDepth=[...slices].sort((a,b)=>Math.sin(b.mid)-Math.sin(a.mid));
+
+  // Depth sides
+  byDepth.forEach(s=>{
     ctx.beginPath();
-    ctx.ellipse(cx, cy + depth, rx, ry, 0, s.start, s.end);
-    ctx.lineTo(cx + rx * Math.cos(s.end), cy + ry * Math.sin(s.end));
-    ctx.ellipse(cx, cy, rx, ry, 0, s.end, s.start, true);
-    ctx.lineTo(cx + rx * Math.cos(s.start), cy + depth + ry * Math.sin(s.start));
+    ctx.ellipse(cx,cy+depth,rx,ry,0,s.start,s.end);
+    ctx.lineTo(cx+rx*Math.cos(s.end),cy+depth+ry*Math.sin(s.end));
+    ctx.ellipse(cx,cy,rx,ry,0,s.end,s.start,true);
+    ctx.lineTo(cx+rx*Math.cos(s.start),cy+depth+ry*Math.sin(s.start));
     ctx.closePath();
-    ctx.fillStyle = darken(s.color, 50);
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
+    ctx.fillStyle=_dark(s.color,50); ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
   });
 
-  // Draw top faces
-  slices.forEach(s => {
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.ellipse(cx, cy, rx, ry, 0, s.start, s.end);
+  // Top faces
+  slices.forEach((s,si)=>{
+    ctx.beginPath(); ctx.moveTo(cx,cy);
+    ctx.ellipse(cx,cy,rx,ry,0,s.start,s.end);
     ctx.closePath();
-    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
-    grad.addColorStop(0, lighten(s.color, 30));
-    grad.addColorStop(1, s.color);
-    ctx.fillStyle = grad;
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+    const gr=ctx.createRadialGradient(cx,cy,0,cx,cy,rx);
+    gr.addColorStop(0,_light(s.color,35)); gr.addColorStop(1,s.color);
+    ctx.fillStyle=gr; ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.3)'; ctx.lineWidth=0.8; ctx.stroke();
 
-    // percentage label
-    const midX = cx + rx * 0.6 * Math.cos(s.mid);
-    const midY = cy + ry * 0.6 * Math.sin(s.mid);
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold 10px Segoe UI,sans-serif';
-    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const pct = ((s.val / total) * 100).toFixed(0) + '%';
-    ctx.fillText(pct, midX, midY);
-    ctx.textBaseline = 'alphabetic';
+    const pct=(s.val/total)*100;
+    if (pct>5) {
+      const lx2=cx+rx*0.62*Math.cos(s.mid), ly2=cy+ry*0.62*Math.sin(s.mid);
+      ctx.fillStyle='#fff'; ctx.font=`bold ${Math.max(9,rx*0.12)}px Segoe UI,sans-serif`;
+      ctx.textAlign='center'; ctx.textBaseline='middle';
+      ctx.fillText(pct.toFixed(0)+'%', lx2, ly2);
+      ctx.textBaseline='alphabetic';
+    }
   });
 
-  // Legend below
-  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
-  const lx = 12, ly = H * 0.75;
-  ctx.font = '10px Segoe UI,sans-serif'; ctx.textAlign = 'left';
-  slices.forEach((s, i) => {
-    const col = i % 2, row = Math.floor(i / 2);
-    const bx = lx + col * (W / 2 - 8), by = ly + row * 16;
-    ctx.fillStyle = s.color;
-    ctx.fillRect(bx, by - 8, 10, 10);
-    ctx.fillStyle = textColor;
-    const lbl = s.label.length > 11 ? s.label.slice(0,11)+'…' : s.label;
-    ctx.fillText(lbl, bx + 13, by);
+  // Legend
+  const lx=10, ly=H*0.74;
+  ctx.font='10px Segoe UI,sans-serif'; ctx.textAlign='left';
+  slices.forEach((s,i)=>{
+    const col=i%2,row=Math.floor(i/2);
+    const bx=lx+col*(W/2-8),by=ly+row*16;
+    ctx.fillStyle=s.color; ctx.fillRect(bx,by-8,10,10);
+    ctx.fillStyle=muted;
+    ctx.fillText(s.label.length>12?s.label.slice(0,12)+'…':s.label,bx+13,by);
   });
+
+  ctx.font='bold 11px Segoe UI,sans-serif'; ctx.fillStyle=_cssVar('--wire')||'#e8a020';
+  ctx.textAlign='left'; ctx.fillText('Value Share  ·  hover for detail', 12, 16);
+
+  // Hover
+  canvas.onmousemove=function(e){
+    const rect=canvas.getBoundingClientRect();
+    const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+    const dx=mx-cx,dy=my-cy;
+    const normX=dx/rx,normY=dy/ry,dist=Math.sqrt(normX*normX+normY*normY);
+    if (dist<1.1) {
+      let angle=Math.atan2(dy,dx);
+      let found=-1;
+      slices.forEach((s,i)=>{
+        let st=s.start,en=s.end;
+        while(angle<st-Math.PI) angle+=Math.PI*2;
+        while(angle>en+Math.PI) angle-=Math.PI*2;
+        if(angle>=st&&angle<=en) found=i;
+      });
+      if (found>=0){
+        const s=slices[found], pct=((s.val/total)*100).toFixed(1);
+        _showTip(tip,mx,my,
+          `<b style="color:${s.color}">■ ${s.label}</b><br>
+           Value: <b>₹${fmtL(s.val)}</b><br>
+           Share: <b>${pct}%</b>`);
+        canvas.style.cursor='pointer'; return;
+      }
+    }
+    _hideTip(tip); canvas.style.cursor='default';
+  };
+  canvas.onmouseleave=()=>_hideTip(tip);
 }
 
-// ── MAIN loadAnalytics ───────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// MAIN loadAnalytics
+// ══════════════════════════════════════════════════════════
 function loadAnalytics() {
   const mv = document.getElementById('anaMonth').value;
   const rows = getMonthData(mv);
+  if (!rows.length) { showToast('❌ No dispatch data for selected month', true); return; }
 
-  if (rows.length === 0) {
-    showToast('❌ No dispatch data for selected month', true);
-    return;
-  }
-
-  const spTotals = {}, spProduct = {}, productTotals = {};
-
-  rows.forEach(r => {
-    const sp = r.salesPerson || 'Unassigned';
-    const prod = r.product || 'Other';
-    if (!spTotals[sp]) spTotals[sp] = { qty: 0, value: 0 };
-    spTotals[sp].qty += r.qty;
-    spTotals[sp].value += r.billAmount;
-    if (!spProduct[sp]) spProduct[sp] = {};
-    if (!spProduct[sp][prod]) spProduct[sp][prod] = 0;
-    spProduct[sp][prod] += r.qty;
-    if (!productTotals[prod]) productTotals[prod] = 0;
-    productTotals[prod] += r.qty;
+  const spTotals={}, spProduct={}, productTotals={};
+  rows.forEach(r=>{
+    const sp=r.salesPerson||'Unassigned', prod=r.product||'Other';
+    if (!spTotals[sp]) spTotals[sp]={qty:0,value:0};
+    spTotals[sp].qty+=r.qty; spTotals[sp].value+=r.billAmount;
+    if (!spProduct[sp]) spProduct[sp]={};
+    spProduct[sp][prod]=(spProduct[sp][prod]||0)+r.qty;
+    productTotals[prod]=(productTotals[prod]||0)+r.qty;
   });
 
-  const spNames = Object.keys(spTotals).sort((a, b) => spTotals[b].value - spTotals[a].value);
-  const allProducts = [...new Set(Object.values(spProduct).flatMap(o => Object.keys(o)))];
+  const spNames=Object.keys(spTotals).sort((a,b)=>spTotals[b].value-spTotals[a].value);
+  const allProds=[...new Set(Object.values(spProduct).flatMap(o=>Object.keys(o)))];
 
-  const totalQty = rows.reduce((s, r) => s + r.qty, 0);
-  const totalVal = rows.reduce((s, r) => s + r.billAmount, 0);
-  document.getElementById('anaTotalQty').textContent = totalQty.toFixed(1);
-  document.getElementById('anaTotalVal').textContent = '₹' + fmtL(totalVal);
-  document.getElementById('anaSpCount').textContent = spNames.length;
-  document.getElementById('anaTopSp').textContent = 'Top: ' + (spNames[0] || '—');
-  const topProductEntry = Object.entries(productTotals).sort((a, b) => b[1] - a[1])[0];
-  document.getElementById('anaProductCount').textContent = allProducts.length;
-  document.getElementById('anaTopProduct').textContent = 'Top: ' + (topProductEntry ? topProductEntry[0] : '—');
-  document.getElementById('anaBannerSub').textContent = `Sales Person & Product-wise breakdown — ${mv} (${rows.length} dispatch records)`;
+  const tQty=rows.reduce((s,r)=>s+r.qty,0);
+  const tVal=rows.reduce((s,r)=>s+r.billAmount,0);
+  document.getElementById('anaTotalQty').textContent=tQty.toFixed(1);
+  document.getElementById('anaTotalVal').textContent='₹'+fmtL(tVal);
+  document.getElementById('anaSpCount').textContent=spNames.length;
+  document.getElementById('anaTopSp').textContent='Top: '+(spNames[0]||'—');
+  const topProd=Object.entries(productTotals).sort((a,b)=>b[1]-a[1])[0];
+  document.getElementById('anaProductCount').textContent=allProds.length;
+  document.getElementById('anaTopProduct').textContent='Top: '+(topProd?topProd[0]:'—');
+  document.getElementById('anaBannerSub').textContent=`Sales Person & Product-wise breakdown — ${mv} (${rows.length} records)`;
 
-  // Compute max for stacked bar
-  const stackedMax = Math.max(...spNames.map(sp => spTotals[sp].qty)) * 1.15 || 1;
+  const stackedMax=(Math.max(...spNames.map(sp=>spTotals[sp].qty))||1)*1.15;
+  const stackDs=allProds.map(prod=>spNames.map(sp=>+(spProduct[sp]?.[prod]||0).toFixed(2)));
+  const prodEntries=Object.entries(productTotals).sort((a,b)=>b[1]-a[1]);
+  const spVals=spNames.map(sp=>Math.round(spTotals[sp].value));
 
-  // Chart 1 — 3D Stacked Bar
-  const stackDatasets = allProducts.map(prod => spNames.map(sp => +(spProduct[sp]?.[prod] || 0).toFixed(2)));
-  setTimeout(() => render3DStackedBar('chart3dBar', spNames, stackDatasets, ANA_COLORS, stackedMax, v => v.toFixed(0) + 'T'), 30);
-
-  // Chart 2 — 3D Donut (product share)
-  const prodEntries = Object.entries(productTotals).sort((a, b) => b[1] - a[1]);
-  setTimeout(() => render3DDonut('chart3dDonut', prodEntries.map(e => e[0]), prodEntries.map(e => +e[1].toFixed(2)), ANA_COLORS), 30);
-
-  // Chart 3 — 3D Value Bar
-  const vals = spNames.map(sp => Math.round(spTotals[sp].value));
-  setTimeout(() => render3DValueBar('chart3dValueBar', spNames, vals, '#e8a020', v => '₹' + fmtL(v)), 30);
-
-  // Chart 4 — 3D Pie (SP value share)
-  const spVals = spNames.map(sp => Math.round(spTotals[sp].value));
-  setTimeout(() => render3DPie('chart3dPie', spNames, spVals, ANA_COLORS), 30);
+  // Small delay so DOM is visible and sized
+  setTimeout(()=>{
+    render3DStackedBar('chart3dBar',   spNames, stackDs, ANA_COLORS, stackedMax, v=>v.toFixed(0)+'T');
+    render3DDonut(     'chart3dDonut', prodEntries.map(e=>e[0]), prodEntries.map(e=>+e[1].toFixed(2)), ANA_COLORS);
+    render3DValueBar(  'chart3dValueBar', spNames, spVals, null, v=>'₹'+fmtL(v));
+    render3DPie(       'chart3dPie',   spNames, spVals, ANA_COLORS);
+  }, 80);
 
   showToast('✅ 3D Analytics loaded for ' + mv);
 }
+
 
 
 
