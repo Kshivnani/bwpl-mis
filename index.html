@@ -1850,11 +1850,12 @@ function parseDispatchRows(rows) {
 
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
 let groupMap = {};       // { companyName.lower: { group, salesPerson } }
+let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
 let gaGroupData = [];    // computed for rendering
-let forecastMap = {};    // { groupName.lower: { sp, april, may, juneForecast, juneActual, total } }
+let forecastMap = {};    // { canonGroupKey: { group, juneForecast } } — from "PC Wire 26-27" sheet
 
 const FORECAST_SHEET_ID = '1wezkGzQ6ebwI3hDkuJZLVgqI_2Gz1ATkNK3Ez270CZY';
-const FORECAST_SHEET_GID = '343885709';
+const FORECAST_SHEET_GID = '918916430'; // "PC Wire 26-27" tab
 
 async function syncForecastSheet() {
   const btn = document.querySelector('[onclick="syncForecastSheet()"]');
@@ -1882,9 +1883,9 @@ async function syncForecastSheet() {
     if (!metaRes.ok) throw new Error('Forecast sheet access failed — check permissions');
     const meta = await metaRes.json();
     const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === FORECAST_SHEET_GID);
-    const sheetName = sheetObj ? sheetObj.properties.title : 'Sheet33';
+    const sheetName = sheetObj ? sheetObj.properties.title : 'PC Wire 26-27';
 
-    const range = encodeURIComponent(sheetName + '!A1:I500');
+    const range = encodeURIComponent(sheetName + '!A1:O3000');
     const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}/values/${range}`, {
       headers: { Authorization: 'Bearer ' + token }
     });
@@ -1910,33 +1911,26 @@ function canonGroupKey(name) {
 }
 
 function parseForecastData(rows) {
-  // Header row 1 (index 1): Sr No, Group Name, SP, April, May, June forecast, June, Total
+  // "PC Wire 26-27" sheet layout (gid 918916430):
+  // Row1: month labels, Row2: "Demand Forecast" label, Row3: PC Wire totals, Row4: column headers, Row5+: data
+  // Col A(0)=Group Name, B(1)=Sales Person [NOT used — SP always comes from POS/Master],
+  // K(10)=Apr-26 actual sales, L(11)=May-26 actual sales [actual sales, not forecast — never used],
+  // M(12)=PC Dispatch in Jun-26 [actual, ignored — actual always comes from POS],
+  // N(13)=PC Target Jun-26  ← THE June forecast number used in this app
+  // This sheet only covers PC Wire, and only gives a target for June — April/May
+  // forecast and SP are intentionally left out (blank).
   forecastMap = {};
   const safe = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-  for (let i = 2; i < rows.length; i++) {
+  for (let i = 4; i < rows.length; i++) {
     const r = rows[i];
-    if (!r[1] || !String(r[1]).trim()) continue;
-    const group = String(r[1]).trim();
+    if (!r[0] || !String(r[0]).trim()) continue;
+    const group = String(r[0]).trim();
     const key = canonGroupKey(group);
-    const safeRow = {
-      group, sp: (r[2] || '').trim(),
-      april: safe(r[3]), may: safe(r[4]),
-      juneForecast: safe(r[5]),
-      juneActual: safe(r[6]),
-      total: safe(r[7])
-    };
-    // If this canonical group already exists (duplicate casing within the
-    // forecast sheet itself), merge the numbers instead of overwriting.
+    const juneForecast = safe(r[13]); // col N — PC Target Jun-26
     if (forecastMap[key]) {
-      const ex = forecastMap[key];
-      ex.april += safeRow.april;
-      ex.may += safeRow.may;
-      ex.juneForecast += safeRow.juneForecast;
-      ex.juneActual += safeRow.juneActual;
-      ex.total += safeRow.total;
-      if (!ex.sp) ex.sp = safeRow.sp;
+      forecastMap[key].juneForecast += juneForecast;
     } else {
-      forecastMap[key] = safeRow;
+      forecastMap[key] = { group, juneForecast };
     }
   }
 }
@@ -1944,6 +1938,7 @@ function parseForecastData(rows) {
 function buildGroupMap(masterRows) {
   // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name
   groupMap = {};
+  groupSpMap = {}; // canonical group key -> Sales Person (from POS/Master only)
   if (!masterRows || masterRows.length < 2) return;
   for (let i = 1; i < masterRows.length; i++) {
     const r = masterRows[i];
@@ -1951,6 +1946,8 @@ function buildGroupMap(masterRows) {
     const group = (r[6] || company || 'Ungrouped').trim();
     const sp = (r[5] || '').trim();
     if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company };
+    const gKey = canonGroupKey(group);
+    if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
   }
 }
 
@@ -2008,10 +2005,13 @@ function loadGroupAnalytics() {
     // canonical source), falling back to whatever casing appeared in dispatch data.
     const groupName = (forecast && forecast.group) || actual.group || gKey;
 
-    // Always use June forecast (col F, index 5) from Sheet33
-    const forecastQty = forecast ? forecast.juneForecast : 0;
+    // The "PC Wire 26-27" forecast sheet only gives a June target, and only
+    // applies to PC Wire — so blank it out for ACSR and for Apr/May periods.
+    const forecastApplies = productFilter !== 'ACSR Core Wire' && (period === 'all' || period === '2026-06');
+    const forecastQty = (forecastApplies && forecast) ? forecast.juneForecast : 0;
 
-    const sp = forecast?.sp || (actual.companies && Object.keys(actual.companies).length > 0
+    // SP always comes from POS/Master — never from the forecast sheet.
+    const sp = groupSpMap[gKey] || (actual.companies && Object.keys(actual.companies).length > 0
       ? (rows.find(r => (r.party||'').trim() === Object.keys(actual.companies)[0]) || {}).salesPerson || '—'
       : '—');
 
@@ -2028,7 +2028,11 @@ function loadGroupAnalytics() {
       diff,
       achievement
     };
-  }).sort((a, b) => {
+  }).filter(g =>
+    // Drop fully-empty/junk groups — no forecast AND no actual dispatch at all
+    // (e.g. stray blank rows in the forecast sheet with no matching company).
+    !(g.forecastQty <= 0 && g.qty <= 0)
+  ).sort((a, b) => {
     // Sort: groups with forecast first, then by actual qty
     if (b.forecastQty !== a.forecastQty) return b.forecastQty - a.forecastQty;
     return b.qty - a.qty;
