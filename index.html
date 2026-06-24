@@ -1690,7 +1690,7 @@ function initApp() {
   renderHistory();
 
   // Version key — bump this whenever parse format changes to force re-upload
-  const DATA_VERSION = 'v7-qtyfixed';
+  const DATA_VERSION = 'v5-pendingfix';
   const savedVersion = localStorage.getItem('bwplDataVersion');
 
   // Try loading saved dispatch data
@@ -1823,7 +1823,7 @@ function parseDispatchRows(rows) {
       product: normalizeType(r[9]), // Column J "TYPE" only — normalized
       productF: r[5] || '',
       size: r[6],
-      qty: ((parseFloat(r[38]) || 0) > 0 ? parseFloat(r[38]) / 1000 : parseFloat(r[7]) || 0), // col AM (KGS→MT), fallback col H (MT) if AM empty
+      qty: (parseFloat(r[38]) || 0) / 1000, // column AM "Quantity" is in KGS -> convert to MT (used everywhere as Qty MT)
       productDetail: r[8],
       type: r[9],
       price: parseFloat(r[10]) || 0,
@@ -1833,17 +1833,17 @@ function parseDispatchRows(rows) {
       freightType: r[14],
       status: r[30],
       gstAmount: parseFloat(r[34]) || 0,
-      billAmount: parseFloat(r[35]) || 0,
+      billAmount: parseFloat(r[35]) || ((parseFloat(r[38]) || 0) * (parseFloat(r[10]) || 0)) || 0, // fallback: qty(kg) x price if bill amount not yet generated
       invoiceNo: r[37],
       transporter: r[40],
-      salesPerson: (r[61] || '').toString().trim().toUpperCase() || '',
+      salesPerson: r[61],
       dispatchDate: formatDateDDMMYYYY(r[62]),
       plannedQty: parseFloat(r[7]) || 0, // column H "Qty (MT)" - planned/provisional quantity
       truckOutTime: r[19] || ''
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v7-qtyfixed');
+  localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
@@ -2009,9 +2009,7 @@ function loadGroupAnalytics() {
     const groupName = (forecast && forecast.group) || actual.group || gKey;
 
     // Always use June forecast (col F, index 5) from Sheet33
-    // But only show forecast if: period is Jun-2026 or All Time, AND product is not ACSR
-    const showForecast = productFilter !== 'ACSR Core Wire';
-    const forecastQty = (forecast && showForecast) ? forecast.juneForecast : 0;
+    const forecastQty = forecast ? forecast.juneForecast : 0;
 
     const sp = forecast?.sp || (actual.companies && Object.keys(actual.companies).length > 0
       ? (rows.find(r => (r.party||'').trim() === Object.keys(actual.companies)[0]) || {}).salesPerson || '—'
@@ -2036,9 +2034,9 @@ function loadGroupAnalytics() {
     return b.qty - a.qty;
   });
 
-  // Filter by SP strictly — only groups where SP matches
+  // Filter by SP if selected (forecast SP)
   if (spFilter) {
-    gaGroupData = gaGroupData.filter(g => g.sp === spFilter);
+    gaGroupData = gaGroupData.filter(g => g.sp === spFilter || g.qty > 0);
   }
 
   // Populate SP filter
@@ -2051,12 +2049,11 @@ function loadGroupAnalytics() {
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
   const totalForecast = gaGroupData.reduce((s, g) => s + g.forecastQty, 0);
   const overallAch = totalForecast > 0 ? (totalQty / totalForecast * 100).toFixed(1) : '—';
-  const forecastAvailable = productFilter !== 'ACSR Core Wire';
 
-  document.getElementById('gaTotalGroups').textContent = gaGroupData.filter(g => g.forecastQty > 0 || g.qty > 0).length;
+  document.getElementById('gaTotalGroups').textContent = gaGroupData.filter(g => g.forecastQty > 0).length;
   document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
-  document.getElementById('gaTotalForecast').textContent = forecastAvailable ? totalForecast.toFixed(1) : 'N/A';
-  document.getElementById('gaAchievement').textContent = forecastAvailable && overallAch !== '—' ? `${overallAch}% achieved` : forecastAvailable ? 'Sync forecast to compare' : 'No forecast for ACSR';
+  document.getElementById('gaTotalForecast').textContent = totalForecast.toFixed(1);
+  document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% achieved` : 'Sync forecast to compare';
   document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups`;
   document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
