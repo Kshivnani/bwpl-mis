@@ -1913,12 +1913,10 @@ function canonGroupKey(name) {
 function parseForecastData(rows) {
   // "PC Wire 26-27" sheet layout (gid 918916430):
   // Row1: month labels, Row2: "Demand Forecast" label, Row3: PC Wire totals, Row4: column headers, Row5+: data
-  // Col A(0)=Group Name, B(1)=Sales Person [NOT used — SP always comes from POS/Master],
+  // Col A(0)=Group Name, B(1)=Sales Person [used directly — sheet's own SP tag],
   // K(10)=Apr-26 actual sales, L(11)=May-26 actual sales [actual sales, not forecast — never used],
   // M(12)=PC Dispatch in Jun-26 [actual, ignored — actual always comes from POS],
   // N(13)=PC Target Jun-26  ← THE June forecast number used in this app
-  // This sheet only covers PC Wire, and only gives a target for June — April/May
-  // forecast and SP are intentionally left out (blank).
   forecastMap = {};
   const safe = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
   for (let i = 4; i < rows.length; i++) {
@@ -1926,11 +1924,13 @@ function parseForecastData(rows) {
     if (!r[0] || !String(r[0]).trim()) continue;
     const group = String(r[0]).trim();
     const key = canonGroupKey(group);
+    const sp = (r[1] || '').trim();
     const juneForecast = safe(r[13]); // col N — PC Target Jun-26
     if (forecastMap[key]) {
       forecastMap[key].juneForecast += juneForecast;
+      if (!forecastMap[key].sp) forecastMap[key].sp = sp;
     } else {
-      forecastMap[key] = { group, juneForecast };
+      forecastMap[key] = { group, sp, juneForecast };
     }
   }
 }
@@ -2010,8 +2010,10 @@ function loadGroupAnalytics() {
     const forecastApplies = productFilter !== 'ACSR Core Wire' && (period === 'all' || period === '2026-06');
     const forecastQty = (forecastApplies && forecast) ? forecast.juneForecast : 0;
 
-    // SP always comes from POS/Master — never from the forecast sheet.
-    const sp = groupSpMap[gKey] || (actual.companies && Object.keys(actual.companies).length > 0
+    // SP comes from the forecast sheet's own tag first; falls back to
+    // POS/Master only for groups that have no SP in the forecast sheet
+    // (e.g. actual-only groups with no forecast row at all).
+    const sp = (forecast && forecast.sp) || groupSpMap[gKey] || (actual.companies && Object.keys(actual.companies).length > 0
       ? (rows.find(r => (r.party||'').trim() === Object.keys(actual.companies)[0]) || {}).salesPerson || '—'
       : '—');
 
