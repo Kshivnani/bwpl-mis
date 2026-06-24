@@ -232,6 +232,39 @@
   .form-group input:focus, .form-group select:focus { border-color:var(--wire); }
   .form-group select option { background:var(--steel-mid); }
 
+  /* MULTI-SELECT DROPDOWN (checkbox-based) */
+  .ms-wrap { position:relative; }
+  .ms-toggle {
+    width:100%; display:flex; align-items:center; justify-content:space-between; gap:6px;
+    background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.1);
+    border-radius:6px; padding:7px 10px; color:var(--white); font-size:13px;
+    cursor:pointer; transition:border 0.15s; text-align:left; font-family:inherit;
+  }
+  .ms-toggle:hover, .ms-wrap.open .ms-toggle { border-color:var(--wire); }
+  .ms-toggle span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ms-caret { font-size:10px; color:var(--muted); flex-shrink:0; }
+  .ms-panel {
+    display:none; position:absolute; top:calc(100% + 6px); left:0; min-width:200px; max-width:260px;
+    background:var(--card-bg); border:1px solid var(--border); border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.4); z-index:50; overflow:hidden;
+  }
+  .ms-wrap.open .ms-panel { display:block; }
+  .ms-panel-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:8px 12px; border-bottom:1px solid var(--border);
+    font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:0.5px;
+  }
+  .ms-panel-head a { color:var(--wire); text-decoration:none; cursor:pointer; font-weight:700; }
+  .ms-options { max-height:220px; overflow-y:auto; padding:4px 0; }
+  .ms-option {
+    display:flex; align-items:center; gap:8px; padding:7px 12px; cursor:pointer;
+    font-size:13px; color:var(--white); transition:background 0.1s;
+  }
+  .ms-option:hover { background:rgba(232,160,32,0.1); }
+  .ms-option input[type="checkbox"] { accent-color:var(--wire); width:14px; height:14px; flex-shrink:0; cursor:pointer; }
+  .ms-option span:nth-child(2) { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ms-count { font-size:10px; color:var(--muted); flex-shrink:0; }
+
   .summary-row td { font-weight:700; background:rgba(232,160,32,0.08); color:var(--spark); }
   .empty-state { text-align:center; padding:40px; color:var(--muted); font-size:14px; }
   .empty-state .icon { font-size:36px; margin-bottom:12px; }
@@ -1488,17 +1521,35 @@
         <div class="report-header">
           <div><h2>Grade × Size × Supplier Breakup</h2><div class="meta" id="wrTableMeta">—</div></div>
           <div class="report-actions">
-            <div class="form-group" style="min-width:140px">
+            <div class="form-group" style="min-width:160px">
               <label style="font-size:11px;color:var(--muted)">Filter by Grade</label>
-              <select id="wrFilterGrade" onchange="renderWrTable()" style="width:100%">
-                <option value="">All Grades</option>
-              </select>
+              <div class="ms-wrap" id="wrGradeMs">
+                <button type="button" class="ms-toggle" onclick="toggleMsPanel('wrGradeMs')">
+                  <span id="wrGradeMsLabel">All Grades</span><span class="ms-caret">▾</span>
+                </button>
+                <div class="ms-panel">
+                  <div class="ms-panel-head">
+                    <span id="wrGradeMsCount">0 selected</span>
+                    <a onclick="clearMsFilter('grade');return false;">Clear</a>
+                  </div>
+                  <div class="ms-options" id="wrGradeMsOptions"></div>
+                </div>
+              </div>
             </div>
-            <div class="form-group" style="min-width:120px">
+            <div class="form-group" style="min-width:160px">
               <label style="font-size:11px;color:var(--muted)">Filter by Size</label>
-              <select id="wrFilterSize" onchange="renderWrTable()" style="width:100%">
-                <option value="">All Sizes</option>
-              </select>
+              <div class="ms-wrap" id="wrSizeMs">
+                <button type="button" class="ms-toggle" onclick="toggleMsPanel('wrSizeMs')">
+                  <span id="wrSizeMsLabel">All Sizes</span><span class="ms-caret">▾</span>
+                </button>
+                <div class="ms-panel">
+                  <div class="ms-panel-head">
+                    <span id="wrSizeMsCount">0 selected</span>
+                    <a onclick="clearMsFilter('size');return false;">Clear</a>
+                  </div>
+                  <div class="ms-options" id="wrSizeMsOptions"></div>
+                </div>
+              </div>
             </div>
             <button class="btn btn-secondary" onclick="clearWrFilters()" style="margin-top:18px">✕ Clear</button>
           </div>
@@ -3732,6 +3783,8 @@ function parseWRData(rows) {
 }
 
 let wrEntries = []; // computed entries cached for filtering
+let wrSelectedGrades = []; // multi-select: empty array = "All Grades"
+let wrSelectedSizes = [];  // multi-select: empty array = "All Sizes"
 
 function loadWireRodReport() {
   const mv = document.getElementById('wrMonth').value;
@@ -3762,15 +3815,8 @@ function loadWireRodReport() {
     return b.qty - a.qty;
   });
 
-  // Populate filter dropdowns
-  const grades = [...new Set(wrEntries.map(e => e.grade))].sort();
-  const sizes = [...new Set(wrEntries.map(e => e.size))].sort();
-  const gradeSelect = document.getElementById('wrFilterGrade');
-  const sizeSelect = document.getElementById('wrFilterSize');
-  const curGrade = gradeSelect ? gradeSelect.value : '';
-  const curSize = sizeSelect ? sizeSelect.value : '';
-  if (gradeSelect) gradeSelect.innerHTML = '<option value="">All Grades</option>' + grades.map(g => `<option value="${g}" ${g===curGrade?'selected':''}>${g}</option>`).join('');
-  if (sizeSelect) sizeSelect.innerHTML = '<option value="">All Sizes</option>' + sizes.map(s => `<option value="${s}" ${s===curSize?'selected':''}>${s}</option>`).join('');
+  // Populate filter dropdowns (multi-select checkbox lists)
+  populateWrFilterOptions();
 
   // KPI — all rows for the month (unfiltered)
   const totalQty = rows.reduce((s,r) => s+r.qty, 0);
@@ -3814,24 +3860,110 @@ function loadWireRodReport() {
 }
 
 function clearWrFilters() {
-  document.getElementById('wrFilterGrade').value = '';
-  document.getElementById('wrFilterSize').value = '';
+  wrSelectedGrades = [];
+  wrSelectedSizes = [];
+  syncMsCheckboxes('grade');
+  syncMsCheckboxes('size');
   renderWrTable();
 }
 
 function setWrFilter(type, val) {
-  document.getElementById(type === 'grade' ? 'wrFilterGrade' : 'wrFilterSize').value = val;
+  // Used when clicking a chart segment / table cell — jumps to that single value.
+  if (type === 'grade') wrSelectedGrades = [val];
+  else wrSelectedSizes = [val];
+  syncMsCheckboxes(type);
   renderWrTable();
 }
 
+// ─── Multi-select checkbox dropdown helpers (Grade / Size filters) ───
+function populateWrFilterOptions() {
+  const gradeCounts = {}, sizeCounts = {};
+  wrEntries.forEach(e => {
+    gradeCounts[e.grade] = (gradeCounts[e.grade] || 0) + 1;
+    sizeCounts[e.size] = (sizeCounts[e.size] || 0) + 1;
+  });
+  const grades = Object.keys(gradeCounts).sort();
+  const sizes = Object.keys(sizeCounts).sort();
+
+  // Drop any previously-selected values that no longer exist for this month
+  wrSelectedGrades = wrSelectedGrades.filter(g => grades.includes(g));
+  wrSelectedSizes = wrSelectedSizes.filter(s => sizes.includes(s));
+
+  renderMsOptions('grade', grades, gradeCounts);
+  renderMsOptions('size', sizes, sizeCounts);
+}
+
+function renderMsOptions(type, values, counts) {
+  const selected = type === 'grade' ? wrSelectedGrades : wrSelectedSizes;
+  const optsEl = document.getElementById(type === 'grade' ? 'wrGradeMsOptions' : 'wrSizeMsOptions');
+  if (!optsEl) return;
+  optsEl.innerHTML = values.map(v => {
+    const safe = String(v).replace(/'/g, "\\'");
+    const esc = String(v).replace(/</g, '&lt;');
+    return `<label class="ms-option">
+      <input type="checkbox" value="${esc}" ${selected.includes(v) ? 'checked' : ''} onchange="toggleMsFilter('${type}','${safe}')">
+      <span>${esc}</span>
+      <span class="ms-count">${counts[v]}</span>
+    </label>`;
+  }).join('') || '<div style="padding:10px 12px;color:var(--muted);font-size:12px">No data</div>';
+  updateMsLabel(type);
+}
+
+function syncMsCheckboxes(type) {
+  const selected = type === 'grade' ? wrSelectedGrades : wrSelectedSizes;
+  const optsEl = document.getElementById(type === 'grade' ? 'wrGradeMsOptions' : 'wrSizeMsOptions');
+  if (optsEl) optsEl.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.checked = selected.includes(cb.value); });
+  updateMsLabel(type);
+}
+
+function updateMsLabel(type) {
+  const selected = type === 'grade' ? wrSelectedGrades : wrSelectedSizes;
+  const labelEl = document.getElementById(type === 'grade' ? 'wrGradeMsLabel' : 'wrSizeMsLabel');
+  const countEl = document.getElementById(type === 'grade' ? 'wrGradeMsCount' : 'wrSizeMsCount');
+  const allLabel = type === 'grade' ? 'All Grades' : 'All Sizes';
+  if (labelEl) {
+    if (selected.length === 0) labelEl.textContent = allLabel;
+    else if (selected.length === 1) labelEl.textContent = selected[0];
+    else labelEl.textContent = selected.length + ' ' + (type === 'grade' ? 'Grades' : 'Sizes') + ' selected';
+  }
+  if (countEl) countEl.textContent = selected.length + ' selected';
+}
+
+function toggleMsFilter(type, val) {
+  const arr = type === 'grade' ? wrSelectedGrades : wrSelectedSizes;
+  const idx = arr.indexOf(val);
+  if (idx === -1) arr.push(val); else arr.splice(idx, 1);
+  updateMsLabel(type);
+  renderWrTable();
+}
+
+function clearMsFilter(type) {
+  if (type === 'grade') wrSelectedGrades = [];
+  else wrSelectedSizes = [];
+  syncMsCheckboxes(type);
+  renderWrTable();
+}
+
+function toggleMsPanel(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  const isOpen = wrap.classList.contains('open');
+  document.querySelectorAll('.ms-wrap.open').forEach(w => w.classList.remove('open'));
+  if (!isOpen) wrap.classList.add('open');
+}
+
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.ms-wrap')) {
+    document.querySelectorAll('.ms-wrap.open').forEach(w => w.classList.remove('open'));
+  }
+});
+
 function renderWrTable() {
-  const filterGrade = document.getElementById('wrFilterGrade').value;
-  const filterSize = document.getElementById('wrFilterSize').value;
   const filtered = wrEntries.filter(e =>
-    (!filterGrade || e.grade === filterGrade) &&
-    (!filterSize || e.size === filterSize)
+    (wrSelectedGrades.length === 0 || wrSelectedGrades.includes(e.grade)) &&
+    (wrSelectedSizes.length === 0 || wrSelectedSizes.includes(e.size))
   );
-  const activeFilters = [filterGrade, filterSize].filter(Boolean);
+  const activeFilters = [...wrSelectedGrades, ...wrSelectedSizes];
   document.getElementById('wrTableMeta').textContent =
     filtered.length + ' rows' + (activeFilters.length ? ' — filtered: ' + activeFilters.join(', ') : ' (all grades & sizes)');
 
