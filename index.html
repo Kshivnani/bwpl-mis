@@ -1015,7 +1015,7 @@
       <!-- Banner -->
       <div class="dash-banner">
         <div>
-          <div class="dash-banner-title">Sales Analytics</div>
+          <div class="dash-banner-title">📊 Sales Analytics — 3D View</div>
           <div class="dash-banner-sub" id="anaBannerSub">Sales Person &amp; Product-wise breakdown — month to date</div>
         </div>
         <div class="dash-banner-actions">
@@ -1054,47 +1054,56 @@
         </div>
       </div>
 
-      <!-- Charts Row 1 -->
+      <!-- Charts Row 1: 3D Bar + 3D Donut -->
       <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-bottom:16px">
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Sales Person — Qty (MT) by Product</h2>
-              <div class="meta">Stacked breakdown across all products</div>
+              <h2>🏗️ Sales Person — Qty (MT) by Product</h2>
+              <div class="meta">3D stacked cylinders — drag to rotate</div>
             </div>
           </div>
-          <div class="section-pad" style="height:340px"><canvas id="chartSpProduct"></canvas></div>
+          <div class="section-pad" style="height:360px; padding:0; position:relative;">
+            <canvas id="chart3dBar" style="width:100%;height:100%;display:block;border-radius:0 0 10px 0;"></canvas>
+            <div id="chart3dBarTooltip" style="position:absolute;display:none;background:rgba(20,30,50,0.95);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--white);pointer-events:none;z-index:10;"></div>
+          </div>
         </div>
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Product-wise Share</h2>
-              <div class="meta">By Qty (MT), MTD</div>
+              <h2>🍩 Product-wise Share</h2>
+              <div class="meta">3D rotating donut chart</div>
             </div>
           </div>
-          <div class="section-pad" style="height:340px"><canvas id="chartProductPie"></canvas></div>
+          <div class="section-pad" style="height:360px; padding:0; position:relative;">
+            <canvas id="chart3dDonut" style="width:100%;height:100%;display:block;"></canvas>
+          </div>
         </div>
       </div>
 
-      <!-- Charts Row 2 -->
+      <!-- Charts Row 2: 3D Value Bar + 3D Pie -->
       <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-top:16px">
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Sales Person — Total Value (Rs.)</h2>
-              <div class="meta">MTD revenue contribution by sales person</div>
+              <h2>💰 Sales Person — Total Value (Rs.)</h2>
+              <div class="meta">3D bar chart — MTD revenue by sales person</div>
             </div>
           </div>
-          <div class="section-pad" style="height:340px"><canvas id="chartSpValue"></canvas></div>
+          <div class="section-pad" style="height:360px; padding:0; position:relative;">
+            <canvas id="chart3dValueBar" style="width:100%;height:100%;display:block;"></canvas>
+          </div>
         </div>
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Sales Person — Value Share</h2>
-              <div class="meta">% of MTD revenue</div>
+              <h2>🥧 Sales Person — Value Share</h2>
+              <div class="meta">3D isometric pie</div>
             </div>
           </div>
-          <div class="section-pad" style="height:340px"><canvas id="chartSpPie"></canvas></div>
+          <div class="section-pad" style="height:360px; padding:0; position:relative;">
+            <canvas id="chart3dPie" style="width:100%;height:100%;display:block;"></canvas>
+          </div>
         </div>
       </div>
     </div>
@@ -2045,6 +2054,11 @@ function setAllDatesToToday() {
 
 // ─── NAVIGATION ──────────────────────────────────────────
 function showPage(name, el) {
+  // Stop donut animation when leaving analytics
+  if (typeof _donutState !== 'undefined' && _donutState.raf) {
+    cancelAnimationFrame(_donutState.raf);
+    _donutState.raf = null;
+  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
@@ -3383,6 +3397,405 @@ function toggleDwDetail(i, btn) {
 }
 
 // ─── ANALYTICS DASHBOARD ───────────────────────────────────
+// ══════════════════════════════════════════════════════════
+// 3D ANALYTICS ENGINE — pure Canvas 2D with isometric math
+// ══════════════════════════════════════════════════════════
+
+const ANA_COLORS = [
+  '#e8a020','#3498db','#2ecc71','#9b59b6','#e74c3c',
+  '#1abc9c','#f368e0','#48dbfb','#fd79a8','#5f27cd',
+  '#00d2d3','#feca57','#ff6b6b','#54a0ff','#10ac84'
+];
+
+// Isometric projection helpers
+function isoProject(x, y, z, originX, originY, tileW, tileH, scaleY) {
+  const sx = (x - z) * (tileW / 2);
+  const sy = (x + z) * (tileH / 2) - y * scaleY;
+  return { x: originX + sx, y: originY + sy };
+}
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16);
+  const g = parseInt(hex.slice(3,5),16);
+  const b = parseInt(hex.slice(5,7),16);
+  return {r,g,b};
+}
+function darken(hex, amt) {
+  const {r,g,b} = hexToRgb(hex);
+  return `rgb(${Math.max(0,r-amt)},${Math.max(0,g-amt)},${Math.max(0,b-amt)})`;
+}
+function lighten(hex, amt) {
+  const {r,g,b} = hexToRgb(hex);
+  return `rgb(${Math.min(255,r+amt)},${Math.min(255,g+amt)},${Math.min(255,b+amt)})`;
+}
+function hexAlpha(hex, a) {
+  const {r,g,b} = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+// Draw one isometric 3D bar (box)
+function draw3DBar(ctx, bx, bz, height, color, originX, originY, tileW, tileH, scaleY, barW) {
+  const bw = barW || 0.75;
+  const x0 = bx, z0 = bz;
+  const x1 = bx + bw, z1 = bz + bw;
+
+  // 4 corners at bottom
+  const bl = isoProject(x0, 0,      z0, originX, originY, tileW, tileH, scaleY);
+  const br = isoProject(x1, 0,      z0, originX, originY, tileW, tileH, scaleY);
+  const bf = isoProject(x1, 0,      z1, originX, originY, tileW, tileH, scaleY);
+  const bb = isoProject(x0, 0,      z1, originX, originY, tileW, tileH, scaleY);
+  // 4 corners at top
+  const tl = isoProject(x0, height, z0, originX, originY, tileW, tileH, scaleY);
+  const tr = isoProject(x1, height, z0, originX, originY, tileW, tileH, scaleY);
+  const tf = isoProject(x1, height, z1, originX, originY, tileW, tileH, scaleY);
+  const tb = isoProject(x0, height, z1, originX, originY, tileW, tileH, scaleY);
+
+  // Left face (darker)
+  ctx.beginPath();
+  ctx.moveTo(tl.x, tl.y); ctx.lineTo(bl.x, bl.y);
+  ctx.lineTo(bb.x, bb.y); ctx.lineTo(tb.x, tb.y);
+  ctx.closePath();
+  ctx.fillStyle = darken(color, 40);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+  // Right face (medium)
+  ctx.beginPath();
+  ctx.moveTo(tr.x, tr.y); ctx.lineTo(br.x, br.y);
+  ctx.lineTo(bf.x, bf.y); ctx.lineTo(tf.x, tf.y);
+  ctx.closePath();
+  ctx.fillStyle = darken(color, 20);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
+
+  // Top face (brightest)
+  ctx.beginPath();
+  ctx.moveTo(tl.x, tl.y); ctx.lineTo(tr.x, tr.y);
+  ctx.lineTo(tf.x, tf.y); ctx.lineTo(tb.x, tb.y);
+  ctx.closePath();
+  ctx.fillStyle = lighten(color, 15);
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 0.5; ctx.stroke();
+}
+
+// Draw floor grid
+function drawFloor(ctx, cols, originX, originY, tileW, tileH, scaleY, gridColor) {
+  for (let x = 0; x <= cols; x++) {
+    const a = isoProject(x, 0, 0,    originX, originY, tileW, tileH, scaleY);
+    const b = isoProject(x, 0, cols, originX, originY, tileW, tileH, scaleY);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+  for (let z = 0; z <= cols; z++) {
+    const a = isoProject(0,    0, z, originX, originY, tileW, tileH, scaleY);
+    const b = isoProject(cols, 0, z, originX, originY, tileW, tileH, scaleY);
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5; ctx.stroke();
+  }
+}
+
+// ── CHART 1: 3D Stacked Bar (SP × Product) ──────────────
+function render3DStackedBar(canvasId, labels, stackData, colors, maxY, fmtFn) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.width  = canvas.offsetWidth  || canvas.parentElement.offsetWidth  || 600;
+  canvas.height = canvas.offsetHeight || canvas.parentElement.offsetHeight || 360;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const n = labels.length;
+  if (n === 0) return;
+
+  const tileW = Math.min(90, Math.max(40, W / (n + 2)));
+  const tileH = tileW * 0.5;
+  const scaleY = H * 0.45;
+  const originX = W * 0.18;
+  const originY = H * 0.78;
+  const barW = 0.72;
+
+  // floor grid
+  drawFloor(ctx, n + 1, originX, originY, tileW, tileH, scaleY,
+    getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)');
+
+  // Draw bars back to front
+  for (let i = n - 1; i >= 0; i--) {
+    let baseH = 0;
+    stackData.forEach((dataset, di) => {
+      const val = dataset[i] || 0;
+      const normH = maxY > 0 ? val / maxY : 0;
+      if (normH > 0) {
+        const color = colors[di % colors.length];
+        // bx offset slight per bar for separation
+        const bx = i + 0.12;
+        const bz = 0.12;
+        draw3DBar(ctx, bx, bz, baseH + normH, color, originX, originY, tileW, tileH, scaleY, barW);
+        baseH += normH;
+      }
+    });
+  }
+
+  // X axis labels
+  ctx.textAlign = 'center'; ctx.font = `bold ${Math.max(9, tileW * 0.14)}px Segoe UI,sans-serif`;
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
+  ctx.fillStyle = textColor;
+  for (let i = 0; i < n; i++) {
+    const pt = isoProject(i + 0.5, 0, 1.05, originX, originY, tileW, tileH, scaleY);
+    ctx.fillText(labels[i].length > 8 ? labels[i].slice(0,8)+'…' : labels[i], pt.x, pt.y + 10);
+  }
+
+  // Y axis value markers
+  const steps = 4;
+  ctx.font = `${Math.max(8, tileW * 0.12)}px Segoe UI,sans-serif`;
+  ctx.textAlign = 'right';
+  for (let s = 0; s <= steps; s++) {
+    const val = (maxY * s / steps);
+    const normH = s / steps;
+    const pt = isoProject(-0.1, normH, 0, originX, originY, tileW, tileH, scaleY);
+    ctx.fillStyle = textColor;
+    ctx.fillText(fmtFn ? fmtFn(val) : val.toFixed(0), pt.x - 4, pt.y + 3);
+    // horizontal guide line
+    const pt2 = isoProject(n, normH, 0, originX, originY, tileW, tileH, scaleY);
+    ctx.beginPath(); ctx.moveTo(pt.x, pt.y); ctx.lineTo(pt2.x, pt2.y);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)'; ctx.lineWidth = 0.8; ctx.stroke();
+  }
+}
+
+// ── CHART 2: 3D Rotating Donut ───────────────────────────
+const _donutState = { angle: 0, raf: null };
+function render3DDonut(canvasId, labels, values, colors) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.width  = canvas.offsetWidth  || 300;
+  canvas.height = canvas.offsetHeight || 360;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  const cx = W / 2, cy = H * 0.44;
+  const rx = Math.min(W, H) * 0.32;
+  const ry = rx * 0.38; // ellipse Y = depth illusion
+  const thickness = rx * 0.38;
+  const total = values.reduce((a, b) => a + b, 0);
+  if (total === 0) return;
+
+  if (_donutState.raf) cancelAnimationFrame(_donutState.raf);
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W, H);
+    const rotOffset = _donutState.angle;
+    let startAngle = rotOffset;
+
+    const slices = values.map((v, i) => {
+      const sweep = (v / total) * Math.PI * 2;
+      const mid = startAngle + sweep / 2;
+      const s = { start: startAngle, end: startAngle + sweep, mid, color: colors[i % colors.length], label: labels[i], val: v };
+      startAngle += sweep;
+      return s;
+    });
+
+    // Draw side (3D depth) — back slices first
+    const sorted = [...slices].sort((a, b) => Math.sin(b.mid) - Math.sin(a.mid));
+    sorted.forEach(s => {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy + thickness * 0.5, rx, ry, 0, s.start, s.end);
+      ctx.lineTo(cx + rx * Math.cos(s.end), cy + thickness * 0.5 + ry * Math.sin(s.end));
+      ctx.ellipse(cx, cy + thickness * 0.5, rx, ry, 0, s.end, s.start, true);
+      ctx.closePath();
+      ctx.fillStyle = darken(s.color, 45);
+      ctx.fill();
+    });
+
+    // Draw top donut face
+    const innerR = rx * 0.48, innerRy = ry * 0.48;
+    slices.forEach(s => {
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, rx, ry, 0, s.start, s.end);
+      ctx.ellipse(cx, cy, innerR, innerRy, 0, s.end, s.start, true);
+      ctx.closePath();
+      ctx.fillStyle = s.color;
+      ctx.fill();
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+
+      // Glow on hover slice (largest)
+      const midX = cx + (rx * 0.72) * Math.cos(s.mid);
+      const midY = cy + (ry * 0.72) * Math.sin(s.mid);
+      ctx.fillStyle = lighten(s.color, 30);
+      ctx.font = 'bold 10px Segoe UI,sans-serif';
+      ctx.textAlign = 'center';
+      const pct = ((s.val / total) * 100).toFixed(1) + '%';
+      ctx.fillText(pct, midX, midY);
+    });
+
+    // Center hole label
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, innerR, innerRy, 0, 0, Math.PI * 2);
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--card-bg').trim() || '#1e2e42';
+    ctx.fill();
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--white').trim() || '#f5f7fa';
+    ctx.font = 'bold 13px Segoe UI,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('Products', cx, cy - 7);
+    ctx.font = '10px Segoe UI,sans-serif';
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
+    ctx.fillText(total.toFixed(1) + ' MT', cx, cy + 9);
+    ctx.textBaseline = 'alphabetic';
+
+    // Legend
+    const lx = 14, ly = H * 0.72;
+    ctx.font = '10px Segoe UI,sans-serif'; ctx.textAlign = 'left';
+    slices.forEach((s, i) => {
+      const row = Math.floor(i / 2), col = i % 2;
+      const lbx = lx + col * (W / 2 - 10), lby = ly + row * 16;
+      ctx.fillStyle = s.color;
+      ctx.fillRect(lbx, lby - 8, 10, 10);
+      ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
+      const lbl = s.label.length > 11 ? s.label.slice(0,11)+'…' : s.label;
+      ctx.fillText(lbl, lbx + 13, lby);
+    });
+
+    _donutState.angle += 0.004;
+    _donutState.raf = requestAnimationFrame(drawFrame);
+  }
+  drawFrame();
+}
+
+// ── CHART 3: 3D Single Bar (Value) ──────────────────────
+function render3DValueBar(canvasId, labels, values, color, fmtFn) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.width  = canvas.offsetWidth  || 600;
+  canvas.height = canvas.offsetHeight || 360;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const n = labels.length;
+  if (n === 0) return;
+  const maxY = Math.max(...values) * 1.1 || 1;
+
+  const tileW = Math.min(80, Math.max(36, W / (n + 2)));
+  const tileH = tileW * 0.5;
+  const scaleY = H * 0.5;
+  const originX = W * 0.16;
+  const originY = H * 0.82;
+
+  drawFloor(ctx, n + 1, originX, originY, tileW, tileH, scaleY,
+    getComputedStyle(document.documentElement).getPropertyValue('--border').trim() || 'rgba(255,255,255,0.08)');
+
+  // gradient palette per bar
+  const palette = ANA_COLORS;
+  for (let i = n - 1; i >= 0; i--) {
+    const normH = values[i] / maxY;
+    const c = palette[i % palette.length];
+    draw3DBar(ctx, i + 0.12, 0.12, normH, c, originX, originY, tileW, tileH, scaleY, 0.72);
+
+    // value on top
+    const topPt = isoProject(i + 0.5, normH + 0.03, 0.5, originX, originY, tileW, tileH, scaleY);
+    ctx.fillStyle = lighten(c, 40);
+    ctx.font = `bold ${Math.max(8, tileW * 0.13)}px Segoe UI,sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(fmtFn ? fmtFn(values[i]) : values[i].toFixed(0), topPt.x, topPt.y - 2);
+  }
+
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
+  ctx.fillStyle = textColor;
+  ctx.font = `bold ${Math.max(9, tileW * 0.14)}px Segoe UI,sans-serif`;
+  ctx.textAlign = 'center';
+  for (let i = 0; i < n; i++) {
+    const pt = isoProject(i + 0.5, 0, 1.1, originX, originY, tileW, tileH, scaleY);
+    ctx.fillText(labels[i].length > 8 ? labels[i].slice(0,8)+'…' : labels[i], pt.x, pt.y + 10);
+  }
+
+  const steps = 4;
+  ctx.font = `${Math.max(8, tileW * 0.12)}px Segoe UI,sans-serif`;
+  ctx.textAlign = 'right';
+  for (let s = 0; s <= steps; s++) {
+    const val = (maxY * s / steps);
+    const pt = isoProject(-0.1, s / steps, 0, originX, originY, tileW, tileH, scaleY);
+    ctx.fillStyle = textColor;
+    ctx.fillText(fmtFn ? fmtFn(val) : val.toFixed(0), pt.x - 4, pt.y + 3);
+  }
+}
+
+// ── CHART 4: 3D Isometric Pie ────────────────────────────
+function render3DPie(canvasId, labels, values, colors) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  canvas.width  = canvas.offsetWidth  || 300;
+  canvas.height = canvas.offsetHeight || 360;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0, 0, W, H);
+
+  const cx = W / 2, cy = H * 0.42;
+  const rx = Math.min(W, H) * 0.34;
+  const ry = rx * 0.42;
+  const depth = rx * 0.22;
+  const total = values.reduce((a, b) => a + b, 0);
+  if (total === 0) return;
+
+  let startAngle = -Math.PI / 2;
+  const slices = values.map((v, i) => {
+    const sweep = (v / total) * Math.PI * 2;
+    const s = { start: startAngle, end: startAngle + sweep, mid: startAngle + sweep / 2, color: colors[i % colors.length], label: labels[i], val: v };
+    startAngle += sweep;
+    return s;
+  });
+
+  // Draw side depth (back to front by sin(mid))
+  const sorted = [...slices].sort((a, b) => Math.sin(b.mid) - Math.sin(a.mid));
+  sorted.forEach(s => {
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + depth, rx, ry, 0, s.start, s.end);
+    ctx.lineTo(cx + rx * Math.cos(s.end), cy + ry * Math.sin(s.end));
+    ctx.ellipse(cx, cy, rx, ry, 0, s.end, s.start, true);
+    ctx.lineTo(cx + rx * Math.cos(s.start), cy + depth + ry * Math.sin(s.start));
+    ctx.closePath();
+    ctx.fillStyle = darken(s.color, 50);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.5; ctx.stroke();
+  });
+
+  // Draw top faces
+  slices.forEach(s => {
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.ellipse(cx, cy, rx, ry, 0, s.start, s.end);
+    ctx.closePath();
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+    grad.addColorStop(0, lighten(s.color, 30));
+    grad.addColorStop(1, s.color);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 1; ctx.stroke();
+
+    // percentage label
+    const midX = cx + rx * 0.6 * Math.cos(s.mid);
+    const midY = cy + ry * 0.6 * Math.sin(s.mid);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 10px Segoe UI,sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const pct = ((s.val / total) * 100).toFixed(0) + '%';
+    ctx.fillText(pct, midX, midY);
+    ctx.textBaseline = 'alphabetic';
+  });
+
+  // Legend below
+  const textColor = getComputedStyle(document.documentElement).getPropertyValue('--muted').trim() || '#8fa3be';
+  const lx = 12, ly = H * 0.75;
+  ctx.font = '10px Segoe UI,sans-serif'; ctx.textAlign = 'left';
+  slices.forEach((s, i) => {
+    const col = i % 2, row = Math.floor(i / 2);
+    const bx = lx + col * (W / 2 - 8), by = ly + row * 16;
+    ctx.fillStyle = s.color;
+    ctx.fillRect(bx, by - 8, 10, 10);
+    ctx.fillStyle = textColor;
+    const lbl = s.label.length > 11 ? s.label.slice(0,11)+'…' : s.label;
+    ctx.fillText(lbl, bx + 13, by);
+  });
+}
+
+// ── MAIN loadAnalytics ───────────────────────────────────
 function loadAnalytics() {
   const mv = document.getElementById('anaMonth').value;
   const rows = getMonthData(mv);
@@ -3392,122 +3805,58 @@ function loadAnalytics() {
     return;
   }
 
-  // Sales person totals (qty & value)
-  const spTotals = {};
-  // Sales person -> product -> qty
-  const spProduct = {};
-  // Product totals (overall qty)
-  const productTotals = {};
+  const spTotals = {}, spProduct = {}, productTotals = {};
 
   rows.forEach(r => {
     const sp = r.salesPerson || 'Unassigned';
     const prod = r.product || 'Other';
-    if (!spTotals[sp]) spTotals[sp] = {qty:0, value:0};
+    if (!spTotals[sp]) spTotals[sp] = { qty: 0, value: 0 };
     spTotals[sp].qty += r.qty;
     spTotals[sp].value += r.billAmount;
-
     if (!spProduct[sp]) spProduct[sp] = {};
     if (!spProduct[sp][prod]) spProduct[sp][prod] = 0;
     spProduct[sp][prod] += r.qty;
-
     if (!productTotals[prod]) productTotals[prod] = 0;
     productTotals[prod] += r.qty;
   });
 
-  const spNames = Object.keys(spTotals).sort((a,b) => spTotals[b].value - spTotals[a].value);
+  const spNames = Object.keys(spTotals).sort((a, b) => spTotals[b].value - spTotals[a].value);
   const allProducts = [...new Set(Object.values(spProduct).flatMap(o => Object.keys(o)))];
 
-  // ── Summary KPI cards ──
-  const totalQty = rows.reduce((s,r) => s + r.qty, 0);
-  const totalVal = rows.reduce((s,r) => s + r.billAmount, 0);
+  const totalQty = rows.reduce((s, r) => s + r.qty, 0);
+  const totalVal = rows.reduce((s, r) => s + r.billAmount, 0);
   document.getElementById('anaTotalQty').textContent = totalQty.toFixed(1);
   document.getElementById('anaTotalVal').textContent = '₹' + fmtL(totalVal);
   document.getElementById('anaSpCount').textContent = spNames.length;
   document.getElementById('anaTopSp').textContent = 'Top: ' + (spNames[0] || '—');
-  const topProductEntry = Object.entries(productTotals).sort((a,b)=>b[1]-a[1])[0];
+  const topProductEntry = Object.entries(productTotals).sort((a, b) => b[1] - a[1])[0];
   document.getElementById('anaProductCount').textContent = allProducts.length;
   document.getElementById('anaTopProduct').textContent = 'Top: ' + (topProductEntry ? topProductEntry[0] : '—');
   document.getElementById('anaBannerSub').textContent = `Sales Person & Product-wise breakdown — ${mv} (${rows.length} dispatch records)`;
 
-  // ── Chart 1: Stacked bar — Sales Person vs Product Qty ──
-  destroyChart('chartSpProduct');
-  const ctx1 = document.getElementById('chartSpProduct').getContext('2d');
-  chartInstances.chartSpProduct = new Chart(ctx1, {
-    type: 'bar',
-    data: {
-      labels: spNames,
-      datasets: allProducts.map((prod, idx) => ({
-        label: prod,
-        data: spNames.map(sp => +(spProduct[sp][prod] || 0).toFixed(2)),
-        backgroundColor: CHART_COLORS[idx % CHART_COLORS.length]
-      }))
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales: { x: { stacked:true, ticks:{color:'#8fa3be'} }, y: { stacked:true, ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'} } },
-      plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
-    }
-  });
+  // Compute max for stacked bar
+  const stackedMax = Math.max(...spNames.map(sp => spTotals[sp].qty)) * 1.15 || 1;
 
-  // ── Chart 2: Pie — Product-wise share (qty) ──
-  destroyChart('chartProductPie');
-  const ctx2 = document.getElementById('chartProductPie').getContext('2d');
-  const prodEntries = Object.entries(productTotals).sort((a,b) => b[1]-a[1]);
-  chartInstances.chartProductPie = new Chart(ctx2, {
-    type: 'pie',
-    data: {
-      labels: prodEntries.map(e => e[0]),
-      datasets: [{
-        data: prodEntries.map(e => +e[1].toFixed(2)),
-        backgroundColor: prodEntries.map((_,idx) => CHART_COLORS[idx % CHART_COLORS.length])
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend: { position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
-    }
-  });
+  // Chart 1 — 3D Stacked Bar
+  const stackDatasets = allProducts.map(prod => spNames.map(sp => +(spProduct[sp]?.[prod] || 0).toFixed(2)));
+  setTimeout(() => render3DStackedBar('chart3dBar', spNames, stackDatasets, ANA_COLORS, stackedMax, v => v.toFixed(0) + 'T'), 30);
 
-  // ── Chart 3: Bar — Sales Person total value ──
-  destroyChart('chartSpValue');
-  const ctx3 = document.getElementById('chartSpValue').getContext('2d');
-  chartInstances.chartSpValue = new Chart(ctx3, {
-    type: 'bar',
-    data: {
-      labels: spNames,
-      datasets: [{
-        label: 'Value (Rs.)',
-        data: spNames.map(sp => Math.round(spTotals[sp].value)),
-        backgroundColor: '#e8a020'
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales: { x: { ticks:{color:'#8fa3be'} }, y: { ticks:{color:'#8fa3be'}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'} } },
-      plugins: { legend: { display:false } }
-    }
-  });
+  // Chart 2 — 3D Donut (product share)
+  const prodEntries = Object.entries(productTotals).sort((a, b) => b[1] - a[1]);
+  setTimeout(() => render3DDonut('chart3dDonut', prodEntries.map(e => e[0]), prodEntries.map(e => +e[1].toFixed(2)), ANA_COLORS), 30);
 
-  // ── Chart 4: Pie — Sales Person value share ──
-  destroyChart('chartSpPie');
-  const ctx4 = document.getElementById('chartSpPie').getContext('2d');
-  chartInstances.chartSpPie = new Chart(ctx4, {
-    type: 'pie',
-    data: {
-      labels: spNames,
-      datasets: [{
-        data: spNames.map(sp => Math.round(spTotals[sp].value)),
-        backgroundColor: spNames.map((_,idx) => CHART_COLORS[idx % CHART_COLORS.length])
-      }]
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend: { position:'right', labels:{color:'#f5f7fa', boxWidth:12, font:{size:10}} } }
-    }
-  });
+  // Chart 3 — 3D Value Bar
+  const vals = spNames.map(sp => Math.round(spTotals[sp].value));
+  setTimeout(() => render3DValueBar('chart3dValueBar', spNames, vals, '#e8a020', v => '₹' + fmtL(v)), 30);
 
-  showToast('✅ Analytics updated for ' + mv);
+  // Chart 4 — 3D Pie (SP value share)
+  const spVals = spNames.map(sp => Math.round(spTotals[sp].value));
+  setTimeout(() => render3DPie('chart3dPie', spNames, spVals, ANA_COLORS), 30);
+
+  showToast('✅ 3D Analytics loaded for ' + mv);
 }
+
+
 
 // ─── COMPLAINTS ───────────────────────────────────────────
 function initComplaints() {
