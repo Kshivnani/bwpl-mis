@@ -169,6 +169,94 @@
   .swatch-light   { background: linear-gradient(135deg, #f0f4f8, #c07a00); }
   .swatch-slate   { background: linear-gradient(135deg, #0f172a, #38bdf8); }
   .swatch-emerald { background: linear-gradient(135deg, #0d1f1a, #34d399); }
+  .swatch-vibe    { background: linear-gradient(135deg, #0a0010, #b400ff, #00ffe0); }
+
+  /* ── THEME: VIBE CODING ── */
+  [data-theme="vibe"] {
+    --steel: #08000f;
+    --steel-mid: #110020;
+    --steel-light: #1e0035;
+    --wire: #c800ff;
+    --wire-dim: #9500bb;
+    --spark: #00ffe0;
+    --white: #f0e6ff;
+    --muted: #9b7fc0;
+    --success: #00ffe0;
+    --danger: #ff2d6b;
+    --info: #7b61ff;
+    --daily-accent: #c800ff;
+    --monthly-accent: #7b61ff;
+    --card-bg: #0e0020;
+    --border: rgba(200,0,255,0.25);
+    --header-grad: linear-gradient(135deg, #110020 0%, #05000d 100%);
+    --login-bg: linear-gradient(135deg, #05000d 0%, #0e0020 50%, #05000d 100%);
+    --table-header-bg: rgba(200,0,255,0.08);
+    --report-header-bg: rgba(200,0,255,0.06);
+    --input-bg: rgba(200,0,255,0.08);
+    --input-border: rgba(200,0,255,0.3);
+    --history-item-bg: rgba(200,0,255,0.06);
+    --td-hover: rgba(200,0,255,0.05);
+    --td-border: rgba(200,0,255,0.1);
+    --ms-panel-shadow: 0 8px 32px rgba(200,0,255,0.3);
+  }
+
+  /* Vibe — neon glow effects */
+  [data-theme="vibe"] .header {
+    border-bottom-color: var(--wire);
+    box-shadow: 0 0 24px rgba(200,0,255,0.35), 0 0 60px rgba(200,0,255,0.1);
+  }
+  [data-theme="vibe"] .sidebar-item.active {
+    border-left-color: var(--wire);
+    box-shadow: inset 3px 0 12px rgba(200,0,255,0.3);
+    text-shadow: 0 0 8px rgba(200,0,255,0.8);
+  }
+  [data-theme="vibe"] .stat-card {
+    box-shadow: 0 0 20px rgba(200,0,255,0.12);
+  }
+  [data-theme="vibe"] .stat-card::before {
+    box-shadow: 0 0 8px rgba(200,0,255,0.6);
+  }
+  [data-theme="vibe"] .stat-card .value {
+    text-shadow: 0 0 12px rgba(200,0,255,0.5);
+  }
+  [data-theme="vibe"] .sync-btn {
+    background: var(--wire);
+    box-shadow: 0 0 16px rgba(200,0,255,0.6);
+  }
+  [data-theme="vibe"] .sync-btn:hover {
+    background: var(--spark);
+    color: #08000f;
+    box-shadow: 0 0 24px rgba(0,255,224,0.7);
+  }
+  [data-theme="vibe"] .btn-primary {
+    box-shadow: 0 0 12px rgba(200,0,255,0.5);
+  }
+  [data-theme="vibe"] .report-panel {
+    box-shadow: 0 0 24px rgba(200,0,255,0.08);
+    border-color: rgba(200,0,255,0.3);
+  }
+  [data-theme="vibe"] .tab.active {
+    color: var(--spark);
+    border-bottom-color: var(--spark);
+    text-shadow: 0 0 8px rgba(0,255,224,0.7);
+  }
+  [data-theme="vibe"] .td-bold {
+    color: var(--spark);
+    text-shadow: 0 0 6px rgba(0,255,224,0.5);
+  }
+  [data-theme="vibe"] .date-badge {
+    border-color: rgba(200,0,255,0.4);
+    box-shadow: 0 0 10px rgba(200,0,255,0.2);
+  }
+  [data-theme="vibe"] .sidebar {
+    background: var(--card-bg);
+    border-right-color: rgba(200,0,255,0.2);
+  }
+  [data-theme="vibe"] body {
+    background-image:
+      radial-gradient(ellipse at 20% 50%, rgba(200,0,255,0.04) 0%, transparent 50%),
+      radial-gradient(ellipse at 80% 20%, rgba(0,255,224,0.03) 0%, transparent 40%);
+  }
   * { margin:0; padding:0; box-sizing:border-box; }
   body { background:var(--steel); color:var(--white); font-family:var(--font-display); min-height:100vh; overflow-x:hidden; }
 
@@ -686,6 +774,9 @@
         </div>
         <div class="theme-opt" onclick="setTheme('emerald')" id="opt-emerald">
           <div class="theme-swatch swatch-emerald"></div> Emerald
+        </div>
+        <div class="theme-opt" onclick="setTheme('vibe')" id="opt-vibe">
+          <div class="theme-swatch swatch-vibe"></div> ⚡ Vibe Coding
         </div>
       </div>
     </div>
@@ -4371,7 +4462,7 @@ function signInWithGoogle() {
 }
 
 // ── THEME SYSTEM ──────────────────────────────────────────
-const THEME_ICONS = { dark:'🌙', light:'☀️', slate:'🔵', emerald:'🌿' };
+const THEME_ICONS = { dark:'🌙', light:'☀️', slate:'🔵', emerald:'🌿', vibe:'⚡' };
 const THEME_KEY = 'bwpl_theme';
 
 function setTheme(theme) {
