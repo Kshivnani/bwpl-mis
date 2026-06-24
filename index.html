@@ -4412,7 +4412,7 @@ document.addEventListener('click', function(e) {
   setTheme(saved);
 })();
 
-
+auth.onAuthStateChanged(user => {
   if (user) {
     // Google login: check domain
     const isGoogle = user.providerData.some(p => p.providerId === 'google.com');
