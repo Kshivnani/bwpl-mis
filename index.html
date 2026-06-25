@@ -888,6 +888,18 @@
   <!-- MAIN -->
   <div class="main">
 
+    <!-- NO ACCESS (shown when a logged-in user has zero granted pages) -->
+    <div class="page" id="page-noaccess">
+      <div class="report-panel" style="margin:60px auto;max-width:460px;text-align:center;padding:48px 32px">
+        <div style="font-size:48px;margin-bottom:16px">🔒</div>
+        <h2 style="margin-bottom:8px">No access granted yet</h2>
+        <p style="color:var(--muted)">
+          Aapka account register ho gaya hai, lekin abhi koi page access nahi mila hai.
+          Apne admin se contact karein.
+        </p>
+      </div>
+    </div>
+
     <!-- DASHBOARD -->
     <div class="page active" id="page-dashboard">
 
@@ -1854,6 +1866,20 @@
 
     <!-- SETUP -->
     <div class="page" id="page-setup">
+
+      <!-- MANAGE USERS (Super Admin only — hidden for everyone else via JS) -->
+      <div class="report-panel" id="manageUsersPanel" style="margin-bottom:16px;display:none">
+        <div class="report-header">
+          <div><h2>👥 Manage Users</h2><div class="meta">Page-wise access control & live activity — Admin only</div></div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="loadManageUsers()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="manageUsersBody" style="padding:20px">
+          <div class="empty-state">Loading users…</div>
+        </div>
+      </div>
+
       <div class="report-panel">
         <div class="report-header">
           <div><h2>Setup & Data Source</h2><div class="meta">Connect POS Google Sheet (live) or upload Excel file</div></div>
@@ -2068,6 +2094,9 @@ function showPage(name, el) {
   }
   if (name === 'groupanalytics' && dispatchData.length > 0) {
     setTimeout(loadGroupAnalytics, 50);
+  }
+  if (name === 'setup') {
+    setTimeout(() => { if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin) loadManageUsers(); }, 50);
   }
 }
 
@@ -4658,13 +4687,14 @@ const firebaseConfig = {
 };
 
 // ─── PERMISSION CONFIG ────────────────────────────────────
-// Pages each restricted email can access
-// All other logged-in users = admin (see everything)
-// Page IDs match: page-dashboard, page-sales, page-collection, etc.
-const USER_PERMISSIONS = {
-  'arun@bajranggroup.com': ['dashboard','collection','top10vol','financials','wirerod'],
-  'dme@bajranggroup.com': ['dashboard','sales','groupanalytics','collection','compliance','productivity','vehicle','travel','pricelist','top10vol','top10val','bot10vol','bot10val','complaints','financials','manufacturing','salesperson','daywise','history']
-};
+// Super Admins ALWAYS see every page and are the ONLY ones who can grant/
+// revoke access for other users (via Setup → Manage Users).
+// 👉 ADD YOUR EMAIL ON THE LINE BELOW — this is the one and only hardcoded
+// part of the whole permission system. Everything else (who can see which
+// page) is managed live from inside the app — no code changes ever needed.
+const SUPER_ADMIN_EMAILS = [
+  'inframis@bajranggroup.com'
+];
 
 // All page IDs in the app
 const ALL_PAGES = [
@@ -4675,7 +4705,8 @@ const ALL_PAGES = [
   'wirerod','history','setup'
 ];
 
-// Sidebar item label → page ID mapping
+// Sidebar item label → page ID mapping (also used to build friendly names
+// in the Manage Users checkbox list)
 const SIDEBAR_PAGE_MAP = {
   'dashboard':'dashboard', 'analytics (charts)':'analytics', 'demand forecast':'groupanalytics',
   'daily sales register':'sales', 'daily collection report':'collection',
@@ -4690,46 +4721,246 @@ const SIDEBAR_PAGE_MAP = {
   'history':'history', 'setup':'setup'
 };
 
+function friendlyPageLabel(pageId) {
+  const entry = Object.entries(SIDEBAR_PAGE_MAP).find(([, id]) => id === pageId);
+  const label = entry ? entry[0] : pageId;
+  return label.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 let currentUserEmail = null;
+let isSuperAdmin = false;
+let currentAllowedPages = []; // pages the logged-in (non-admin) user may access
 
-function applyPermissions(email) {
-  currentUserEmail = email;
-  const allowed = USER_PERMISSIONS[email.toLowerCase()];
-  if (!allowed) return; // Admin — show everything
+function emailKey(email) { return (email || '').toLowerCase().trim(); }
 
-  // Hide restricted sidebar items
+// Registers the user in Firestore on every login (merge:true so an existing
+// allowedPages array is never overwritten) — this is how brand-new users
+// show up for the admin to grant access to, with zero hardcoding.
+async function ensureUserRegistered(email, displayName) {
+  const key = emailKey(email);
+  try {
+    await db.collection('userPermissions').doc(key).set({
+      email: key,
+      displayName: displayName || '',
+      lastLogin: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (e) { console.error('ensureUserRegistered failed', e); }
+}
+
+// Default = NO ACCESS until the admin explicitly grants pages.
+async function fetchAllowedPages(email) {
+  const key = emailKey(email);
+  try {
+    const doc = await db.collection('userPermissions').doc(key).get();
+    if (doc.exists && Array.isArray(doc.data().allowedPages)) return doc.data().allowedPages;
+  } catch (e) { console.error('fetchAllowedPages failed', e); }
+  return [];
+}
+
+// ── Presence / last-active tracking ──
+let presenceInterval = null;
+async function touchPresence() {
+  if (!currentUserEmail) return;
+  try {
+    await db.collection('userPresence').doc(emailKey(currentUserEmail)).set({
+      email: emailKey(currentUserEmail),
+      displayName: (auth.currentUser && auth.currentUser.displayName) || '',
+      lastActive: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+  } catch (e) { /* non-fatal */ }
+}
+function startPresenceHeartbeat() {
+  touchPresence();
+  if (presenceInterval) clearInterval(presenceInterval);
+  presenceInterval = setInterval(touchPresence, 60000); // every 60s while app is open
+}
+function stopPresenceHeartbeat() {
+  if (presenceInterval) clearInterval(presenceInterval);
+  presenceInterval = null;
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') touchPresence();
+});
+
+// ── Sidebar visibility + page-access guard ──
+function applySidebarVisibility() {
   document.querySelectorAll('.sidebar-item').forEach(item => {
-    const label = item.textContent.trim().toLowerCase()
-      .replace(/\s+/g,' ')
-      .replace(/daily\s*/,'daily ')
-      .split('  ')[0].trim();
-    // Find page ID for this sidebar item
-    let pageId = null;
-    for (const [key, val] of Object.entries(SIDEBAR_PAGE_MAP)) {
-      if (label.includes(key)) { pageId = val; break; }
-    }
-    if (pageId && !allowed.includes(pageId)) {
-      item.style.display = 'none';
-    }
+    const m = (item.getAttribute('onclick') || '').match(/showPage\('([a-zA-Z0-9]+)'/);
+    const pageId = m ? m[1] : null;
+    if (!pageId) return;
+    item.style.display = (isSuperAdmin || currentAllowedPages.includes(pageId)) ? '' : 'none';
   });
+}
 
-  // If user tries to navigate to restricted page, redirect to dashboard
+function showNoAccessScreen() {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const el = document.getElementById('page-noaccess');
+  if (el) el.classList.add('active');
+  document.querySelectorAll('.sidebar-item').forEach(item => { item.style.display = 'none'; });
+}
+
+function redirectToFirstAllowedPage() {
+  const pageId = currentAllowedPages[0];
+  const sidebarEl = Array.from(document.querySelectorAll('.sidebar-item')).find(item => {
+    const m = (item.getAttribute('onclick') || '').match(/showPage\('([a-zA-Z0-9]+)'/);
+    return m && m[1] === pageId;
+  });
+  window.showPage(pageId, sidebarEl);
+}
+
+function applyPageAccessUI() {
+  applySidebarVisibility();
+  if (isSuperAdmin) return;
+  if (currentAllowedPages.length === 0) { showNoAccessScreen(); return; }
+  const activeEl = document.querySelector('.page.active');
+  const activeId = activeEl ? activeEl.id.replace('page-', '') : null;
+  if (!activeId || !currentAllowedPages.includes(activeId)) {
+    redirectToFirstAllowedPage();
+  }
+}
+
+// Wrap showPage exactly once (guards against double-wrapping across
+// repeated logins) to block navigation to pages the user isn't allowed.
+let showPageWrapped = false;
+function ensureShowPageGuard() {
+  if (showPageWrapped) return;
+  showPageWrapped = true;
   const origShowPage = window.showPage;
   window.showPage = function(name, el) {
-    const restrictedUser = USER_PERMISSIONS[currentUserEmail?.toLowerCase()];
-    if (restrictedUser && !restrictedUser.includes(name)) {
+    if (!isSuperAdmin && !currentAllowedPages.includes(name)) {
       showToast('⚠️ You do not have access to this page.', true);
-      origShowPage('dashboard', document.querySelector('.sidebar-item'));
       return;
     }
     origShowPage(name, el);
   };
+}
 
-  // Hide Setup page link & Sync button for restricted users
-  if (!allowed.includes('setup')) {
-    document.querySelectorAll('.sidebar-item').forEach(item => {
-      if (item.textContent.toLowerCase().includes('setup')) item.style.display = 'none';
+async function applyPermissions(email, displayName) {
+  currentUserEmail = email;
+  isSuperAdmin = SUPER_ADMIN_EMAILS.map(e => e.toLowerCase().trim()).includes(emailKey(email));
+  ensureShowPageGuard();
+
+  if (isSuperAdmin) {
+    currentAllowedPages = ALL_PAGES.slice();
+  } else {
+    await ensureUserRegistered(email, displayName);
+    currentAllowedPages = await fetchAllowedPages(email);
+  }
+  applyPageAccessUI();
+  startPresenceHeartbeat();
+
+  const panel = document.getElementById('manageUsersPanel');
+  if (panel) panel.style.display = isSuperAdmin ? '' : 'none';
+}
+
+// ── Manage Users panel (Setup page, Super Admin only) ──
+let manageUsersCache = [];
+
+async function loadManageUsers() {
+  const body = document.getElementById('manageUsersBody');
+  if (!body) return;
+  body.innerHTML = '<div class="empty-state">Loading users…</div>';
+  try {
+    const [permSnap, presSnap] = await Promise.all([
+      db.collection('userPermissions').get(),
+      db.collection('userPresence').get()
+    ]);
+    const presenceMap = {};
+    presSnap.forEach(doc => { presenceMap[doc.id] = doc.data(); });
+
+    manageUsersCache = [];
+    permSnap.forEach(doc => {
+      const d = doc.data();
+      manageUsersCache.push({
+        email: doc.id,
+        displayName: d.displayName || '',
+        allowedPages: Array.isArray(d.allowedPages) ? d.allowedPages : [],
+        lastActive: presenceMap[doc.id] ? presenceMap[doc.id].lastActive : null
+      });
     });
+    manageUsersCache.sort((a, b) => {
+      const ta = a.lastActive ? a.lastActive.toMillis() : 0;
+      const tb = b.lastActive ? b.lastActive.toMillis() : 0;
+      return tb - ta;
+    });
+    renderManageUsers();
+  } catch (e) {
+    body.innerHTML = `<div class="empty-state">⚠️ Could not load users: ${e.message}</div>`;
+  }
+}
+
+function relativeTime(ts) {
+  if (!ts) return '⚪ Never logged in';
+  const ms = Date.now() - ts.toMillis();
+  if (ms < 2 * 60 * 1000) return '🟢 Active now';
+  const mins = Math.floor(ms / 60000);
+  if (mins < 60) return `🔴 ${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `🔴 ${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `🔴 ${days}d ago`;
+}
+
+function renderManageUsers() {
+  const body = document.getElementById('manageUsersBody');
+  if (!body) return;
+  if (manageUsersCache.length === 0) {
+    body.innerHTML = '<div class="empty-state">No users yet — they will appear here automatically after their first login.</div>';
+    return;
+  }
+  body.innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>User</th><th>Status</th><th>Access</th><th></th></tr></thead>
+        <tbody>
+          ${manageUsersCache.map((u, i) => `
+            <tr>
+              <td><div style="font-weight:700">${u.displayName || u.email}</div><div style="font-size:11px;color:var(--muted)">${u.email}</div></td>
+              <td style="font-size:12px;white-space:nowrap">${relativeTime(u.lastActive)}</td>
+              <td style="font-size:12px;white-space:nowrap">${u.allowedPages.length} / ${ALL_PAGES.length} pages</td>
+              <td><button class="btn btn-secondary" onclick="openPermissionEditor(${i})">✏️ Manage</button></td>
+            </tr>
+            <tr id="permEditorRow-${i}" style="display:none"><td colspan="4">
+              <div style="background:rgba(0,0,0,0.15);border-radius:8px;padding:14px;margin:6px 0">
+                <div style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px">
+                  ${ALL_PAGES.map(p => `
+                    <label style="display:flex;align-items:center;gap:6px;font-size:12px;cursor:pointer">
+                      <input type="checkbox" data-perm-cb="${i}" value="${p}" ${u.allowedPages.includes(p) ? 'checked' : ''}>
+                      ${friendlyPageLabel(p)}
+                    </label>`).join('')}
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-secondary" onclick="toggleAllPerms(${i}, true)">Select All</button>
+                  <button class="btn btn-secondary" onclick="toggleAllPerms(${i}, false)">Clear All</button>
+                  <button class="btn btn-primary" onclick="savePermissions(${i})">💾 Save</button>
+                </div>
+              </div>
+            </td></tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function openPermissionEditor(i) {
+  const row = document.getElementById('permEditorRow-' + i);
+  if (row) row.style.display = row.style.display === 'none' ? '' : 'none';
+}
+
+function toggleAllPerms(i, val) {
+  document.querySelectorAll(`input[data-perm-cb="${i}"]`).forEach(cb => { cb.checked = val; });
+}
+
+async function savePermissions(i) {
+  const u = manageUsersCache[i];
+  const checked = Array.from(document.querySelectorAll(`input[data-perm-cb="${i}"]:checked`)).map(cb => cb.value);
+  try {
+    await db.collection('userPermissions').doc(u.email).set({ allowedPages: checked }, { merge: true });
+    u.allowedPages = checked;
+    showToast(`✅ Permissions updated for ${u.email}`);
+    renderManageUsers();
+  } catch (e) {
+    showToast('❌ Failed to save: ' + e.message, true);
   }
 }
 
@@ -4869,7 +5100,7 @@ auth.onAuthStateChanged(user => {
       document.querySelectorAll('.sidebar-item').forEach(item => { item.style.display = ''; });
 
       initApp();
-      applyPermissions(user.email);
+      applyPermissions(user.email, user.displayName);
 
       // Remove any stale user badge before adding fresh one (handles account switch)
       const oldBadge = document.getElementById('userBadge');
@@ -4897,12 +5128,19 @@ auth.onAuthStateChanged(user => {
     googleAccessToken = null;
     window._gToken = null;
     currentUserEmail = null;
+    isSuperAdmin = false;
+    currentAllowedPages = [];
+    stopPresenceHeartbeat();
     dispatchData = [];
     wrData = [];
     wrEntries = [];
 
     // Reset sidebar visibility (in case a restricted user logged out)
     document.querySelectorAll('.sidebar-item').forEach(item => { item.style.display = ''; });
+    const noAccessEl = document.getElementById('page-noaccess');
+    if (noAccessEl) noAccessEl.classList.remove('active');
+    const manageUsersPanel = document.getElementById('manageUsersPanel');
+    if (manageUsersPanel) manageUsersPanel.style.display = 'none';
 
     // Remove stale user badge
     const oldBadge = document.getElementById('userBadge');
