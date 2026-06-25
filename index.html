@@ -1066,6 +1066,25 @@
         </div>
       </div>
 
+      <!-- Secondary KPI strip -->
+      <div class="overview-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="stat-card" style="--accent-color:#1abc9c">
+          <div class="label">Total Dispatches (MTD)</div>
+          <div class="value" id="anaOrderCount">—</div>
+          <div class="sub">No. of dispatch records</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#fd79a8">
+          <div class="label">Avg. Order Value</div>
+          <div class="value" id="anaAvgOrder">—</div>
+          <div class="sub">Per dispatch (Rs.)</div>
+        </div>
+        <div class="stat-card" style="--accent-color:#54a0ff">
+          <div class="label">Best Day (MTD)</div>
+          <div class="value" id="anaBestDay" style="font-size:18px">—</div>
+          <div class="sub" id="anaBestDaySub">By dispatch value</div>
+        </div>
+      </div>
+
       <!-- Charts Row 1: 3D Bar + 3D Donut -->
       <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-bottom:16px">
         <div class="report-panel">
@@ -1094,7 +1113,7 @@
       </div>
 
       <!-- Charts Row 2: 3D Value Bar + 3D Pie -->
-      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-top:16px">
+      <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-top:16px; margin-bottom:16px">
         <div class="report-panel">
           <div class="report-header">
             <div>
@@ -1115,6 +1134,64 @@
           </div>
           <div class="section-pad" style="height:360px; padding:0; position:relative;">
             <canvas id="chart3dPie" style="width:100%;height:100%;display:block;"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Trend -->
+      <div class="report-panel" style="margin-bottom:16px">
+        <div class="report-header">
+          <div>
+            <h2>📈 Daily Dispatch Trend</h2>
+            <div class="meta">Day-wise Qty (MT) &amp; Value (Rs.) for the selected month</div>
+          </div>
+        </div>
+        <div class="section-pad" style="height:300px; position:relative;">
+          <canvas id="chartAnaTrend"></canvas>
+          <div class="empty-state" id="chartAnaTrendEmpty" style="display:none; position:absolute; inset:0; padding:60px 20px; align-items:center; justify-content:center">No dispatch data for this month</div>
+        </div>
+      </div>
+
+      <!-- Sales Performance + Top Customers -->
+      <div class="overview-grid" style="grid-template-columns:3fr 2fr; margin-bottom:16px; align-items:start">
+        <div class="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>🏆 Sales Person Performance</h2>
+              <div class="meta">Ranked by value — MTD vs. previous month</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="anaSpTable">
+              <thead>
+                <tr>
+                  <th>#</th><th>Sales Person</th><th>Qty (MT)</th><th>Value (Rs.)</th><th>Share</th><th>vs Last Mo.</th>
+                </tr>
+              </thead>
+              <tbody id="anaSpBody">
+                <tr><td colspan="6" class="empty-state"><div class="icon">📊</div>No data — sync dispatch data first</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="report-panel">
+          <div class="report-header">
+            <div>
+              <h2>👤 Top 10 Customers</h2>
+              <div class="meta">By dispatch value — MTD</div>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table id="anaCustTable">
+              <thead>
+                <tr>
+                  <th>#</th><th>Customer</th><th>Qty (MT)</th><th>Value (Rs.)</th>
+                </tr>
+              </thead>
+              <tbody id="anaCustBody">
+                <tr><td colspan="4" class="empty-state"><div class="icon">📊</div>No data — sync dispatch data first</td></tr>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -3863,6 +3940,20 @@ function loadAnalytics() {
   document.getElementById('anaTopProduct').textContent = 'Top: ' + (topProductEntry ? topProductEntry[0] : '—');
   document.getElementById('anaBannerSub').textContent = `Sales Person & Product-wise breakdown — ${mv} (${rows.length} dispatch records)`;
 
+  // ── Secondary KPIs: order count, avg order value, best day ──
+  document.getElementById('anaOrderCount').textContent = rows.length.toLocaleString('en-IN');
+  document.getElementById('anaAvgOrder').textContent = rows.length ? '₹' + fmtL(totalVal / rows.length) : '—';
+  const byDateVal = {};
+  rows.forEach(r => {
+    if (!r.dispatchDate) return;
+    if (!byDateVal[r.dispatchDate]) byDateVal[r.dispatchDate] = { qty: 0, value: 0 };
+    byDateVal[r.dispatchDate].qty += r.qty;
+    byDateVal[r.dispatchDate].value += r.billAmount;
+  });
+  const bestDayEntry = Object.entries(byDateVal).sort((a, b) => b[1].value - a[1].value)[0];
+  document.getElementById('anaBestDay').textContent = bestDayEntry ? bestDayEntry[0] : '—';
+  document.getElementById('anaBestDaySub').textContent = bestDayEntry ? ('₹' + fmtL(bestDayEntry[1].value) + ' · ' + bestDayEntry[1].qty.toFixed(1) + ' MT') : 'By dispatch value';
+
   // Compute max for stacked bar
   const stackedMax = Math.max(...spNames.map(sp => spTotals[sp].qty)) * 1.15 || 1;
 
@@ -3882,7 +3973,135 @@ function loadAnalytics() {
   const spVals = spNames.map(sp => Math.round(spTotals[sp].value));
   setTimeout(() => render3DPie('chart3dPie', spNames, spVals, ANA_COLORS), 30);
 
+  // Daily trend chart
+  renderAnaTrendChart(byDateVal);
+
+  // Sales person performance table (with MoM growth) + Top 10 customers
+  const prevMv = getPrevMonthVal(mv);
+  const prevRows = getMonthData(prevMv);
+  const prevSpVal = {};
+  prevRows.forEach(r => {
+    const sp = r.salesPerson || 'Unassigned';
+    prevSpVal[sp] = (prevSpVal[sp] || 0) + r.billAmount;
+  });
+  renderAnaSpTable(spNames, spTotals, totalVal, prevSpVal);
+  renderAnaCustTable(rows);
+
   showToast('✅ 3D Analytics loaded for ' + mv);
+}
+
+// Returns previous month value e.g. "2026-06" -> "2026-05"
+function getPrevMonthVal(mv) {
+  let [y, m] = mv.split('-').map(Number);
+  m -= 1;
+  if (m === 0) { m = 12; y -= 1; }
+  return y + '-' + String(m).padStart(2, '0');
+}
+
+// ── Daily Dispatch Trend (Chart.js) ──
+function renderAnaTrendChart(byDateVal) {
+  const canvas = document.getElementById('chartAnaTrend');
+  const emptyEl = document.getElementById('chartAnaTrendEmpty');
+  if (!canvas || typeof Chart === 'undefined') return;
+  destroyChart('chartAnaTrend');
+
+  const dates = Object.keys(byDateVal).sort((a, b) => {
+    const [da, ma, ya] = a.split('-').map(Number), [db, mb, yb] = b.split('-').map(Number);
+    return new Date(ya, ma - 1, da) - new Date(yb, mb - 1, db);
+  });
+
+  if (dates.length === 0) {
+    canvas.style.display = 'none';
+    if (emptyEl) emptyEl.style.display = 'flex';
+    return;
+  }
+  canvas.style.display = '';
+  if (emptyEl) emptyEl.style.display = 'none';
+
+  const ctx = canvas.getContext('2d');
+  chartInstances.chartAnaTrend = new Chart(ctx, {
+    data: {
+      labels: dates,
+      datasets: [
+        { type: 'bar', label: 'Qty (MT)', data: dates.map(d => +byDateVal[d].qty.toFixed(2)), backgroundColor: 'rgba(232,160,32,0.55)', borderColor: '#e8a020', borderWidth: 1, borderRadius: 4, yAxisID: 'y' },
+        { type: 'line', label: 'Value (Rs.)', data: dates.map(d => Math.round(byDateVal[d].value)), borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.15)', pointBackgroundColor: '#3498db', pointRadius: 3, tension: 0.35, yAxisID: 'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: '#8fa3be', maxRotation: 60, minRotation: 45, font: { size: 9 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { position: 'left', ticks: { color: '#8fa3be' }, title: { display: true, text: 'Qty (MT)', color: '#8fa3be' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y1: { position: 'right', ticks: { color: '#8fa3be' }, grid: { drawOnChartArea: false }, title: { display: true, text: 'Value (Rs.)', color: '#8fa3be' } }
+      },
+      plugins: { legend: { position: 'bottom', labels: { color: '#f5f7fa', boxWidth: 12, font: { size: 10 } } } }
+    }
+  });
+}
+
+// ── Sales Person Performance table with leaderboard bars + MoM growth ──
+function renderAnaSpTable(spNames, spTotals, totalVal, prevSpVal) {
+  const body = document.getElementById('anaSpBody');
+  if (!body) return;
+  if (spNames.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" class="empty-state"><div class="icon">📊</div>No data for this month</td></tr>';
+    return;
+  }
+  const maxVal = Math.max(...spNames.map(sp => spTotals[sp].value)) || 1;
+  const medals = ['🥇', '🥈', '🥉'];
+  body.innerHTML = spNames.map((sp, i) => {
+    const v = spTotals[sp];
+    const share = totalVal ? (v.value / totalVal * 100) : 0;
+    const pct = (v.value / maxVal * 100).toFixed(1);
+    const prev = prevSpVal[sp] || 0;
+    let growthHtml = '<span style="color:var(--muted)">—</span>';
+    if (prev > 0) {
+      const growth = ((v.value - prev) / prev) * 100;
+      const up = growth >= 0;
+      growthHtml = `<span style="color:${up ? 'var(--success)' : 'var(--danger)'};font-weight:700">${up ? '▲' : '▼'} ${Math.abs(growth).toFixed(1)}%</span>`;
+    } else if (v.value > 0) {
+      growthHtml = '<span style="color:var(--info);font-weight:700">✦ New</span>';
+    }
+    return `
+    <tr>
+      <td>${i < 3 ? medals[i] : (i + 1)}</td>
+      <td>
+        <div style="font-weight:600;margin-bottom:4px">${sp}</div>
+        <div style="background:var(--input-bg);border-radius:4px;height:6px;width:100%;max-width:160px;overflow:hidden">
+          <div style="background:${ANA_COLORS[i % ANA_COLORS.length]};height:100%;width:${pct}%;border-radius:4px"></div>
+        </div>
+      </td>
+      <td class="td-num">${v.qty.toFixed(2)}</td>
+      <td class="td-num">₹${fmtL(v.value)}</td>
+      <td class="td-num">${share.toFixed(1)}%</td>
+      <td class="td-num">${growthHtml}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── Top 10 Customers table ──
+function renderAnaCustTable(rows) {
+  const body = document.getElementById('anaCustBody');
+  if (!body) return;
+  const custTotals = {};
+  rows.forEach(r => {
+    const p = r.party || 'Unknown';
+    if (!custTotals[p]) custTotals[p] = { qty: 0, value: 0 };
+    custTotals[p].qty += r.qty;
+    custTotals[p].value += r.billAmount;
+  });
+  const top = Object.entries(custTotals).sort((a, b) => b[1].value - a[1].value).slice(0, 10);
+  if (top.length === 0) {
+    body.innerHTML = '<tr><td colspan="4" class="empty-state"><div class="icon">📊</div>No data for this month</td></tr>';
+    return;
+  }
+  body.innerHTML = top.map(([name, v], i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${name}</td>
+      <td class="td-num">${v.qty.toFixed(2)}</td>
+      <td class="td-num">₹${fmtL(v.value)}</td>
+    </tr>`).join('');
 }
 
 
