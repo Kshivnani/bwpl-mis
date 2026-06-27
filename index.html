@@ -994,11 +994,11 @@
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Top 5 Customers (MTD)</h2>
-              <div class="meta">By dispatch value (Rs.)</div>
+              <h2>Last 7 Days — Product-wise Selling</h2>
+              <div class="meta">Total Qty (MT) by product</div>
             </div>
           </div>
-          <div class="section-pad" style="height:280px"><canvas id="chartDashTopCustomers"></canvas></div>
+          <div class="section-pad" style="height:280px"><canvas id="chartDashLast7Product"></canvas></div>
         </div>
       </div>
 
@@ -2795,23 +2795,31 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
   populateDashPBDateFilter();
   renderProductBreakdownChart();
 
-  // ── Top 5 customers by value (MTD) ──
-  const custVal = {};
-  mtdRows.forEach(r => {
-    custVal[r.party] = (custVal[r.party]||0) + r.billAmount;
+  // ── Last 7 days — product-wise selling (Qty) ──
+  const last7Set = new Set();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    last7Set.add(formatDate(d));
+  }
+  const last7Rows = dispatchData.filter(r => last7Set.has(r.dispatchDate));
+  const last7Qty = {};
+  last7Rows.forEach(r => {
+    const p = r.product || 'Other';
+    last7Qty[p] = (last7Qty[p] || 0) + r.qty;
   });
-  const custEntries = Object.entries(custVal).sort((a,b)=>b[1]-a[1]).slice(0,5);
-  destroyChart('chartDashTopCustomers');
-  const ctxCust = document.getElementById('chartDashTopCustomers').getContext('2d');
-  chartInstances.chartDashTopCustomers = new Chart(ctxCust, {
+  const last7Entries = Object.entries(last7Qty).sort((a,b) => b[1]-a[1]);
+  destroyChart('chartDashLast7Product');
+  const ctxL7 = document.getElementById('chartDashLast7Product').getContext('2d');
+  chartInstances.chartDashLast7Product = new Chart(ctxL7, {
     type: 'bar',
     data: {
-      labels: custEntries.map(e=>e[0]),
-      datasets: [{ label:'Value (Rs.)', data: custEntries.map(e=>Math.round(e[1])), backgroundColor: custEntries.map((_,idx)=>CHART_COLORS[(idx+3) % CHART_COLORS.length]), borderRadius:4 }]
+      labels: last7Entries.map(e=>e[0]),
+      datasets: [{ label:'Qty (MT)', data: last7Entries.map(e=>+e[1].toFixed(2)), backgroundColor: last7Entries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]), borderRadius:4 }]
     },
     options: {
       indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Value (Rs.)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ ticks:{color:'#8fa3be', font:{size:10}}, grid:{display:false} } },
+      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ ticks:{color:'#8fa3be', font:{size:10}}, grid:{display:false} } },
       plugins: { legend:{ display:false } }
     }
   });
