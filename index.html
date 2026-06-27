@@ -973,16 +973,16 @@
         </div>
       </div>
 
-      <!-- Charts Row 2: Sales Person Leaderboard + Top Customers -->
+      <!-- Charts Row 2: Product Sell Breakdown (Day-wise) + Top Customers -->
       <div class="overview-grid" style="grid-template-columns:1fr 1fr; margin-bottom:16px">
         <div class="report-panel">
           <div class="report-header">
             <div>
-              <h2>Sales Person Leaderboard</h2>
-              <div class="meta">MTD Qty (MT) by sales person</div>
+              <h2>Product Sell Breakdown</h2>
+              <div class="meta">Day-wise Qty (MT) by product — MTD</div>
             </div>
           </div>
-          <div class="section-pad" style="height:280px"><canvas id="chartDashSpLeaderboard"></canvas></div>
+          <div class="section-pad" style="height:280px"><canvas id="chartDashProductBreakdown"></canvas></div>
         </div>
         <div class="report-panel">
           <div class="report-header">
@@ -2709,25 +2709,41 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     });
   }
 
-  // ── Sales person leaderboard (MTD qty) ──
-  const spQty = {};
+  // ── Product Sell Breakdown — day-wise (MTD), stacked by product ──
+  const dateProductQty = {};
+  const productSet = new Set();
   mtdRows.forEach(r => {
-    const sp = r.salesPerson || 'Unassigned';
-    spQty[sp] = (spQty[sp]||0) + r.qty;
+    const d = r.dispatchDate;
+    const p = r.product || 'Other';
+    productSet.add(p);
+    if (!dateProductQty[d]) dateProductQty[d] = {};
+    dateProductQty[d][p] = (dateProductQty[d][p] || 0) + r.qty;
   });
-  const spEntries = Object.entries(spQty).sort((a,b)=>b[1]-a[1]);
-  destroyChart('chartDashSpLeaderboard');
-  const ctxSp = document.getElementById('chartDashSpLeaderboard').getContext('2d');
-  chartInstances.chartDashSpLeaderboard = new Chart(ctxSp, {
+  const pbDates = Object.keys(dateProductQty).sort((a, b) => {
+    const [da,ma,ya]=a.split('-').map(Number), [db,mb,yb]=b.split('-').map(Number);
+    return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
+  });
+  const pbProducts = Array.from(productSet).sort();
+  destroyChart('chartDashProductBreakdown');
+  const ctxPB = document.getElementById('chartDashProductBreakdown').getContext('2d');
+  chartInstances.chartDashProductBreakdown = new Chart(ctxPB, {
     type: 'bar',
     data: {
-      labels: spEntries.map(e=>e[0]),
-      datasets: [{ label:'Qty (MT)', data: spEntries.map(e=>+e[1].toFixed(2)), backgroundColor: spEntries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]), borderRadius:4 }]
+      labels: pbDates,
+      datasets: pbProducts.map((p, idx) => ({
+        label: p,
+        data: pbDates.map(d => +((dateProductQty[d][p] || 0).toFixed(2))),
+        backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
+        borderRadius: 4
+      }))
     },
     options: {
-      indexAxis:'y', responsive:true, maintainAspectRatio:false,
-      scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ ticks:{color:'#8fa3be'}, grid:{display:false} } },
-      plugins: { legend:{ display:false } }
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        x: { stacked:true, ticks:{color:'#8fa3be', maxRotation:60, minRotation:45, font:{size:9}}, grid:{display:false} },
+        y: { stacked:true, ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }
+      },
+      plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:10, font:{size:9}} } }
     }
   });
 
