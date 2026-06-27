@@ -981,6 +981,13 @@
               <h2>Product Sell Breakdown</h2>
               <div class="meta">Day-wise Qty (MT) by product — MTD</div>
             </div>
+            <div class="report-actions">
+              <div class="form-group" style="margin:0">
+                <select id="dashPBDateFilter" onchange="renderProductBreakdownChart()" style="width:150px">
+                  <option value="">All Days (MTD)</option>
+                </select>
+              </div>
+            </div>
           </div>
           <div class="section-pad" style="height:280px"><canvas id="chartDashProductBreakdown"></canvas></div>
         </div>
@@ -2633,6 +2640,66 @@ function refreshDashboard() {
 }
 
 // ─── DASHBOARD CHARTS ────────────────────────────────────
+let dashPBCache = { dateProductQty: {}, pbDates: [], pbProducts: [] };
+
+function populateDashPBDateFilter() {
+  const sel = document.getElementById('dashPBDateFilter');
+  if (!sel) return;
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">All Days (MTD)</option>' +
+    dashPBCache.pbDates.map(d => `<option value="${d}" ${d === cur ? 'selected' : ''}>${d}</option>`).join('');
+}
+
+// Renders either the full stacked day-wise view (no date selected) or a
+// single day's product breakdown (when a specific date is chosen).
+function renderProductBreakdownChart() {
+  const canvas = document.getElementById('chartDashProductBreakdown');
+  if (!canvas || typeof Chart === 'undefined') return;
+  const sel = document.getElementById('dashPBDateFilter');
+  const selectedDate = sel ? sel.value : '';
+  const { dateProductQty, pbDates, pbProducts } = dashPBCache;
+  destroyChart('chartDashProductBreakdown');
+  const ctxPB = canvas.getContext('2d');
+
+  if (!selectedDate) {
+    chartInstances.chartDashProductBreakdown = new Chart(ctxPB, {
+      type: 'bar',
+      data: {
+        labels: pbDates,
+        datasets: pbProducts.map((p, idx) => ({
+          label: p,
+          data: pbDates.map(d => +((dateProductQty[d][p] || 0).toFixed(2))),
+          backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
+          borderRadius: 4
+        }))
+      },
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        scales: {
+          x: { stacked:true, ticks:{color:'#8fa3be', maxRotation:60, minRotation:45, font:{size:9}}, grid:{display:false} },
+          y: { stacked:true, ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }
+        },
+        plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:10, font:{size:9}} } }
+      }
+    });
+  } else {
+    const dayData = dateProductQty[selectedDate] || {};
+    const entries = Object.entries(dayData).sort((a, b) => b[1] - a[1]);
+    chartInstances.chartDashProductBreakdown = new Chart(ctxPB, {
+      type: 'bar',
+      data: {
+        labels: entries.map(e => e[0]),
+        datasets: [{ label:'Qty (MT)', data: entries.map(e => +e[1].toFixed(2)), backgroundColor: entries.map((_,idx)=>CHART_COLORS[idx % CHART_COLORS.length]), borderRadius:4 }]
+      },
+      options: {
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        scales: { x:{ ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }, y:{ ticks:{color:'#8fa3be'}, grid:{display:false} } },
+        plugins: { legend:{ display:false } }
+      }
+    });
+  }
+}
+
 function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
   if (typeof Chart === 'undefined') return;
 
@@ -2724,28 +2791,9 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     return new Date(ya,ma-1,da) - new Date(yb,mb-1,db);
   });
   const pbProducts = Array.from(productSet).sort();
-  destroyChart('chartDashProductBreakdown');
-  const ctxPB = document.getElementById('chartDashProductBreakdown').getContext('2d');
-  chartInstances.chartDashProductBreakdown = new Chart(ctxPB, {
-    type: 'bar',
-    data: {
-      labels: pbDates,
-      datasets: pbProducts.map((p, idx) => ({
-        label: p,
-        data: pbDates.map(d => +((dateProductQty[d][p] || 0).toFixed(2))),
-        backgroundColor: CHART_COLORS[idx % CHART_COLORS.length],
-        borderRadius: 4
-      }))
-    },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      scales: {
-        x: { stacked:true, ticks:{color:'#8fa3be', maxRotation:60, minRotation:45, font:{size:9}}, grid:{display:false} },
-        y: { stacked:true, ticks:{color:'#8fa3be'}, title:{display:true, text:'Qty (MT)', color:'#8fa3be'}, grid:{color:'rgba(255,255,255,0.04)'} }
-      },
-      plugins: { legend: { position:'bottom', labels:{color:'#f5f7fa', boxWidth:10, font:{size:9}} } }
-    }
-  });
+  dashPBCache = { dateProductQty, pbDates, pbProducts };
+  populateDashPBDateFilter();
+  renderProductBreakdownChart();
 
   // ── Top 5 customers by value (MTD) ──
   const custVal = {};
