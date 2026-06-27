@@ -2382,15 +2382,22 @@ function computeSpPacing() {
   const allSps = new Set([...Object.keys(spForecast), ...Object.keys(spActual)]);
   return [...allSps].map(sp => {
     const forecast = spForecast[sp] || 0;
-    if (forecast <= 0) return null; // skip SPs with no target assigned
     const actual = spActual[sp] || 0;
+    if (forecast <= 0) {
+      // No forecast target for this SP/bucket (e.g. an "Unassigned" group with
+      // no Master-sheet SP mapping — often a return/credit-note row). Keep it
+      // in the list (don't silently drop it) so the visible total always
+      // reconciles with the KPI "Total Actual Qty" card above. Pace columns
+      // don't make sense without a target, so they're left blank.
+      return { sp, forecast: 0, actual, perDayTarget: null, expectedTillToday: null, remaining: null, paceDiff: null, requiredDailyRate: null, noTarget: true };
+    }
     const perDayTarget = forecast / daysInMonth;
     const expectedTillToday = perDayTarget * daysElapsed;
     const remaining = Math.max(forecast - actual, 0);
     const paceDiff = actual - expectedTillToday; // +ve = ahead of pace, -ve = behind
     const requiredDailyRate = daysRemaining > 0 ? remaining / daysRemaining : remaining;
-    return { sp, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate };
-  }).filter(Boolean).sort((a, b) => b.forecast - a.forecast);
+    return { sp, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate, noTarget: false };
+  }).filter(r => !(r.forecast <= 0 && r.actual === 0)).sort((a, b) => b.forecast - a.forecast);
 }
 
 function renderSpPacing() {
@@ -2414,6 +2421,19 @@ function renderSpPacing() {
   }
 
   tbody.innerHTML = rows.map(r => {
+    if (r.noTarget) {
+      return `
+      <tr style="opacity:0.65">
+        <td><strong>${r.sp}</strong> <span style="font-size:11px;color:var(--muted)">(no target)</span></td>
+        <td class="td-num">—</td>
+        <td class="td-num">—</td>
+        <td class="td-num">—</td>
+        <td class="td-num">${r.actual.toFixed(1)}</td>
+        <td class="td-num">—</td>
+        <td class="td-num">—</td>
+        <td class="td-num">—</td>
+      </tr>`;
+    }
     const ahead = r.paceDiff >= 0;
     const paceColor = ahead ? 'var(--success)' : 'var(--danger)';
     const paceLabel = ahead ? `▲ Ahead by ${r.paceDiff.toFixed(1)}` : `▼ Behind by ${Math.abs(r.paceDiff).toFixed(1)}`;
@@ -2428,7 +2448,25 @@ function renderSpPacing() {
       <td class="td-num">${r.remaining.toFixed(1)}</td>
       <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
     </tr>`;
-  }).join('');
+  }).join('') + (() => {
+    // Footer total — should always exactly equal the KPI "Total Actual Qty" /
+    // "Total Forecast" cards above (when their filters are Period=current
+    // month, Product=PC Wire), since this whole table is built from the same
+    // underlying group rows.
+    const totalForecast = rows.reduce((s, r) => s + (r.forecast || 0), 0);
+    const totalActual = rows.reduce((s, r) => s + (r.actual || 0), 0);
+    return `
+    <tr style="border-top:2px solid var(--border);font-weight:700">
+      <td>Total</td>
+      <td class="td-num">${totalForecast.toFixed(1)}</td>
+      <td class="td-num">—</td>
+      <td class="td-num">—</td>
+      <td class="td-num">${totalActual.toFixed(1)}</td>
+      <td class="td-num">—</td>
+      <td class="td-num">—</td>
+      <td class="td-num">—</td>
+    </tr>`;
+  })();
 }
 
 // Core group-aggregation logic, shared by the KPI cards/table (loadGroupAnalytics)
