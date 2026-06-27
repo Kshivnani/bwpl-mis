@@ -1166,14 +1166,14 @@
           <div class="form-group" style="margin:0">
             <select id="gaProductFilter" onchange="loadGroupAnalytics()" style="width:130px">
               <option value="">All Products</option>
-              <option value="PC Wire">PC Wire</option>
+              <option value="PC Wire" selected>PC Wire</option>
               <option value="ACSR Core Wire">ACSR</option>
             </select>
           </div>
           <div class="form-group" style="margin:0">
             <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
               <option value="all">All Time</option>
-              <option value="2026-06">Jun 2026</option>
+              <option value="2026-06" selected>Jun 2026</option>
               <option value="2026-05">May 2026</option>
               <option value="2026-04">Apr 2026</option>
             </select>
@@ -2354,27 +2354,27 @@ function getGroupForParty(party) {
 // Always uses the live "today" + current calendar month, and PC Wire only
 // (the forecast sheet itself is PC-Wire-specific) — independent of whatever
 // period/product filters are set on the Group table above.
+//
+// IMPORTANT: this calls the *same* buildGroupRows() used by the KPI cards
+// (just forced to "current month" + "PC Wire"), so Actual Achieved here will
+// always exactly match what the KPI cards show when you set their filters to
+// Period = current month and Product = PC Wire. Previously this function had
+// its own separate row-by-row aggregation, which could drift slightly from
+// the KPI numbers — that's fixed now by sharing one code path.
 function computeSpPacing() {
   if (dispatchData.length === 0 || Object.keys(forecastMap).length === 0) return [];
 
-  const spForecast = {};
-  Object.entries(forecastMap).forEach(([gKey, f]) => {
-    const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
-    spForecast[sp] = (spForecast[sp] || 0) + (f.juneForecast || 0);
-  });
-
-  const monthPrefix = todayStr.slice(3); // "MM-YYYY"
-  const spActual = {};
-  dispatchData.forEach(r => {
-    if (r.product !== 'PC Wire') return;
-    if (!r.dispatchDate || r.dispatchDate.slice(3) !== monthPrefix) return;
-    const gKey = canonGroupKey(getGroupForParty((r.party || '').trim()));
-    const f = forecastMap[gKey];
-    const sp = (f && f.sp) || groupSpMap[gKey] || r.salesPerson || 'Unassigned';
-    spActual[sp] = (spActual[sp] || 0) + r.qty;
-  });
-
   const y = today.getFullYear(), m = today.getMonth();
+  const currentPeriod = `${y}-${String(m + 1).padStart(2, '0')}`;
+  const groups = buildGroupRows(currentPeriod, 'PC Wire');
+
+  const spForecast = {};
+  const spActual = {};
+  groups.forEach(g => {
+    spForecast[g.sp] = (spForecast[g.sp] || 0) + (g.forecastQty || 0);
+    spActual[g.sp] = (spActual[g.sp] || 0) + (g.qty || 0);
+  });
+
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const daysElapsed = today.getDate();
   const daysRemaining = Math.max(daysInMonth - daysElapsed, 0);
@@ -2431,16 +2431,12 @@ function renderSpPacing() {
   }).join('');
 }
 
-function loadGroupAnalytics() {
-  if (dispatchData.length === 0) {
-    document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
-    return;
-  }
-
-  const spFilter = document.getElementById('gaSpFilter').value;
-  const period = document.getElementById('gaPeriod').value;
-  const productFilter = document.getElementById('gaProductFilter').value;
-
+// Core group-aggregation logic, shared by the KPI cards/table (loadGroupAnalytics)
+// AND the Sales Person Pacing Tracker (computeSpPacing) below.
+// Pulling this into one function guarantees both views can never drift apart —
+// previously they each re-implemented this independently and produced slightly
+// different "actual" totals.
+function buildGroupRows(period, productFilter, rawSpFilter) {
   // Filter dispatch data
   let rows = dispatchData;
   if (period !== 'all') {
@@ -2448,7 +2444,7 @@ function loadGroupAnalytics() {
     const suffix = mo + '-' + yr;
     rows = rows.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === suffix);
   }
-  if (spFilter) rows = rows.filter(r => r.salesPerson === spFilter);
+  if (rawSpFilter) rows = rows.filter(r => r.salesPerson === rawSpFilter);
   if (productFilter) rows = rows.filter(r => r.product === productFilter);
 
   // Group by company group (canonical, case-insensitive key so
@@ -2473,7 +2469,7 @@ function loadGroupAnalytics() {
     ...Object.keys(forecastMap)
   ]);
 
-  gaGroupData = [...allGroupKeys].map(gKey => {
+  return [...allGroupKeys].map(gKey => {
     const actual = groups[gKey] || { group: null, companies: {}, qty: 0, value: 0 };
     const forecast = forecastMap[gKey] || null;
     // Prefer the forecast sheet's spelling for the display name (it's the
@@ -2514,6 +2510,19 @@ function loadGroupAnalytics() {
     if (b.forecastQty !== a.forecastQty) return b.forecastQty - a.forecastQty;
     return b.qty - a.qty;
   });
+}
+
+function loadGroupAnalytics() {
+  if (dispatchData.length === 0) {
+    document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
+    return;
+  }
+
+  const spFilter = document.getElementById('gaSpFilter').value;
+  const period = document.getElementById('gaPeriod').value;
+  const productFilter = document.getElementById('gaProductFilter').value;
+
+  gaGroupData = buildGroupRows(period, productFilter, spFilter);
 
   // Filter by SP if selected (forecast SP)
   if (spFilter) {
