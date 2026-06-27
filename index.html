@@ -2355,49 +2355,39 @@ function getGroupForParty(party) {
 // (the forecast sheet itself is PC-Wire-specific) — independent of whatever
 // period/product filters are set on the Group table above.
 //
-// IMPORTANT: this calls the *same* buildGroupRows() used by the KPI cards
-// (just forced to "current month" + "PC Wire"), so Actual Achieved here will
-// always exactly match what the KPI cards show when you set their filters to
-// Period = current month and Product = PC Wire. Previously this function had
-// its own separate row-by-row aggregation, which could drift slightly from
-// the KPI numbers — that's fixed now by sharing one code path.
+// Actual per SP is computed by calling buildGroupRows() with that SP as the
+// raw row-level filter — the EXACT same mechanism the KPI cards use when you
+// pick a Sales Person from the dropdown above. So GM's "Actual Achieved" here
+// will always be identical to the KPI "Total Actual Qty" card when you filter
+// the Group table to GM + PC Wire + the current month.
 function computeSpPacing() {
   if (dispatchData.length === 0 || Object.keys(forecastMap).length === 0) return [];
 
   const y = today.getFullYear(), m = today.getMonth();
   const currentPeriod = `${y}-${String(m + 1).padStart(2, '0')}`;
-  const groups = buildGroupRows(currentPeriod, 'PC Wire');
 
   const spForecast = {};
-  const spActual = {};
-  groups.forEach(g => {
-    spForecast[g.sp] = (spForecast[g.sp] || 0) + (g.forecastQty || 0);
-    spActual[g.sp] = (spActual[g.sp] || 0) + (g.qty || 0);
+  Object.entries(forecastMap).forEach(([gKey, f]) => {
+    const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
+    spForecast[sp] = (spForecast[sp] || 0) + (f.juneForecast || 0);
   });
 
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const daysElapsed = today.getDate();
   const daysRemaining = Math.max(daysInMonth - daysElapsed, 0);
 
-  const allSps = new Set([...Object.keys(spForecast), ...Object.keys(spActual)]);
-  return [...allSps].map(sp => {
+  return Object.keys(spForecast).map(sp => {
     const forecast = spForecast[sp] || 0;
-    const actual = spActual[sp] || 0;
-    if (forecast <= 0) {
-      // No forecast target for this SP/bucket (e.g. an "Unassigned" group with
-      // no Master-sheet SP mapping — often a return/credit-note row). Keep it
-      // in the list (don't silently drop it) so the visible total always
-      // reconciles with the KPI "Total Actual Qty" card above. Pace columns
-      // don't make sense without a target, so they're left blank.
-      return { sp, forecast: 0, actual, perDayTarget: null, expectedTillToday: null, remaining: null, paceDiff: null, requiredDailyRate: null, noTarget: true };
-    }
+    if (forecast <= 0) return null; // skip SPs with no target assigned
+    const actualGroups = buildGroupRows(currentPeriod, 'PC Wire', sp);
+    const actual = actualGroups.reduce((s, g) => s + g.qty, 0);
     const perDayTarget = forecast / daysInMonth;
     const expectedTillToday = perDayTarget * daysElapsed;
     const remaining = Math.max(forecast - actual, 0);
     const paceDiff = actual - expectedTillToday; // +ve = ahead of pace, -ve = behind
     const requiredDailyRate = daysRemaining > 0 ? remaining / daysRemaining : remaining;
-    return { sp, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate, noTarget: false };
-  }).filter(r => !(r.forecast <= 0 && r.actual === 0)).sort((a, b) => b.forecast - a.forecast);
+    return { sp, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate };
+  }).filter(Boolean).sort((a, b) => b.forecast - a.forecast);
 }
 
 function renderSpPacing() {
@@ -2421,19 +2411,6 @@ function renderSpPacing() {
   }
 
   tbody.innerHTML = rows.map(r => {
-    if (r.noTarget) {
-      return `
-      <tr style="opacity:0.65">
-        <td><strong>${r.sp}</strong> <span style="font-size:11px;color:var(--muted)">(no target)</span></td>
-        <td class="td-num">—</td>
-        <td class="td-num">—</td>
-        <td class="td-num">—</td>
-        <td class="td-num">${r.actual.toFixed(1)}</td>
-        <td class="td-num">—</td>
-        <td class="td-num">—</td>
-        <td class="td-num">—</td>
-      </tr>`;
-    }
     const ahead = r.paceDiff >= 0;
     const paceColor = ahead ? 'var(--success)' : 'var(--danger)';
     const paceLabel = ahead ? `▲ Ahead by ${r.paceDiff.toFixed(1)}` : `▼ Behind by ${Math.abs(r.paceDiff).toFixed(1)}`;
@@ -2448,25 +2425,7 @@ function renderSpPacing() {
       <td class="td-num">${r.remaining.toFixed(1)}</td>
       <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
     </tr>`;
-  }).join('') + (() => {
-    // Footer total — should always exactly equal the KPI "Total Actual Qty" /
-    // "Total Forecast" cards above (when their filters are Period=current
-    // month, Product=PC Wire), since this whole table is built from the same
-    // underlying group rows.
-    const totalForecast = rows.reduce((s, r) => s + (r.forecast || 0), 0);
-    const totalActual = rows.reduce((s, r) => s + (r.actual || 0), 0);
-    return `
-    <tr style="border-top:2px solid var(--border);font-weight:700">
-      <td>Total</td>
-      <td class="td-num">${totalForecast.toFixed(1)}</td>
-      <td class="td-num">—</td>
-      <td class="td-num">—</td>
-      <td class="td-num">${totalActual.toFixed(1)}</td>
-      <td class="td-num">—</td>
-      <td class="td-num">—</td>
-      <td class="td-num">—</td>
-    </tr>`;
-  })();
+  }).join('');
 }
 
 // Core group-aggregation logic, shared by the KPI cards/table (loadGroupAnalytics)
