@@ -1203,6 +1203,32 @@
         </div>
       </div>
 
+      <!-- Sales Person Pacing Tracker -->
+      <div class="report-panel" style="margin-bottom:12px">
+        <div class="report-header">
+          <div><h2>📈 Sales Person Pacing — Forecast Tracker</h2><div class="meta" id="gaPacingMeta">—</div></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Sales Person</th>
+                <th class="td-num">Forecast (MT)</th>
+                <th class="td-num">Per Day Target</th>
+                <th class="td-num">Expected Till Today</th>
+                <th class="td-num">Actual Achieved</th>
+                <th class="td-num">Pace</th>
+                <th class="td-num">Remaining (MT)</th>
+                <th class="td-num">Req. Daily Rate (Rest of Month)</th>
+              </tr>
+            </thead>
+            <tbody id="gaPacingBody">
+              <tr><td colspan="8" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       <!-- Search -->
       <div class="report-panel" style="margin-bottom:12px">
         <div class="section-pad" style="padding:12px 20px;display:flex;gap:10px;align-items:center">
@@ -2324,6 +2350,87 @@ function getGroupForParty(party) {
   return (groupMap[party.trim().toLowerCase()] || {}).group || party.trim();
 }
 
+// Sales-person pacing: forecast vs the pace required to hit it by month-end.
+// Always uses the live "today" + current calendar month, and PC Wire only
+// (the forecast sheet itself is PC-Wire-specific) — independent of whatever
+// period/product filters are set on the Group table above.
+function computeSpPacing() {
+  if (dispatchData.length === 0 || Object.keys(forecastMap).length === 0) return [];
+
+  const spForecast = {};
+  Object.entries(forecastMap).forEach(([gKey, f]) => {
+    const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
+    spForecast[sp] = (spForecast[sp] || 0) + (f.juneForecast || 0);
+  });
+
+  const monthPrefix = todayStr.slice(3); // "MM-YYYY"
+  const spActual = {};
+  dispatchData.forEach(r => {
+    if (r.product !== 'PC Wire') return;
+    if (!r.dispatchDate || r.dispatchDate.slice(3) !== monthPrefix) return;
+    const gKey = canonGroupKey(getGroupForParty((r.party || '').trim()));
+    const f = forecastMap[gKey];
+    const sp = (f && f.sp) || groupSpMap[gKey] || r.salesPerson || 'Unassigned';
+    spActual[sp] = (spActual[sp] || 0) + r.qty;
+  });
+
+  const y = today.getFullYear(), m = today.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const daysElapsed = today.getDate();
+  const daysRemaining = Math.max(daysInMonth - daysElapsed, 0);
+
+  const allSps = new Set([...Object.keys(spForecast), ...Object.keys(spActual)]);
+  return [...allSps].map(sp => {
+    const forecast = spForecast[sp] || 0;
+    if (forecast <= 0) return null; // skip SPs with no target assigned
+    const actual = spActual[sp] || 0;
+    const perDayTarget = forecast / daysInMonth;
+    const expectedTillToday = perDayTarget * daysElapsed;
+    const remaining = Math.max(forecast - actual, 0);
+    const paceDiff = actual - expectedTillToday; // +ve = ahead of pace, -ve = behind
+    const requiredDailyRate = daysRemaining > 0 ? remaining / daysRemaining : remaining;
+    return { sp, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate };
+  }).filter(Boolean).sort((a, b) => b.forecast - a.forecast);
+}
+
+function renderSpPacing() {
+  const tbody = document.getElementById('gaPacingBody');
+  if (!tbody) return;
+  const metaEl = document.getElementById('gaPacingMeta');
+
+  const y = today.getFullYear(), m = today.getMonth();
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const daysElapsed = today.getDate();
+  const monthName = today.toLocaleString('en-US', { month: 'long' });
+  if (metaEl) metaEl.textContent = `Day ${daysElapsed} of ${daysInMonth} — ${monthName} ${y} (PC Wire forecast)`;
+
+  let rows = computeSpPacing();
+  const spFilter = document.getElementById('gaSpFilter');
+  if (spFilter && spFilter.value) rows = rows.filter(r => r.sp === spFilter.value);
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map(r => {
+    const ahead = r.paceDiff >= 0;
+    const paceColor = ahead ? 'var(--success)' : 'var(--danger)';
+    const paceLabel = ahead ? `▲ Ahead by ${r.paceDiff.toFixed(1)}` : `▼ Behind by ${Math.abs(r.paceDiff).toFixed(1)}`;
+    return `
+    <tr>
+      <td><strong>${r.sp}</strong></td>
+      <td class="td-num">${r.forecast.toFixed(1)}</td>
+      <td class="td-num">${r.perDayTarget.toFixed(1)}</td>
+      <td class="td-num">${r.expectedTillToday.toFixed(1)}</td>
+      <td class="td-num">${r.actual.toFixed(1)}</td>
+      <td class="td-num" style="color:${paceColor};font-weight:700">${paceLabel}</td>
+      <td class="td-num">${r.remaining.toFixed(1)}</td>
+      <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
+    </tr>`;
+  }).join('');
+}
+
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
     document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
@@ -2432,6 +2539,7 @@ function loadGroupAnalytics() {
   document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
   renderGroupTable(gaGroupData);
+  renderSpPacing();
 }
 
 function setGASort(col) {
