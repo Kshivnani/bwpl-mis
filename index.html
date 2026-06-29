@@ -1252,6 +1252,7 @@
                 <option value="diff">Diff (MT)</option>
                 <option value="achievement">Achievement %</option>
                 <option value="group">Group Name (A-Z)</option>
+                <option value="sp">Sales Person (A-Z)</option>
               </select>
             </div>
             <div class="form-group" style="min-width:110px">
@@ -2560,19 +2561,27 @@ function setGASort(col) {
   sortAndRenderGA();
 }
 
-function sortAndRenderGA() {
+// Shared: returns gaGroupData sorted exactly the way it's currently shown on
+// screen (whatever Sort-by + Order dropdowns are set to). Used by both the
+// on-screen table AND the Excel download, so the download always matches
+// what you're looking at.
+function getSortedGAGroupData() {
   const col = document.getElementById('gaSortCol').value;
   const dir = document.getElementById('gaSortDir').value;
-  const sorted = [...gaGroupData].sort((a, b) => {
+  return [...gaGroupData].sort((a, b) => {
     let va, vb;
     if (col === 'group') { va = a.group.toLowerCase(); vb = b.group.toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
+    if (col === 'sp') { va = (a.sp || '').toLowerCase(); vb = (b.sp || '').toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
     if (col === 'forecast') { va = a.forecastQty; vb = b.forecastQty; }
     else if (col === 'actual') { va = a.qty; vb = b.qty; }
     else if (col === 'diff') { va = a.diff; vb = b.diff; }
     else if (col === 'achievement') { va = a.achievement ?? -999; vb = b.achievement ?? -999; }
     return dir === 'asc' ? va - vb : vb - va;
   });
-  renderGroupTable(sorted);
+}
+
+function sortAndRenderGA() {
+  renderGroupTable(getSortedGAGroupData());
 }
 
 function filterGroupTable() {
@@ -2595,14 +2604,19 @@ function downloadGAReport() {
   const period = document.getElementById('gaPeriod').value;
   const sp = document.getElementById('gaSpFilter').value;
   const prod = document.getElementById('gaProductFilter').value;
+  const sortCol = document.getElementById('gaSortCol').value;
+  const sortDir = document.getElementById('gaSortDir').value;
+  const sortLabel = document.getElementById('gaSortCol').selectedOptions[0].textContent
+    + ' (' + (sortDir === 'asc' ? 'Ascending' : 'Descending') + ')';
+  const sortedData = getSortedGAGroupData(); // same order as on-screen table
   const rows = [
     ['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],
     ['Demand Forecast — Group-wise'],
-    ['Period:', period === 'all' ? 'All Time' : period, 'Sales Person:', sp || 'All', 'Product:', prod || 'All'],
+    ['Period:', period === 'all' ? 'All Time' : period, 'Sales Person:', sp || 'All', 'Product:', prod || 'All', 'Sorted by:', sortLabel],
     [],
     ['Group Name', 'SP', 'June Forecast (MT)', 'Actual (MT)', 'Diff (MT)', 'Achievement %']
   ];
-  gaGroupData.forEach(g => {
+  sortedData.forEach(g => {
     rows.push([
       g.group, g.sp,
       g.forecastQty > 0 ? +g.forecastQty.toFixed(2) : '',
@@ -2614,8 +2628,8 @@ function downloadGAReport() {
       rows.push(['  ↳ ' + c.name, '', '', +c.qty.toFixed(2), '', '']);
     });
   });
-  const totQty = gaGroupData.reduce((s,g)=>s+g.qty,0);
-  const totFc = gaGroupData.reduce((s,g)=>s+g.forecastQty,0);
+  const totQty = sortedData.reduce((s,g)=>s+g.qty,0);
+  const totFc = sortedData.reduce((s,g)=>s+g.forecastQty,0);
   rows.push(['TOTAL', '', +totFc.toFixed(2), +totQty.toFixed(2), +(totQty-totFc).toFixed(2), totFc>0?(totQty/totFc*100).toFixed(1)+'%':'']);
   const ws = XLSX.utils.aoa_to_sheet(rows);
   const wb = XLSX.utils.book_new();
