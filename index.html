@@ -699,6 +699,90 @@
     th, td { padding: 5px 6px; }
   }
 
+  /* ══════════════ AI CHATBOT WIDGET ══════════════ */
+  .chat-fab {
+    position: fixed; bottom: 24px; right: 24px; width: 56px; height: 56px;
+    border-radius: 50%; background: var(--wire); color: var(--steel);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 26px; cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+    z-index: 9990; transition: transform 0.2s, box-shadow 0.2s; border: none;
+  }
+  .chat-fab:hover { transform: scale(1.08); box-shadow: 0 8px 26px rgba(0,0,0,0.45); }
+  .chat-fab.hide { display: none; }
+  .chat-fab .chat-fab-dot {
+    position: absolute; top: -2px; right: -2px; width: 12px; height: 12px;
+    border-radius: 50%; background: var(--success); border: 2px solid var(--steel);
+  }
+
+  .chat-panel {
+    position: fixed; bottom: 96px; right: 24px; width: 360px; height: 520px;
+    background: var(--card-bg); border: 1px solid var(--border); border-radius: 16px;
+    box-shadow: var(--ms-panel-shadow); z-index: 9991; display: none;
+    flex-direction: column; overflow: hidden;
+  }
+  .chat-panel.open { display: flex; }
+
+  .chat-header {
+    background: var(--header-grad); padding: 14px 16px; display: flex;
+    align-items: center; justify-content: space-between; flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-header-title { display: flex; align-items: center; gap: 10px; }
+  .chat-bot-icon {
+    width: 34px; height: 34px; border-radius: 50%; background: rgba(232,160,32,0.15);
+    display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0;
+  }
+  .chat-title { font-size: 14px; font-weight: 700; color: var(--white); line-height: 1.3; }
+  .chat-subtitle { font-size: 11px; color: var(--muted); line-height: 1.3; }
+  .chat-header-actions { display: flex; gap: 6px; }
+  .chat-icon-btn {
+    background: var(--input-bg); border: 1px solid var(--input-border); color: var(--white);
+    width: 28px; height: 28px; border-radius: 7px; cursor: pointer; font-size: 13px;
+    display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+  }
+  .chat-icon-btn:hover { background: rgba(232,160,32,0.15); }
+
+  .chat-messages {
+    flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .chat-msg { max-width: 84%; padding: 9px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5; word-wrap: break-word; }
+  .chat-msg.bot { background: var(--history-item-bg); color: var(--white); align-self: flex-start; border-bottom-left-radius: 3px; }
+  .chat-msg.user { background: var(--wire); color: var(--steel); align-self: flex-end; border-bottom-right-radius: 3px; font-weight: 500; }
+  .chat-msg.error { background: rgba(231,76,60,0.15); color: var(--danger); align-self: flex-start; border: 1px solid rgba(231,76,60,0.3); }
+  .chat-msg strong { font-weight: 700; }
+
+  .chat-typing { display: flex; gap: 4px; padding: 9px 12px; background: var(--history-item-bg); border-radius: 12px; align-self: flex-start; width: fit-content; }
+  .chat-typing span {
+    width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+    animation: chatTypingBounce 1.2s infinite ease-in-out;
+  }
+  .chat-typing span:nth-child(2) { animation-delay: 0.15s; }
+  .chat-typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes chatTypingBounce { 0%, 60%, 100% { transform: translateY(0); opacity: 0.5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .chat-input-row {
+    display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--border); flex-shrink: 0;
+  }
+  .chat-input {
+    flex: 1; background: var(--input-bg); border: 1px solid var(--input-border); color: var(--white);
+    border-radius: 9px; padding: 10px 12px; font-size: 13px; outline: none;
+  }
+  .chat-input::placeholder { color: var(--muted); }
+  .chat-send-btn {
+    background: var(--wire); color: var(--steel); border: none; border-radius: 9px;
+    width: 38px; height: 38px; cursor: pointer; font-size: 15px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; transition: opacity 0.15s;
+  }
+  .chat-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  @media (max-width: 480px) {
+    .chat-panel {
+      bottom: 0; right: 0; left: 0; width: 100%; height: 100%;
+      border-radius: 0; border: none;
+    }
+    .chat-fab { bottom: 18px; right: 18px; }
+  }
+
 </style>
 </head>
 <body>
@@ -2027,6 +2111,32 @@
 </div><!-- end layout -->
 
 <div id="toast"></div>
+
+<!-- ══════════════ AI CHATBOT WIDGET ══════════════ -->
+<button id="chatFab" class="chat-fab" onclick="toggleChat()" title="MIS Assistant">
+  💬<span class="chat-fab-dot"></span>
+</button>
+
+<div id="chatPanel" class="chat-panel">
+  <div class="chat-header">
+    <div class="chat-header-title">
+      <div class="chat-bot-icon">🤖</div>
+      <div>
+        <div class="chat-title">MIS Assistant</div>
+        <div class="chat-subtitle">BWPL Automation Helper</div>
+      </div>
+    </div>
+    <div class="chat-header-actions">
+      <button class="chat-icon-btn" onclick="startNewChat()" title="New chat">🔄</button>
+      <button class="chat-icon-btn" onclick="toggleChat()" title="Close">✕</button>
+    </div>
+  </div>
+  <div class="chat-messages" id="chatMessages"></div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" class="chat-input" placeholder="Reports, login, sync ke baare mein poochiye..." onkeydown="if(event.key==='Enter'){event.preventDefault();sendChatMessage();}">
+    <button class="chat-send-btn" id="chatSendBtn" onclick="sendChatMessage()">➤</button>
+  </div>
+</div>
 
 <script>
 // ─── STATE ──────────────────────────────────────────────
@@ -5252,5 +5362,197 @@ async function syncFromGoogleSheet() {
   setLoading(false);
 }
 </script>
-</body>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// AI CHATBOT — "MIS Assistant" (powered by Groq Cloud API)
+// ⚠️ SECURITY NOTE: this key is visible to anyone who views page
+// source / browser DevTools on this publicly hosted GitHub Pages
+// site. See chat reply for how to move this behind a server proxy.
+// ══════════════════════════════════════════════════════════════
+const GROQ_API_KEY  = "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";
+const GROQ_MODEL    = "openai/gpt-oss-120b";
+const GROQ_ENDPOINT = "https://api.groq.com/openai/v1/chat/completions";
+
+const CHATBOT_SYSTEM_PROMPT = `You are "MIS Assistant", a friendly in-app helper chatbot inside "BWPL MIS Automation" — an internal Management Information System dashboard built for Bajrang Wire Products (BWPL)'s sales & operations team.
+
+WHAT THIS APP DOES:
+A daily/monthly sales & operations reporting dashboard. Dispatch/sales data comes in either by live-syncing a connected Google Sheet (via Google OAuth + Sheets API, "☁ Sync Sheet" button) or by manually uploading a "POS with EMS" Excel (.xlsx) file on the Setup page. That data is turned into automated reports, charts and KPIs.
+
+LOGIN & SECURITY:
+- Authentication runs on Firebase Authentication.
+- Two sign-in methods: (1) Email + password, or (2) "Sign in with Google" — restricted to @bajranggroup.com company Google accounts only; any other Google account is auto signed-out.
+- Firebase Firestore stores user roles and which report pages each person is allowed to see. A Super Admin sees every page; regular users only see pages an admin has granted them. Zero pages granted shows a "No access yet — contact your admin" screen.
+
+DATA SOURCES:
+- Option A — Live Sync: "☁ Sync Sheet" pulls the latest Dispatch + Master data straight from the connected Google Sheet.
+- Option B — Manual Upload: on "Setup / Upload Data", drag-and-drop or browse to upload the POS-with-EMS Excel file directly.
+
+REPORT MODULES (left sidebar):
+• Overview — Dashboard (KPI overview), Analytics (Charts), Demand Forecast (Group Analytics)
+• Daily Reports (expected by 10:30 AM) — Daily Sales Register, Daily Collection Report, Sales Compliance, Productivity Report, Vehicle Placement Failure, Official Travel Report, Price List Compliance
+• Monthly Reports — Top 10 by Volume, Bottom 10 by Volume, Bottom 10 by Value, Customer Complaints, Financials, Manufacturing & Sales, Sales Person Report, Day-wise Sales Report, Wire Rod Report
+• Other — Report History (past report archive), Setup / Upload Data (data source + super-admin user management)
+
+OTHER FEATURES:
+- 5 visual themes from the 🌙 icon (top-right): Dark (default), Light, Slate Blue, Emerald, Vibe Coding — saved per-browser.
+- Charts render with Chart.js; Excel parsing uses SheetJS.
+
+YOUR JOB:
+1. On a new chat, greet the user warmly and briefly mention you can help with questions about this system — reports, login, data sync, access, themes, navigation.
+2. Answer questions about what each report/page is for, how login & access work, how data gets into the system, and how to use any visible feature.
+3. You do NOT have live access to actual sales numbers, Firestore data, or spreadsheet contents — you only know how the SYSTEM works, not today's actual figures. If asked for live numbers, politely point them to the relevant report page or their admin — never invent numbers.
+4. Keep answers short and clear; use bullet points for lists. Match the user's language — reply in Hinglish/Hindi if they write that way, English if they write in English.
+5. Be warm, professional and concise, like a helpful colleague — not a generic AI.
+6. If asked something unrelated to this dashboard, answer briefly and gently steer back to how you can help with the MIS automation system.`;
+
+let chatHistory = [];      // running {role, content} pairs sent to the API
+let chatStarted = false;   // has the greeting been shown this session?
+let chatBusy = false;
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function formatChatText(str) {
+  let safe = escapeHtml(str);
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/\n/g, '<br>');
+  return safe;
+}
+
+function scrollChatToBottom() {
+  const box = document.getElementById('chatMessages');
+  if (box) box.scrollTop = box.scrollHeight;
+}
+
+function appendChatMessage(role, text, isError) {
+  const box = document.getElementById('chatMessages');
+  if (!box) return;
+  const div = document.createElement('div');
+  div.className = 'chat-msg ' + (isError ? 'error' : (role === 'user' ? 'user' : 'bot'));
+  div.innerHTML = formatChatText(text);
+  box.appendChild(div);
+  scrollChatToBottom();
+}
+
+function showChatTyping() {
+  const box = document.getElementById('chatMessages');
+  if (!box || document.getElementById('chatTypingIndicator')) return;
+  const div = document.createElement('div');
+  div.className = 'chat-typing';
+  div.id = 'chatTypingIndicator';
+  div.innerHTML = '<span></span><span></span><span></span>';
+  box.appendChild(div);
+  scrollChatToBottom();
+}
+
+function hideChatTyping() {
+  const el = document.getElementById('chatTypingIndicator');
+  if (el) el.remove();
+}
+
+function getChatGreeting() {
+  let name = '';
+  try {
+    if (typeof auth !== 'undefined' && auth.currentUser) {
+      name = auth.currentUser.displayName
+        ? auth.currentUser.displayName.split(' ')[0]
+        : (auth.currentUser.email || '').split('@')[0];
+    }
+  } catch (e) {}
+  const hello = name ? `Namaste ${name} 👋` : 'Namaste 👋';
+  return `${hello} Main hoon **MIS Assistant** — BWPL MIS Automation ka aapka helper.\n\nMain inme help kar sakta hoon:\n• Reports kya batate hain\n• Login / access kaise kaam karta hai\n• Data sync ya upload kaise karein\n• Dashboard navigate karna\n\nKuch bhi poochiye! 😊`;
+}
+
+function toggleChat() {
+  const panel = document.getElementById('chatPanel');
+  if (!panel) return;
+  const opening = !panel.classList.contains('open');
+  panel.classList.toggle('open');
+  if (opening) {
+    if (!chatStarted) {
+      chatStarted = true;
+      appendChatMessage('assistant', getChatGreeting());
+    }
+    const input = document.getElementById('chatInput');
+    if (input) setTimeout(() => input.focus(), 150);
+  }
+}
+
+function startNewChat() {
+  chatHistory = [];
+  chatStarted = true;
+  const box = document.getElementById('chatMessages');
+  if (box) box.innerHTML = '';
+  appendChatMessage('assistant', getChatGreeting());
+  const panel = document.getElementById('chatPanel');
+  if (panel && !panel.classList.contains('open')) panel.classList.add('open');
+}
+
+async function sendChatMessage() {
+  if (chatBusy) return;
+  const input = document.getElementById('chatInput');
+  const sendBtn = document.getElementById('chatSendBtn');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+
+  input.value = '';
+  appendChatMessage('user', text);
+  chatHistory.push({ role: 'user', content: text });
+
+  chatBusy = true;
+  if (sendBtn) sendBtn.disabled = true;
+  input.disabled = true;
+  showChatTyping();
+
+  // Only send the last 10 turns to the API to control token usage
+  const recentHistory = chatHistory.slice(-10);
+
+  try {
+    const res = await fetch(GROQ_ENDPOINT, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + GROQ_API_KEY
+      },
+      body: JSON.stringify({
+        model: GROQ_MODEL,
+        messages: [
+          { role: 'system', content: CHATBOT_SYSTEM_PROMPT },
+          ...recentHistory
+        ],
+        temperature: 0.4,
+        max_completion_tokens: 500
+      })
+    });
+
+    if (!res.ok) {
+      let msg = 'HTTP ' + res.status;
+      try { const err = await res.json(); msg = (err.error && err.error.message) || msg; } catch (e) {}
+      throw new Error(msg);
+    }
+
+    const data = await res.json();
+    const reply = (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content)
+      || 'Sorry, I could not generate a response.';
+    hideChatTyping();
+    appendChatMessage('assistant', reply);
+    chatHistory.push({ role: 'assistant', content: reply });
+
+  } catch (e) {
+    hideChatTyping();
+    appendChatMessage('assistant', '⚠️ Connection error: ' + e.message + '\n\nPlease check your internet connection and try again.', true);
+    console.error('[MIS Assistant Error]', e);
+  }
+
+  chatBusy = false;
+  if (sendBtn) sendBtn.disabled = false;
+  input.disabled = false;
+  input.focus();
+}
+</script></body>
 </html>
