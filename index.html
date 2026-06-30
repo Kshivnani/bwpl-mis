@@ -1215,16 +1215,14 @@
               <tr>
                 <th>Sales Person</th>
                 <th class="td-num">Forecast (MT)</th>
-                <th class="td-num">Per Day Target</th>
+                <th class="td-num">Actual (MT)</th>
                 <th class="td-num">Expected Till Today</th>
-                <th class="td-num">Actual Achieved</th>
+                <th class="td-num">Per Day Target (as of today)</th>
                 <th class="td-num">Pace</th>
-                <th class="td-num">Remaining (MT)</th>
-                <th class="td-num">Req. Daily Rate (Rest of Month)</th>
               </tr>
             </thead>
             <tbody id="gaPacingBody">
-              <tr><td colspan="8" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="6" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -2421,7 +2419,7 @@ function renderSpPacing() {
   if (spFilter && spFilter.value) rows = rows.filter(r => r.sp === spFilter.value);
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
     return;
   }
 
@@ -2433,12 +2431,10 @@ function renderSpPacing() {
     <tr>
       <td><strong>${r.sp}</strong></td>
       <td class="td-num">${r.forecast.toFixed(1)}</td>
-      <td class="td-num">${r.perDayTarget.toFixed(1)}</td>
-      <td class="td-num">${r.expectedTillToday.toFixed(1)}</td>
       <td class="td-num">${r.actual.toFixed(1)}</td>
+      <td class="td-num">${r.expectedTillToday.toFixed(1)}</td>
+      <td class="td-num">${r.perDayTarget.toFixed(1)}</td>
       <td class="td-num" style="color:${paceColor};font-weight:700">${paceLabel}</td>
-      <td class="td-num">${r.remaining.toFixed(1)}</td>
-      <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
     </tr>`;
   }).join('');
 }
