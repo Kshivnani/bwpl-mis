@@ -1214,16 +1214,17 @@
             <thead>
               <tr>
                 <th>Sales Person</th>
-                <th>Product</th>
                 <th class="td-num">Forecast (MT)</th>
-                <th class="td-num">Actual (MT)</th>
+                <th class="td-num">Per Day Target</th>
                 <th class="td-num">Expected Till Today</th>
-                <th class="td-num">Per Day Target (as of today)</th>
+                <th class="td-num">Actual Achieved</th>
                 <th class="td-num">Pace</th>
+                <th class="td-num">Remaining (MT)</th>
+                <th class="td-num">Req. Daily Rate (Rest of Month)</th>
               </tr>
             </thead>
             <tbody id="gaPacingBody">
-              <tr><td colspan="7" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="8" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -2248,12 +2249,10 @@ function parseDispatchRows(rows) {
 let groupMap = {};       // { companyName.lower: { group, salesPerson } }
 let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
 let gaGroupData = [];    // computed for rendering
-let forecastMap = {};       // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
-let acsrForecastMap = {};   // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "ACSR 26-27" sheet
+let forecastMap = {};    // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 
 const FORECAST_SHEET_ID = '1wezkGzQ6ebwI3hDkuJZLVgqI_2Gz1ATkNK3Ez270CZY';
-const FORECAST_SHEET_GID = '918916430';      // "PC Wire 26-27" tab
-const ACSR_FORECAST_SHEET_NAME = 'ACSR 26-27'; // found by title (no fixed GID needed)
+const FORECAST_SHEET_GID = '918916430'; // "PC Wire 26-27" tab
 
 async function syncForecastSheet() {
   const btn = document.querySelector('[onclick="syncForecastSheet()"]');
@@ -2274,7 +2273,7 @@ async function syncForecastSheet() {
   }
 
   try {
-    // Get sheet name from GID, plus the full sheet list (to also locate ACSR 26-27 by title)
+    // Get sheet name from GID
     const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}?fields=sheets.properties`, {
       headers: { Authorization: 'Bearer ' + token }
     });
@@ -2282,7 +2281,6 @@ async function syncForecastSheet() {
     const meta = await metaRes.json();
     const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === FORECAST_SHEET_GID);
     const sheetName = sheetObj ? sheetObj.properties.title : 'PC Wire 26-27';
-    const acsrSheetObj = meta.sheets?.find(s => s.properties.title === ACSR_FORECAST_SHEET_NAME);
 
     const range = encodeURIComponent(sheetName + '!A1:O3000');
     const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}/values/${range}`, {
@@ -2291,25 +2289,9 @@ async function syncForecastSheet() {
     if (!dataRes.ok) throw new Error('Forecast data fetch failed');
     const json = await dataRes.json();
     const rows = json.values || [];
+
     parseForecastData(rows);
-
-    // ACSR 26-27 — same two-block sheet layout as PC Wire, just different
-    // column positions for the June/July targets (I and J instead of N and O).
-    if (acsrSheetObj) {
-      const acsrRange = encodeURIComponent(ACSR_FORECAST_SHEET_NAME + '!A1:M3000');
-      const acsrRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}/values/${acsrRange}`, {
-        headers: { Authorization: 'Bearer ' + token }
-      });
-      if (acsrRes.ok) {
-        const acsrJson = await acsrRes.json();
-        parseAcsrForecastData(acsrJson.values || []);
-      }
-    } else {
-      acsrForecastMap = {};
-    }
-
-    const totalGroups = new Set([...Object.keys(forecastMap), ...Object.keys(acsrForecastMap)]).size;
-    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Forecast synced — ${totalGroups} groups loaded (PC Wire + ACSR)</span>`;
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Forecast synced — ${Object.keys(forecastMap).length} groups loaded</span>`;
     showToast('✅ Forecast data synced!');
     if (dispatchData.length > 0) loadGroupAnalytics();
   } catch(e) {
@@ -2341,22 +2323,12 @@ function parseForecastData(rows) {
   // A(0)=Group Name, B(1)=Sales Person,
   // N(13)=PC Target Jun-26     ← June forecast
   // O(14)=Demand Forecast Target For Jul-26  ← July forecast (NOT AI — that's Block 2)
-  //
-  // NOTE: column A here is the forecast sheet's OWN spelling of the company's
-  // group — it doesn't always exactly match the Master sheet's "Company Group
-  // Name" tag (different spacing/punctuation, e.g. "OSWAL CABLES LTD (BAGRU)"
-  // vs Master's "Oswal cable limied"). To avoid the same company showing up as
-  // two separate rows (one from forecast, one from actual dispatch), we route
-  // every forecast group name through getGroupForParty() — the SAME Master
-  // lookup actual dispatch rows use — so both always resolve to one identical
-  // canonical group.
   forecastMap = {};
   const safe = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
   for (let i = 4; i < rows.length; i++) {
     const r = rows[i];
     if (!r[0] || !String(r[0]).trim()) continue;
-    const rawName = String(r[0]).trim();
-    const group = getGroupForParty(rawName); // canonicalize via Master sheet, same as actual dispatch rows
+    const group = String(r[0]).trim();
     const key = canonGroupKey(group);
     const sp = (r[1] || '').trim();
     const juneForecast = safe(r[13]);  // col N — PC Target Jun-26
@@ -2367,35 +2339,6 @@ function parseForecastData(rows) {
       if (!forecastMap[key].sp) forecastMap[key].sp = sp;
     } else {
       forecastMap[key] = { group, sp, juneForecast, julyForecast };
-    }
-  }
-}
-
-// "ACSR 26-27" sheet layout — same two-block structure as PC Wire 26-27
-// (Block 1: cols A-M is the real, row-aligned data; Block 2: cols O-AC is a
-// separate/differently-ordered list and must NOT be read from).
-// Block 1 columns: A(0)=Group Name, B(1)=Sales Person,
-// I(8)=ACSR Target Jun-26  ← June forecast
-// J(9)=Demand Forecast Target For Jul-26  ← July forecast
-// Same Master-canonicalization applied as parseForecastData (see note above).
-function parseAcsrForecastData(rows) {
-  acsrForecastMap = {};
-  const safe = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
-  for (let i = 4; i < rows.length; i++) {
-    const r = rows[i];
-    if (!r[0] || !String(r[0]).trim()) continue;
-    const rawName = String(r[0]).trim();
-    const group = getGroupForParty(rawName); // canonicalize via Master sheet
-    const key = canonGroupKey(group);
-    const sp = (r[1] || '').trim();
-    const juneForecast = safe(r[8]); // col I — ACSR Target Jun-26
-    const julyForecast = safe(r[9]); // col J — Demand Forecast Target For Jul-26
-    if (acsrForecastMap[key]) {
-      acsrForecastMap[key].juneForecast += juneForecast;
-      acsrForecastMap[key].julyForecast += julyForecast;
-      if (!acsrForecastMap[key].sp) acsrForecastMap[key].sp = sp;
-    } else {
-      acsrForecastMap[key] = { group, sp, juneForecast, julyForecast };
     }
   }
 }
@@ -2422,66 +2365,44 @@ function getGroupForParty(party) {
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
-// Always uses the live "today" + current calendar month. Returns ONE ROW PER
-// (Sales Person, Product) pair — PC Wire and ACSR are kept separate, each
-// with their own Forecast/Actual/Pace, rather than being summed together.
+// Always uses the live "today" + current calendar month, and PC Wire only
+// (the forecast sheet itself is PC-Wire-specific) — independent of whatever
+// period/product filters are set on the Group table above.
 //
-// Actual is computed by calling buildGroupRows() with that SP + that single
-// product as the raw row-level filter — the EXACT same mechanism the KPI
-// cards use. So GM's "PC Wire" row here will always equal KPI Total Actual
-// Qty (GM, PC Wire, current month), and likewise for the ACSR row.
+// Actual per SP is computed by calling buildGroupRows() with that SP as the
+// raw row-level filter — the EXACT same mechanism the KPI cards use when you
+// pick a Sales Person from the dropdown above. So GM's "Actual Achieved" here
+// will always be identical to the KPI "Total Actual Qty" card when you filter
+// the Group table to GM + PC Wire + the current month.
 function computeSpPacing() {
-  if (dispatchData.length === 0 || (Object.keys(forecastMap).length === 0 && Object.keys(acsrForecastMap).length === 0)) return [];
+  if (dispatchData.length === 0 || Object.keys(forecastMap).length === 0) return [];
 
   const y = today.getFullYear(), m = today.getMonth();
   const currentPeriod = `${y}-${String(m + 1).padStart(2, '0')}`;
+
   const forecastField = currentPeriod === '2026-07' ? 'julyForecast' : 'juneForecast';
+  const spForecast = {};
+  Object.entries(forecastMap).forEach(([gKey, f]) => {
+    const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
+    spForecast[sp] = (spForecast[sp] || 0) + (f[forecastField] || 0);
+  });
+
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const daysElapsed = today.getDate();
   const daysRemaining = Math.max(daysInMonth - daysElapsed, 0);
 
-  function buildRowsForProduct(map, productName) {
-    const spForecast = {};
-    Object.entries(map).forEach(([gKey, f]) => {
-      // Only use the forecast sheet's OWN explicit Sales Person tag here —
-      // no Master-sheet fallback. A blank SP in the forecast sheet means that
-      // group's target isn't assigned to anyone yet (data-entry gap), so it's
-      // intentionally excluded from any individual SP's pacing total rather
-      // than being silently attributed via Master.
-      if (!f.sp) return;
-      spForecast[f.sp] = (spForecast[f.sp] || 0) + (f[forecastField] || 0);
-    });
-    return Object.keys(spForecast).map(sp => {
-      const forecast = spForecast[sp] || 0;
-      if (forecast <= 0) return null; // skip SPs with no target assigned for this product
-      const groups = buildGroupRows(currentPeriod, productName, sp);
-      const actual = groups.reduce((s, g) => s + g.qty, 0);
-      const perDayTarget = forecast / daysInMonth;
-      const expectedTillToday = perDayTarget * daysElapsed;
-      const remaining = Math.max(forecast - actual, 0);
-      const paceDiff = actual - expectedTillToday; // +ve = ahead of pace, -ve = behind
-      const requiredDailyRate = daysRemaining > 0 ? remaining / daysRemaining : remaining;
-      return { sp, product: productName, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate };
-    }).filter(Boolean);
-  }
-
-  const pcRows = buildRowsForProduct(forecastMap, 'PC Wire');
-  const acsrRows = buildRowsForProduct(acsrForecastMap, 'ACSR Core Wire');
-
-  // Group by SP so PC Wire + ACSR rows for the same person sit next to each
-  // other, sorted by that SP's combined forecast (largest first).
-  const combinedForecast = {};
-  [...pcRows, ...acsrRows].forEach(r => { combinedForecast[r.sp] = (combinedForecast[r.sp] || 0) + r.forecast; });
-  const spOrder = Object.keys(combinedForecast).sort((a, b) => combinedForecast[b] - combinedForecast[a]);
-
-  const result = [];
-  spOrder.forEach(sp => {
-    const pc = pcRows.find(r => r.sp === sp);
-    const acsr = acsrRows.find(r => r.sp === sp);
-    if (pc) result.push(pc);
-    if (acsr) result.push(acsr);
-  });
-  return result;
+  return Object.keys(spForecast).map(sp => {
+    const forecast = spForecast[sp] || 0;
+    if (forecast <= 0) return null; // skip SPs with no target assigned
+    const actualGroups = buildGroupRows(currentPeriod, 'PC Wire', sp);
+    const actual = actualGroups.reduce((s, g) => s + g.qty, 0);
+    const perDayTarget = forecast / daysInMonth;
+    const expectedTillToday = perDayTarget * daysElapsed;
+    const remaining = Math.max(forecast - actual, 0);
+    const paceDiff = actual - expectedTillToday; // +ve = ahead of pace, -ve = behind
+    const requiredDailyRate = daysRemaining > 0 ? remaining / daysRemaining : remaining;
+    return { sp, forecast, actual, perDayTarget, expectedTillToday, remaining, paceDiff, requiredDailyRate };
+  }).filter(Boolean).sort((a, b) => b.forecast - a.forecast);
 }
 
 function renderSpPacing() {
@@ -2493,14 +2414,14 @@ function renderSpPacing() {
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const daysElapsed = today.getDate();
   const monthName = today.toLocaleString('en-US', { month: 'long' });
-  if (metaEl) metaEl.textContent = `Day ${daysElapsed} of ${daysInMonth} — ${monthName} ${y} (PC Wire + ACSR forecast)`;
+  if (metaEl) metaEl.textContent = `Day ${daysElapsed} of ${daysInMonth} — ${monthName} ${y} (PC Wire forecast)`;
 
   let rows = computeSpPacing();
   const spFilter = document.getElementById('gaSpFilter');
   if (spFilter && spFilter.value) rows = rows.filter(r => r.sp === spFilter.value);
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
     return;
   }
 
@@ -2508,16 +2429,16 @@ function renderSpPacing() {
     const ahead = r.paceDiff >= 0;
     const paceColor = ahead ? 'var(--success)' : 'var(--danger)';
     const paceLabel = ahead ? `▲ Ahead by ${r.paceDiff.toFixed(1)}` : `▼ Behind by ${Math.abs(r.paceDiff).toFixed(1)}`;
-    const productColor = r.product === 'PC Wire' ? 'var(--wire)' : '#9b59b6';
     return `
     <tr>
       <td><strong>${r.sp}</strong></td>
-      <td><span style="color:${productColor};font-weight:600">${r.product}</span></td>
       <td class="td-num">${r.forecast.toFixed(1)}</td>
-      <td class="td-num">${r.actual.toFixed(1)}</td>
+      <td class="td-num">${r.perDayTarget.toFixed(1)}</td>
       <td class="td-num">${r.expectedTillToday.toFixed(1)}</td>
-      <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
+      <td class="td-num">${r.actual.toFixed(1)}</td>
       <td class="td-num" style="color:${paceColor};font-weight:700">${paceLabel}</td>
+      <td class="td-num">${r.remaining.toFixed(1)}</td>
+      <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
     </tr>`;
   }).join('');
 }
@@ -2553,40 +2474,31 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
     groups[gKey].companies[party].value += r.billAmount;
   });
 
-  // Merge with forecast data (both maps are now keyed canonically).
-  // Also include groups from either forecast sheet that have no actual dispatch yet.
+  // Merge with forecast data (both maps are now keyed canonically)
+  // Also include groups from forecast that have no actual dispatch yet
   const allGroupKeys = new Set([
     ...Object.keys(groups),
-    ...Object.keys(forecastMap),
-    ...Object.keys(acsrForecastMap)
+    ...Object.keys(forecastMap)
   ]);
-
-  // Which forecast source(s) apply to the current Product filter:
-  // - "PC Wire" selected     → only the PC Wire forecast sheet
-  // - "ACSR Core Wire" selected → only the ACSR forecast sheet
-  // - "All Products" (blank) → both, summed
-  const usePc = productFilter !== 'ACSR Core Wire';
-  const useAcsr = productFilter === '' || productFilter === 'ACSR Core Wire';
-  const periodOk = (period === 'all' || period === '2026-06' || period === '2026-07');
-  const periodField = period === '2026-07' ? 'julyForecast' : 'juneForecast';
 
   return [...allGroupKeys].map(gKey => {
     const actual = groups[gKey] || { group: null, companies: {}, qty: 0, value: 0 };
-    const pcForecast = forecastMap[gKey] || null;
-    const acsrForecast = acsrForecastMap[gKey] || null;
+    const forecast = forecastMap[gKey] || null;
     // Prefer the forecast sheet's spelling for the display name (it's the
     // canonical source), falling back to whatever casing appeared in dispatch data.
-    const groupName = (pcForecast && pcForecast.group) || (acsrForecast && acsrForecast.group) || actual.group || gKey;
+    const groupName = (forecast && forecast.group) || actual.group || gKey;
 
-    let forecastQty = 0;
-    if (periodOk) {
-      if (usePc && pcForecast) forecastQty += pcForecast[periodField] || 0;
-      if (useAcsr && acsrForecast) forecastQty += acsrForecast[periodField] || 0;
-    }
+    // The "PC Wire 26-27" forecast sheet only gives a June target, and only
+    // applies to PC Wire — so blank it out for ACSR and for Apr/May periods.
+    const forecastApplies = productFilter !== 'ACSR Core Wire' && (period === 'all' || period === '2026-06' || period === '2026-07');
+    const forecastQty = (forecastApplies && forecast)
+      ? (period === '2026-07' ? forecast.julyForecast : forecast.juneForecast)
+      : 0;
 
-    // SP comes from whichever forecast sheet has this group first, then
-    // falls back to POS/Master only for groups with no forecast row at all.
-    const sp = (pcForecast && pcForecast.sp) || (acsrForecast && acsrForecast.sp) || groupSpMap[gKey] || (actual.companies && Object.keys(actual.companies).length > 0
+    // SP comes from the forecast sheet's own tag first; falls back to
+    // POS/Master only for groups that have no SP in the forecast sheet
+    // (e.g. actual-only groups with no forecast row at all).
+    const sp = (forecast && forecast.sp) || groupSpMap[gKey] || (actual.companies && Object.keys(actual.companies).length > 0
       ? (rows.find(r => (r.party||'').trim() === Object.keys(actual.companies)[0]) || {}).salesPerson || '—'
       : '—');
 
