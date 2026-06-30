@@ -2409,17 +2409,17 @@ function getGroupForParty(party) {
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
-// Always uses the live "today" + current calendar month, and PC Wire only
-// (the forecast sheet itself is PC-Wire-specific) — independent of whatever
-// period/product filters are set on the Group table above.
+// Always uses the live "today" + current calendar month, and combines BOTH
+// PC Wire + ACSR forecasts (since both sheets are now synced) — independent
+// of whatever period/product filters are set on the Group table above.
 //
-// Actual per SP is computed by calling buildGroupRows() with that SP as the
-// raw row-level filter — the EXACT same mechanism the KPI cards use when you
-// pick a Sales Person from the dropdown above. So GM's "Actual Achieved" here
-// will always be identical to the KPI "Total Actual Qty" card when you filter
-// the Group table to GM + PC Wire + the current month.
+// Actual per SP is computed by calling buildGroupRows() separately for
+// 'PC Wire' and 'ACSR Core Wire' with that SP as the raw row-level filter —
+// the EXACT same mechanism the KPI cards use — then summing the two. So
+// GM's "Actual" here will always equal KPI Total Actual Qty (GM, PC Wire) +
+// KPI Total Actual Qty (GM, ACSR) for the current month.
 function computeSpPacing() {
-  if (dispatchData.length === 0 || Object.keys(forecastMap).length === 0) return [];
+  if (dispatchData.length === 0 || (Object.keys(forecastMap).length === 0 && Object.keys(acsrForecastMap).length === 0)) return [];
 
   const y = today.getFullYear(), m = today.getMonth();
   const currentPeriod = `${y}-${String(m + 1).padStart(2, '0')}`;
@@ -2427,6 +2427,10 @@ function computeSpPacing() {
   const forecastField = currentPeriod === '2026-07' ? 'julyForecast' : 'juneForecast';
   const spForecast = {};
   Object.entries(forecastMap).forEach(([gKey, f]) => {
+    const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
+    spForecast[sp] = (spForecast[sp] || 0) + (f[forecastField] || 0);
+  });
+  Object.entries(acsrForecastMap).forEach(([gKey, f]) => {
     const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
     spForecast[sp] = (spForecast[sp] || 0) + (f[forecastField] || 0);
   });
@@ -2438,8 +2442,9 @@ function computeSpPacing() {
   return Object.keys(spForecast).map(sp => {
     const forecast = spForecast[sp] || 0;
     if (forecast <= 0) return null; // skip SPs with no target assigned
-    const actualGroups = buildGroupRows(currentPeriod, 'PC Wire', sp);
-    const actual = actualGroups.reduce((s, g) => s + g.qty, 0);
+    const pcGroups = buildGroupRows(currentPeriod, 'PC Wire', sp);
+    const acsrGroups = buildGroupRows(currentPeriod, 'ACSR Core Wire', sp);
+    const actual = pcGroups.reduce((s, g) => s + g.qty, 0) + acsrGroups.reduce((s, g) => s + g.qty, 0);
     const perDayTarget = forecast / daysInMonth;
     const expectedTillToday = perDayTarget * daysElapsed;
     const remaining = Math.max(forecast - actual, 0);
@@ -2458,7 +2463,7 @@ function renderSpPacing() {
   const daysInMonth = new Date(y, m + 1, 0).getDate();
   const daysElapsed = today.getDate();
   const monthName = today.toLocaleString('en-US', { month: 'long' });
-  if (metaEl) metaEl.textContent = `Day ${daysElapsed} of ${daysInMonth} — ${monthName} ${y} (PC Wire forecast)`;
+  if (metaEl) metaEl.textContent = `Day ${daysElapsed} of ${daysInMonth} — ${monthName} ${y} (PC Wire + ACSR forecast)`;
 
   let rows = computeSpPacing();
   const spFilter = document.getElementById('gaSpFilter');
