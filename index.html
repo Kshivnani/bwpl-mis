@@ -1173,6 +1173,7 @@
           <div class="form-group" style="margin:0">
             <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
               <option value="all">All Time</option>
+              <option value="2026-07">Jul 2026</option>
               <option value="2026-06" selected>Jun 2026</option>
               <option value="2026-05">May 2026</option>
               <option value="2026-04">Apr 2026</option>
@@ -1247,7 +1248,7 @@
             <div class="form-group" style="min-width:140px">
               <label style="font-size:11px;color:var(--muted)">Sort by</label>
               <select id="gaSortCol" onchange="sortAndRenderGA()" style="width:100%">
-                <option value="forecast">June Forecast</option>
+                <option value="forecast" id="gaSortColForecastOpt">June Forecast</option>
                 <option value="actual">Actual (MT)</option>
                 <option value="diff">Diff (MT)</option>
                 <option value="achievement">Achievement %</option>
@@ -1271,7 +1272,7 @@
               <tr>
                 <th onclick="setGASort('group')" style="cursor:pointer">Group Name ↕</th>
                 <th>SP</th>
-                <th class="td-num" onclick="setGASort('forecast')" style="cursor:pointer">June Forecast (MT) ↕</th>
+                <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">June Forecast (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">Actual (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('diff')" style="cursor:pointer">Diff (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('achievement')" style="cursor:pointer">Achievement % ↕</th>
@@ -2228,7 +2229,8 @@ function parseDispatchRows(rows) {
       freightType: r[14],
       status: r[30],
       gstAmount: parseFloat(r[34]) || 0,
-      billAmount: parseFloat(r[35]) || ((parseFloat(r[38]) || 0) * (parseFloat(r[10]) || 0)) || 0, // fallback: qty(kg) x price if bill amount not yet generated
+      billAmount: parseFloat(r[35]) || 0, // column AJ "Bill amount (with GST)" only — rows with no bill generated yet are excluded from value totals (their qty still counts, just value = 0) until Accounts finalizes the GST bill.
+      billPending: !parseFloat(r[35]), // true = bill not yet generated for this dispatch
       invoiceNo: r[37],
       transporter: r[40],
       salesPerson: r[61],
@@ -2247,7 +2249,7 @@ function parseDispatchRows(rows) {
 let groupMap = {};       // { companyName.lower: { group, salesPerson } }
 let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
 let gaGroupData = [];    // computed for rendering
-let forecastMap = {};    // { canonGroupKey: { group, juneForecast } } — from "PC Wire 26-27" sheet
+let forecastMap = {};    // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 
 const FORECAST_SHEET_ID = '1wezkGzQ6ebwI3hDkuJZLVgqI_2Gz1ATkNK3Ez270CZY';
 const FORECAST_SHEET_GID = '918916430'; // "PC Wire 26-27" tab
@@ -2280,7 +2282,7 @@ async function syncForecastSheet() {
     const sheetObj = meta.sheets?.find(s => String(s.properties.sheetId) === FORECAST_SHEET_GID);
     const sheetName = sheetObj ? sheetObj.properties.title : 'PC Wire 26-27';
 
-    const range = encodeURIComponent(sheetName + '!A1:O3000');
+    const range = encodeURIComponent(sheetName + '!A1:AI3000');
     const dataRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${FORECAST_SHEET_ID}/values/${range}`, {
       headers: { Authorization: 'Bearer ' + token }
     });
@@ -2311,7 +2313,8 @@ function parseForecastData(rows) {
   // Col A(0)=Group Name, B(1)=Sales Person [used directly — sheet's own SP tag],
   // K(10)=Apr-26 actual sales, L(11)=May-26 actual sales [actual sales, not forecast — never used],
   // M(12)=PC Dispatch in Jun-26 [actual, ignored — actual always comes from POS],
-  // N(13)=PC Target Jun-26  ← THE June forecast number used in this app
+  // N(13)=PC Target Jun-26   ← the June forecast number
+  // AI(34)=Demand Forecast Target For Jul-26  ← the July forecast number
   forecastMap = {};
   const safe = v => { const n = parseFloat(v); return isNaN(n) ? 0 : n; };
   for (let i = 4; i < rows.length; i++) {
@@ -2320,12 +2323,14 @@ function parseForecastData(rows) {
     const group = String(r[0]).trim();
     const key = canonGroupKey(group);
     const sp = (r[1] || '').trim();
-    const juneForecast = safe(r[13]); // col N — PC Target Jun-26
+    const juneForecast = safe(r[13]);  // col N — PC Target Jun-26
+    const julyForecast = safe(r[34]);  // col AI — Demand Forecast Target For Jul-26
     if (forecastMap[key]) {
       forecastMap[key].juneForecast += juneForecast;
+      forecastMap[key].julyForecast += julyForecast;
       if (!forecastMap[key].sp) forecastMap[key].sp = sp;
     } else {
-      forecastMap[key] = { group, sp, juneForecast };
+      forecastMap[key] = { group, sp, juneForecast, julyForecast };
     }
   }
 }
@@ -2367,10 +2372,11 @@ function computeSpPacing() {
   const y = today.getFullYear(), m = today.getMonth();
   const currentPeriod = `${y}-${String(m + 1).padStart(2, '0')}`;
 
+  const forecastField = currentPeriod === '2026-07' ? 'julyForecast' : 'juneForecast';
   const spForecast = {};
   Object.entries(forecastMap).forEach(([gKey, f]) => {
     const sp = f.sp || groupSpMap[gKey] || 'Unassigned';
-    spForecast[sp] = (spForecast[sp] || 0) + (f.juneForecast || 0);
+    spForecast[sp] = (spForecast[sp] || 0) + (f[forecastField] || 0);
   });
 
   const daysInMonth = new Date(y, m + 1, 0).getDate();
@@ -2476,8 +2482,10 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
 
     // The "PC Wire 26-27" forecast sheet only gives a June target, and only
     // applies to PC Wire — so blank it out for ACSR and for Apr/May periods.
-    const forecastApplies = productFilter !== 'ACSR Core Wire' && (period === 'all' || period === '2026-06');
-    const forecastQty = (forecastApplies && forecast) ? forecast.juneForecast : 0;
+    const forecastApplies = productFilter !== 'ACSR Core Wire' && (period === 'all' || period === '2026-06' || period === '2026-07');
+    const forecastQty = (forecastApplies && forecast)
+      ? (period === '2026-07' ? forecast.julyForecast : forecast.juneForecast)
+      : 0;
 
     // SP comes from the forecast sheet's own tag first; falls back to
     // POS/Master only for groups that have no SP in the forecast sheet
@@ -2510,6 +2518,13 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
   });
 }
 
+// Display label for whichever forecast month is currently selected
+function forecastMonthLabel(period) {
+  if (period === '2026-07') return 'July';
+  if (period === '2026-06') return 'June';
+  return 'June'; // "All Time" falls back to June (the default/legacy forecast)
+}
+
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
     document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
@@ -2521,6 +2536,10 @@ function loadGroupAnalytics() {
   const productFilter = document.getElementById('gaProductFilter').value;
 
   gaGroupData = buildGroupRows(period, productFilter, spFilter);
+  const fcHeader = document.getElementById('gaForecastColHeader');
+  if (fcHeader) fcHeader.textContent = forecastMonthLabel(period) + ' Forecast (MT) ↕';
+  const fcSortOpt = document.getElementById('gaSortColForecastOpt');
+  if (fcSortOpt) fcSortOpt.textContent = forecastMonthLabel(period) + ' Forecast';
 
   // Filter by SP if selected (forecast SP)
   if (spFilter) {
@@ -2617,6 +2636,7 @@ function downloadGAReport() {
     return '#fed7d7';
   };
 
+  const fcLabel = forecastMonthLabel(period);
   let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px">';
   html += '<tr><td colspan="6" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
   html += '<tr><td colspan="6" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
@@ -2626,7 +2646,7 @@ function downloadGAReport() {
     + ' | Sorted by: ' + sortLabel + '</td></tr>';
   html += '<tr></tr>';
   html += '<tr style="background:#1f2937;color:#ffffff;font-weight:bold">'
-    + '<td>Group Name</td><td>SP</td><td>June Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
+    + '<td>Group Name</td><td>SP</td><td>' + fcLabel + ' Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
 
   sortedData.forEach(g => {
     const bg = achBg(g.achievement);
