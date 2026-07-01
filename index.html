@@ -1040,6 +1040,7 @@
         <div class="dash-banner-actions">
           <div class="form-group" style="margin:0">
             <select id="anaMonth" style="width:130px">
+              <option value="2026-07" selected>Jul 2026</option>
               <option value="2026-06">Jun 2026</option>
               <option value="2026-05">May 2026</option>
               <option value="2026-04">Apr 2026</option>
@@ -1528,6 +1529,7 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="top10VolMonth" style="width:130px">
+                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -1562,6 +1564,7 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="top10ValMonth" style="width:130px">
+                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -1721,6 +1724,7 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="spMonth" style="width:130px">
+                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -1757,6 +1761,7 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="dwMonth" style="width:130px">
+                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -2085,6 +2090,7 @@ function initApp() {
   if (saved && savedVersion === DATA_VERSION) {
     dispatchData = JSON.parse(saved);
     refreshDashboard();
+    populateMonthDropdowns();
     showToast('✅ Loaded saved dispatch data (' + dispatchData.length + ' rows)');
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} dispatch rows loaded from saved data.</span>`;
   } else if (saved && savedVersion !== DATA_VERSION) {
@@ -2137,20 +2143,22 @@ function setAllDatesToToday() {
 // ─── NAVIGATION ──────────────────────────────────────────
 function showPage(name, el) {
   // Stop donut animation when leaving analytics
-  if (typeof _donutState !== 'undefined' && _donutState.raf) {
-    cancelAnimationFrame(_donutState.raf);
-    _donutState.raf = null;
+  if (typeof _donut !== 'undefined' && _donut.raf) {
+    cancelAnimationFrame(_donut.raf);
+    _donut.raf = null;
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if (el) el.classList.add('active');
-  if (name === 'analytics' && dispatchData.length > 0) {
-    setTimeout(loadAnalytics, 50);
-  }
-  if (name === 'groupanalytics' && dispatchData.length > 0) {
-    setTimeout(loadGroupAnalytics, 50);
-  }
+  if (name === 'analytics'      && dispatchData.length > 0) { setTimeout(loadAnalytics, 50); }
+  if (name === 'groupanalytics' && dispatchData.length > 0) { setTimeout(loadGroupAnalytics, 50); }
+  if (name === 'salesperson'    && dispatchData.length > 0) { setTimeout(loadSalesPersonReport, 50); }
+  if (name === 'top10vol'       && dispatchData.length > 0) { setTimeout(loadTop10Vol, 50); }
+  if (name === 'top10val'       && dispatchData.length > 0) { setTimeout(loadTop10Val, 50); }
+  if (name === 'bot10vol'       && dispatchData.length > 0) { setTimeout(loadBot10Vol, 50); }
+  if (name === 'bot10val'       && dispatchData.length > 0) { setTimeout(loadBot10Val, 50); }
+  if (name === 'daywise'        && dispatchData.length > 0) { setTimeout(loadDaywiseReport, 50); }
   if (name === 'setup') {
     setTimeout(() => { if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin) loadManageUsers(); }, 50);
   }
@@ -2240,6 +2248,7 @@ function parseDispatchRows(rows) {
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
   localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
+  populateMonthDropdowns();
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
@@ -5381,6 +5390,7 @@ async function syncFromGoogleSheet() {
     const now = new Date().toLocaleTimeString('en-IN');
     if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows synced from Google Sheet — ${now}</span>`;
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ Live sync: ${dispatchData.length} rows. Last sync: ${now}</span>`;
+    populateMonthDropdowns();
     showToast('✅ Google Sheet synced! ' + dispatchData.length + ' rows loaded');
 
   } catch(e) {
@@ -5388,6 +5398,60 @@ async function syncFromGoogleSheet() {
     showToast('❌ ' + e.message, true);
   }
   setLoading(false);
+}
+
+// ─── DYNAMIC MONTH DROPDOWNS ──────────────────────────────
+// Called every time dispatchData is loaded/refreshed.
+// Extracts all unique months from dispatch dates and
+// populates every month-selector in the app automatically.
+
+function populateMonthDropdowns() {
+  // All month selects in the app
+  const SELECT_IDS = [
+    'spMonth','anaMonth','daywiseMonth',
+    'top10VolMonth','top10ValMonth','bot10VolMonth','bot10ValMonth'
+  ];
+
+  // Extract unique months from dispatchData dispatch dates (format DD-MM-YYYY)
+  const monthSet = new Set();
+  dispatchData.forEach(r => {
+    if (r.dispatchDate && r.dispatchDate.length >= 10) {
+      const dd = r.dispatchDate;          // e.g. "01-07-2026"
+      const mm = dd.slice(3,5);           // "07"
+      const yyyy = dd.slice(6,10);        // "2026"
+      if (mm && yyyy) monthSet.add(yyyy + '-' + mm); // "2026-07"
+    }
+  });
+
+  if (monthSet.size === 0) return; // no data yet
+
+  // Sort descending (newest first)
+  const months = [...monthSet].sort((a, b) => b.localeCompare(a));
+
+  // Build current month key  e.g. "2026-07"
+  const now = new Date();
+  const curKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
+  // Month label map
+  const MON_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function monthLabel(key) {
+    const [y, m] = key.split('-');
+    return MON_NAMES[parseInt(m,10)-1] + ' ' + y;   // "Jul 2026"
+  }
+
+  // Decide default: current month if it exists in data, else first (newest)
+  const defaultKey = months.includes(curKey) ? curKey : months[0];
+
+  SELECT_IDS.forEach(id => {
+    const sel = document.getElementById(id);
+    if (!sel) return;
+    const prev = sel.value; // remember current selection
+    sel.innerHTML = months.map(k =>
+      `<option value="${k}"${k === defaultKey ? ' selected' : ''}>${monthLabel(k)}</option>`
+    ).join('');
+    // If user had already chosen a month and it still exists, restore it
+    if (prev && months.includes(prev)) sel.value = prev;
+  });
 }
 </script>
 </body>
