@@ -2435,11 +2435,7 @@ function buildGroupMap(masterRows) {
     const group = (r[6] || company || 'Ungrouped').trim();
     const sp = (r[5] || '').trim();
     const state = (r[10] || '').trim();
-    // Location: col AA (26) is cleaner; fall back to col M (12).
-    // If the value looks like a full address (>25 chars), take only the
-    // first comma-separated part so we get just the city name.
-    const rawLoc = (r[26] || r[12] || '').trim();
-    const location = rawLoc.length > 25 ? rawLoc.split(',')[0].trim() : rawLoc;
+    const location = (r[26] || '').trim();
     if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state, location };
     const gKey = canonGroupKey(group);
     if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
