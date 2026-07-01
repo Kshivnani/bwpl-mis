@@ -2275,11 +2275,11 @@ function parseDispatchRows(rows) {
 }
 
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
-let groupMap = {};       // { companyName.lower: { group, salesPerson, state, location } }
-let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
-let groupStateMap = {};  // { canonGroupKey: state } — from Master sheet col K
-let groupLocationMap = {}; // { canonGroupKey: location } — from Master sheet col M
-let gaGroupData = [];    // computed for rendering
+let groupMap = {};         // { companyName.lower: { group, salesPerson, state, location } }
+let groupSpMap = {};       // { canonGroupKey: salesPerson }
+let groupStateMap = {};    // { canonGroupKey: state } — Master sheet col K
+let groupLocationMap = {}; // { canonGroupKey: location } — Master sheet col AA (26)
+let gaGroupData = [];      // computed for rendering
 let forecastMap = {};       // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 let acsrForecastMap = {};   // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "ACSR 26-27" sheet
 
@@ -2423,11 +2423,11 @@ function parseAcsrForecastData(rows) {
 }
 
 function buildGroupMap(masterRows) {
-  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name, col10=State, col12=Location
+  // Master sheet: col1=Company Name, col5=Sales Person, col6=Group Name, col10=State, col26=Location (AA)
   groupMap = {};
   groupSpMap = {};
-  groupStateMap = {};    // canonical group key -> State (col K from Master sheet)
-  groupLocationMap = {}; // canonical group key -> Location (col M from Master sheet)
+  groupStateMap = {};
+  groupLocationMap = {};
   if (!masterRows || masterRows.length < 2) return;
   for (let i = 1; i < masterRows.length; i++) {
     const r = masterRows[i];
@@ -2435,7 +2435,7 @@ function buildGroupMap(masterRows) {
     const group = (r[6] || company || 'Ungrouped').trim();
     const sp = (r[5] || '').trim();
     const state = (r[10] || '').trim();
-    const location = (r[26] || '').trim();
+    const location = (r[26] || '').trim(); // col AA — city/location
     if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state, location };
     const gKey = canonGroupKey(group);
     if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
@@ -2621,7 +2621,7 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
     const diff = actual.qty - forecastQty;
     const achievement = forecastQty > 0 ? (actual.qty / forecastQty) * 100 : null;
     const state = groupStateMap[gKey] || (pcForecast && pcForecast.state) || (acsrForecast && acsrForecast.state) || '';
-    const location = groupLocationMap[gKey] || (pcForecast && pcForecast.location) || (acsrForecast && acsrForecast.location) || '';
+    const location = groupLocationMap[gKey] || '';
 
     return {
       group: groupName,
@@ -2716,16 +2716,18 @@ function setGASort(col) {
 // screen (whatever Sort-by + Order dropdowns are set to). Used by both the
 // on-screen table AND the Excel download, so the download always matches
 // what you're looking at.
-// State multi-select filter
-let gaSelectedStates = new Set(); // empty = all
+// State + Location multi-select filters
+let gaSelectedStates    = new Set(); // empty = all
 let gaSelectedLocations = new Set(); // empty = all
 
 function toggleStateDropdown() {
+  document.getElementById('gaLocationDropdown').style.display = 'none';
   const dd = document.getElementById('gaStateDropdown');
   dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
 }
 
 function toggleLocationDropdown() {
+  document.getElementById('gaStateDropdown').style.display = 'none';
   const dd = document.getElementById('gaLocationDropdown');
   dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
 }
@@ -2752,10 +2754,10 @@ function populateStateFilter(data) {
 }
 
 function populateLocationFilter(data) {
-  const locations = [...new Set(data.map(g => g.location).filter(Boolean).map(l => l.trim()))].sort();
+  const locs = [...new Set(data.map(g => g.location).filter(Boolean).map(l => l.trim()))].sort();
   const container = document.getElementById('gaLocationCheckboxes');
   if (!container) return;
-  container.innerHTML = locations.map(l => `
+  container.innerHTML = locs.map(l => `
     <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background=''">
       <input type="checkbox" value="${l}" ${gaSelectedLocations.size === 0 || gaSelectedLocations.has(l) ? 'checked' : ''} onchange="onLocationCheckboxChange()"> ${l}
     </label>`).join('');
