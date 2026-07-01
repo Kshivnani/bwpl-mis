@@ -5530,7 +5530,7 @@ async function syncFromGoogleSheet() {
         const masterObj = meta2.sheets?.find(s => String(s.properties.sheetId) === masterGID)
                        || meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
         if (masterObj) {
-          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:K2000');
+          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:AA2000');
           const masterRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${masterRange}`, {
             headers: { Authorization: 'Bearer ' + googleAccessToken }
           });
