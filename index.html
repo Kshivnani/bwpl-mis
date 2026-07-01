@@ -1171,10 +1171,33 @@
               <option value="ACSR Core Wire">ACSR</option>
             </select>
           </div>
-          <div class="form-group" style="margin:0">
-            <select id="gaStateFilter" onchange="loadGroupAnalytics()" style="width:140px">
-              <option value="">All States</option>
-            </select>
+          <div class="form-group" style="margin:0;position:relative" id="stateDropdownWrap">
+            <button type="button" id="stateDropdownBtn"
+              onclick="toggleStateDropdown(event)"
+              style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;
+                     padding:7px 12px;color:var(--white);font-size:13px;cursor:pointer;
+                     width:160px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:6px;">
+              <span id="stateDropdownLabel">All States</span>
+              <span style="font-size:10px;opacity:0.6">▼</span>
+            </button>
+            <div id="stateDropdownPanel"
+              style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:300;
+                     background:var(--card-bg);border:1px solid var(--border);border-radius:10px;
+                     min-width:210px;max-height:320px;overflow-y:auto;
+                     box-shadow:0 8px 28px rgba(0,0,0,0.45);padding:6px 0;">
+              <!-- search inside dropdown -->
+              <div style="padding:6px 10px 4px">
+                <input id="stateSearch" type="text" placeholder="Search state…"
+                  oninput="filterStateOptions()"
+                  style="width:100%;background:var(--input-bg);border:1px solid var(--border);
+                         border-radius:5px;padding:5px 8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;">
+              </div>
+              <div style="padding:4px 10px 6px;border-bottom:1px solid var(--border);display:flex;gap:10px">
+                <span onclick="selectAllStates()" style="font-size:11px;color:var(--wire);cursor:pointer;font-weight:600">All</span>
+                <span onclick="clearAllStates()" style="font-size:11px;color:var(--muted);cursor:pointer">Clear</span>
+              </div>
+              <div id="stateCheckList" style="padding:4px 0"></div>
+            </div>
           </div>
           <div class="form-group" style="margin:0">
             <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
@@ -2692,6 +2715,84 @@ function forecastMonthLabel(period) {
   return 'June'; // "All Time" falls back to June (the default/legacy forecast)
 }
 
+
+// ── Multi-select State Dropdown helpers ──────────────────────────────────────
+let _selectedStates = new Set();
+
+function getSelectedStates() {
+  return [..._selectedStates];
+}
+
+function populateStateDropdown() {
+  const list = document.getElementById('stateCheckList');
+  if (!list) return;
+  const allStates = [...new Set(Object.values(groupStateMap).filter(Boolean))].sort();
+  // preserve existing selections
+  list.innerHTML = allStates.map(st => `
+    <label class="state-check-item" data-state="${st.toLowerCase()}">
+      <input type="checkbox" value="${st}" ${_selectedStates.has(st) ? 'checked' : ''}
+        onchange="onStateCheck(this)">
+      ${st}
+    </label>`).join('');
+  updateStateLabel();
+}
+
+function onStateCheck(cb) {
+  if (cb.checked) _selectedStates.add(cb.value);
+  else _selectedStates.delete(cb.value);
+  updateStateLabel();
+  loadGroupAnalytics();
+}
+
+function updateStateLabel() {
+  const lbl = document.getElementById('stateDropdownLabel');
+  if (!lbl) return;
+  const count = _selectedStates.size;
+  lbl.textContent = count === 0 ? 'All States' : count === 1
+    ? [..._selectedStates][0]
+    : `${count} States`;
+  // tint button when active
+  const btn = document.getElementById('stateDropdownBtn');
+  if (btn) btn.style.borderColor = count > 0 ? 'var(--wire)' : 'var(--border)';
+}
+
+function toggleStateDropdown(e) {
+  e.stopPropagation();
+  const panel = document.getElementById('stateDropdownPanel');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) document.getElementById('stateSearch').focus();
+}
+
+function filterStateOptions() {
+  const q = (document.getElementById('stateSearch').value || '').toLowerCase();
+  document.querySelectorAll('#stateCheckList .state-check-item').forEach(el => {
+    el.classList.toggle('hidden', q && !el.dataset.state.includes(q));
+  });
+}
+
+function selectAllStates() {
+  document.querySelectorAll('#stateCheckList input[type=checkbox]').forEach(cb => {
+    cb.checked = true; _selectedStates.add(cb.value);
+  });
+  updateStateLabel(); loadGroupAnalytics();
+}
+
+function clearAllStates() {
+  _selectedStates.clear();
+  document.querySelectorAll('#stateCheckList input[type=checkbox]').forEach(cb => cb.checked = false);
+  updateStateLabel(); loadGroupAnalytics();
+}
+
+// Close dropdown on outside click
+document.addEventListener('click', function(e) {
+  const wrap = document.getElementById('stateDropdownWrap');
+  if (wrap && !wrap.contains(e.target)) {
+    const panel = document.getElementById('stateDropdownPanel');
+    if (panel) panel.style.display = 'none';
+  }
+});
+
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
     document.getElementById('gaBody').innerHTML = '<tr><td colspan="8" class="empty-state">No dispatch data — upload POS file first</td></tr>';
@@ -2701,7 +2802,7 @@ function loadGroupAnalytics() {
   const spFilter     = document.getElementById('gaSpFilter').value;
   const period       = document.getElementById('gaPeriod').value;
   const productFilter= document.getElementById('gaProductFilter').value;
-  const stateFilter  = (document.getElementById('gaStateFilter') || {}).value || '';
+  const stateFilter  = getSelectedStates(); // array of selected state strings
 
   gaGroupData = buildGroupRows(period, productFilter, spFilter);
   const fcHeader = document.getElementById('gaForecastColHeader');
@@ -2720,27 +2821,20 @@ function loadGroupAnalytics() {
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
 
-  // Populate State filter from groupStateMap
-  const stateSel = document.getElementById('gaStateFilter');
-  if (stateSel) {
-    const curState = stateSel.value;
-    const allStates = [...new Set(Object.values(groupStateMap).filter(Boolean))].sort();
-    stateSel.innerHTML = '<option value="">All States</option>' +
-      allStates.map(st => `<option value="${st}" ${st===curState?'selected':''}>${st}</option>`).join('');
-    if (curState) stateSel.value = curState;
-  }
+  // Populate State multi-select from groupStateMap
+  populateStateDropdown();
 
-  // Apply state filter — match group key to groupStateMap
-  if (stateFilter) {
+  // Apply state multi-filter
+  if (stateFilter.length > 0) {
+    const sf = stateFilter.map(s => s.toLowerCase());
     gaGroupData = gaGroupData.filter(g => {
       const gKey = canonGroupKey(g.group);
-      const gState = groupStateMap[gKey] || '';
-      // also check individual companies in the group
+      const gState = (groupStateMap[gKey] || '').toLowerCase();
       const companyMatch = (g.companies || []).some(c => {
         const cInfo = groupMap[(c.name || '').toLowerCase()];
-        return cInfo && (cInfo.state || '').toLowerCase() === stateFilter.toLowerCase();
+        return cInfo && sf.includes((cInfo.state || '').toLowerCase());
       });
-      return gState.toLowerCase() === stateFilter.toLowerCase() || companyMatch;
+      return sf.includes(gState) || companyMatch;
     });
   }
 
@@ -2753,7 +2847,7 @@ function loadGroupAnalytics() {
   document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
   document.getElementById('gaTotalForecast').textContent = totalForecast.toFixed(1);
   document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% achieved` : 'Sync forecast to compare';
-  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${stateFilter || 'All States'} | ${gaGroupData.length} groups`;
+  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${stateFilter.length ? stateFilter.join(', ') : 'All States'} | ${gaGroupData.length} groups`;
   document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
   renderGroupTable(gaGroupData);
@@ -5475,21 +5569,31 @@ async function syncFromGoogleSheet() {
 
     // Also fetch Master sheet for group mapping
     try {
-      const masterGID = '227823128'; // Master sheet GID (from POS file)
+      const masterGID = '736848536'; // Master sheet GID (live Google Sheet)
+      // Step 1: get sheet title from GID
       const masterMetaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
       const metaRes2 = await fetch(masterMetaUrl, { headers: { Authorization: 'Bearer ' + googleAccessToken } });
       if (metaRes2.ok) {
         const meta2 = await metaRes2.json();
-        const masterObj = meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
+        // Match by GID first, fallback to title
+        const masterObj = meta2.sheets?.find(s => String(s.properties.sheetId) === masterGID)
+                       || meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
         if (masterObj) {
-          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:K2000');
+          const masterTitle = masterObj.properties.title;
+          const masterRange = encodeURIComponent(masterTitle + '!A1:K2000');
           const masterRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${masterRange}`, {
             headers: { Authorization: 'Bearer ' + googleAccessToken }
           });
           if (masterRes.ok) {
             const masterJson = await masterRes.json();
-            buildGroupMap(masterJson.values || []);
+            const masterRows = masterJson.values || [];
+            buildGroupMap(masterRows);
+            console.log(`✅ Master sheet loaded: ${masterTitle}, ${masterRows.length} rows`);
+          } else {
+            console.warn('Master sheet fetch HTTP error:', masterRes.status);
           }
+        } else {
+          console.warn('Master sheet not found in spreadsheet');
         }
       }
     } catch(me) { console.warn('Master sheet fetch failed:', me.message); }
