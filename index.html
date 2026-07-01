@@ -2121,6 +2121,7 @@ function initApp() {
     dispatchData = JSON.parse(saved);
     refreshDashboard();
     populateMonthDropdowns();
+    populateStateDropdown();
     showToast('✅ Loaded saved dispatch data (' + dispatchData.length + ' rows)');
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} dispatch rows loaded from saved data.</span>`;
   } else if (saved && savedVersion !== DATA_VERSION) {
@@ -2218,6 +2219,7 @@ function handleFileUpload(event) {
         const masterWs = wb.Sheets[masterName];
         const masterRows = XLSX.utils.sheet_to_json(masterWs, {header:1, defval:''});
         buildGroupMap(masterRows);
+        populateStateDropdown(); // fill state checkboxes after map is built
       }
 
       status.innerHTML = `<span style="color:var(--success)">✅ Loaded ${dispatchData.length} dispatch rows from "${file.name}"</span>`;
@@ -2483,12 +2485,16 @@ const STATE_NORM_MAP = {
 
 function normalizeState(raw) {
   if (!raw) return '';
-  const key = raw.trim().toLowerCase();
+  const trimmed = String(raw).trim();
+  if (!trimmed) return '';
+  const key = trimmed.toLowerCase();
   if (STATE_NORM_MAP[key]) return STATE_NORM_MAP[key];
   // If it looks like an address / too long → discard
-  if (raw.trim().length > 30) return '';
-  // Title-case it
-  return raw.trim().replace(/\b\w/g, c => c.toUpperCase());
+  if (trimmed.length > 35) return '';
+  // Known junk values → discard
+  if (['na', 'n/a', '-', '—', 'none', 'null', 'undefined'].includes(key)) return '';
+  // Title-case short values
+  return trimmed.replace(/\w/g, c => c.toUpperCase());
 }
 
 function buildGroupMap(masterRows) {
@@ -5588,7 +5594,8 @@ async function syncFromGoogleSheet() {
             const masterJson = await masterRes.json();
             const masterRows = masterJson.values || [];
             buildGroupMap(masterRows);
-            console.log(`✅ Master sheet loaded: ${masterTitle}, ${masterRows.length} rows`);
+            populateStateDropdown(); // fill state checkboxes after map is built
+            console.log(`✅ Master sheet loaded: ${masterTitle}, ${masterRows.length} rows, states mapped: ${Object.keys(groupStateMap).length}`);
           } else {
             console.warn('Master sheet fetch HTTP error:', masterRes.status);
           }
