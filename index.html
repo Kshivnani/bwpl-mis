@@ -1193,6 +1193,20 @@
               <div id="gaStateCheckboxes" style="padding:4px 0"></div>
             </div>
           </div>
+          <div class="form-group" style="margin:0;position:relative">
+            <div id="gaLocationFilterBtn" onclick="toggleLocationDropdown()" style="cursor:pointer;min-width:130px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:6px;user-select:none">
+              <span id="gaLocationFilterLabel">All Locations</span>
+              <span style="font-size:10px;opacity:0.6">▼</span>
+            </div>
+            <div id="gaLocationDropdown" style="display:none;position:absolute;top:110%;left:0;z-index:999;min-width:180px;max-height:240px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);padding:6px 0">
+              <div style="padding:6px 12px;border-bottom:1px solid var(--border)">
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;font-weight:600">
+                  <input type="checkbox" id="gaLocationAll" checked onchange="onLocationAllChange(this)"> All Locations
+                </label>
+              </div>
+              <div id="gaLocationCheckboxes" style="padding:4px 0"></div>
+            </div>
+          </div>
           <button class="btn btn-secondary" onclick="syncForecastSheet()">☁ Sync Forecast</button>
           <button class="btn btn-secondary" onclick="loadGroupAnalytics()">⟳ Refresh</button>
         </div>
@@ -1237,7 +1251,7 @@
               </tr>
             </thead>
             <tbody id="gaPacingBody">
-              <tr><td colspan="8" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="9" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -1286,6 +1300,7 @@
                 <th onclick="setGASort('group')" style="cursor:pointer">Group Name ↕</th>
                 <th>SP</th>
                 <th>State</th>
+                <th>Location</th>
                 <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">July Forecast (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">Actual (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('diff')" style="cursor:pointer">Diff (MT) ↕</th>
@@ -1294,7 +1309,7 @@
               </tr>
             </thead>
             <tbody id="gaBody">
-              <tr><td colspan="8" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="9" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -2260,9 +2275,10 @@ function parseDispatchRows(rows) {
 }
 
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
-let groupMap = {};       // { companyName.lower: { group, salesPerson, state } }
+let groupMap = {};       // { companyName.lower: { group, salesPerson, state, location } }
 let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
 let groupStateMap = {};  // { canonGroupKey: state } — from Master sheet col K
+let groupLocationMap = {}; // { canonGroupKey: location } — from Master sheet col M
 let gaGroupData = [];    // computed for rendering
 let forecastMap = {};       // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 let acsrForecastMap = {};   // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "ACSR 26-27" sheet
@@ -2407,10 +2423,11 @@ function parseAcsrForecastData(rows) {
 }
 
 function buildGroupMap(masterRows) {
-  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name, col10=State
+  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name, col10=State, col12=Location
   groupMap = {};
   groupSpMap = {};
-  groupStateMap = {}; // canonical group key -> State (col K from Master sheet)
+  groupStateMap = {};    // canonical group key -> State (col K from Master sheet)
+  groupLocationMap = {}; // canonical group key -> Location (col M from Master sheet)
   if (!masterRows || masterRows.length < 2) return;
   for (let i = 1; i < masterRows.length; i++) {
     const r = masterRows[i];
@@ -2418,10 +2435,12 @@ function buildGroupMap(masterRows) {
     const group = (r[6] || company || 'Ungrouped').trim();
     const sp = (r[5] || '').trim();
     const state = (r[10] || '').trim();
-    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state };
+    const location = (r[12] || '').trim();
+    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state, location };
     const gKey = canonGroupKey(group);
     if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
     if (state && !groupStateMap[gKey]) groupStateMap[gKey] = state;
+    if (location && !groupLocationMap[gKey]) groupLocationMap[gKey] = location;
   }
 }
 
@@ -2509,7 +2528,7 @@ function renderSpPacing() {
   if (spFilter && spFilter.value) rows = rows.filter(r => r.sp === spFilter.value);
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
     return;
   }
 
@@ -2602,7 +2621,7 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
     const diff = actual.qty - forecastQty;
     const achievement = forecastQty > 0 ? (actual.qty / forecastQty) * 100 : null;
     const state = groupStateMap[gKey] || (pcForecast && pcForecast.state) || (acsrForecast && acsrForecast.state) || '';
-    const location = (pcForecast && pcForecast.location) || (acsrForecast && acsrForecast.location) || '';
+    const location = groupLocationMap[gKey] || (pcForecast && pcForecast.location) || (acsrForecast && acsrForecast.location) || '';
 
     return {
       group: groupName,
@@ -2636,7 +2655,7 @@ function forecastMonthLabel(period) {
 
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
-    document.getElementById('gaBody').innerHTML = '<tr><td colspan="8" class="empty-state">No dispatch data — upload POS file first</td></tr>';
+    document.getElementById('gaBody').innerHTML = '<tr><td colspan="9" class="empty-state">No dispatch data — upload POS file first</td></tr>';
     return;
   }
 
@@ -2663,6 +2682,7 @@ function loadGroupAnalytics() {
 
   // Populate State filter (checkboxes)
   populateStateFilter(gaGroupData);
+  populateLocationFilter(gaGroupData);
 
   // KPI
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
@@ -2698,15 +2718,25 @@ function setGASort(col) {
 // what you're looking at.
 // State multi-select filter
 let gaSelectedStates = new Set(); // empty = all
+let gaSelectedLocations = new Set(); // empty = all
 
 function toggleStateDropdown() {
   const dd = document.getElementById('gaStateDropdown');
   dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
 }
 
+function toggleLocationDropdown() {
+  const dd = document.getElementById('gaLocationDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
 document.addEventListener('click', e => {
   if (!e.target.closest('#gaStateFilterBtn') && !e.target.closest('#gaStateDropdown')) {
     const dd = document.getElementById('gaStateDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  if (!e.target.closest('#gaLocationFilterBtn') && !e.target.closest('#gaLocationDropdown')) {
+    const dd = document.getElementById('gaLocationDropdown');
     if (dd) dd.style.display = 'none';
   }
 });
@@ -2718,6 +2748,16 @@ function populateStateFilter(data) {
   container.innerHTML = states.map(s => `
     <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background=''">
       <input type="checkbox" value="${s}" ${gaSelectedStates.size === 0 || gaSelectedStates.has(s) ? 'checked' : ''} onchange="onStateCheckboxChange()"> ${s}
+    </label>`).join('');
+}
+
+function populateLocationFilter(data) {
+  const locations = [...new Set(data.map(g => g.location).filter(Boolean).map(l => l.trim()))].sort();
+  const container = document.getElementById('gaLocationCheckboxes');
+  if (!container) return;
+  container.innerHTML = locations.map(l => `
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background=''">
+      <input type="checkbox" value="${l}" ${gaSelectedLocations.size === 0 || gaSelectedLocations.has(l) ? 'checked' : ''} onchange="onLocationCheckboxChange()"> ${l}
     </label>`).join('');
 }
 
@@ -2746,9 +2786,38 @@ function updateStateLabel() {
     : gaSelectedStates.size + ' States';
 }
 
+function onLocationAllChange(cb) {
+  document.querySelectorAll('#gaLocationCheckboxes input[type=checkbox]').forEach(b => b.checked = cb.checked);
+  gaSelectedLocations = new Set();
+  updateLocationLabel();
+  sortAndRenderGA();
+}
+
+function onLocationCheckboxChange() {
+  const boxes = [...document.querySelectorAll('#gaLocationCheckboxes input[type=checkbox]')];
+  const checked = boxes.filter(b => b.checked).map(b => b.value);
+  const allCb = document.getElementById('gaLocationAll');
+  gaSelectedLocations = (checked.length === boxes.length || checked.length === 0) ? new Set() : new Set(checked);
+  if (allCb) allCb.checked = gaSelectedLocations.size === 0;
+  updateLocationLabel();
+  sortAndRenderGA();
+}
+
+function updateLocationLabel() {
+  const label = document.getElementById('gaLocationFilterLabel');
+  if (!label) return;
+  label.textContent = gaSelectedLocations.size === 0 ? 'All Locations'
+    : gaSelectedLocations.size === 1 ? [...gaSelectedLocations][0]
+    : gaSelectedLocations.size + ' Locations';
+}
+
 function getFilteredGAData() {
-  if (gaSelectedStates.size === 0) return gaGroupData;
-  return gaGroupData.filter(g => gaSelectedStates.has((g.state || '').trim()));
+  let data = gaGroupData;
+  if (gaSelectedStates.size > 0)
+    data = data.filter(g => gaSelectedStates.has((g.state || '').trim()));
+  if (gaSelectedLocations.size > 0)
+    data = data.filter(g => gaSelectedLocations.has((g.location || '').trim()));
+  return data;
 }
 
 function getSortedGAGroupData() {
@@ -2855,7 +2924,7 @@ function downloadGAReport() {
 function renderGroupTable(data) {
   const tbody = document.getElementById('gaBody');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No groups found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No groups found</td></tr>';
     return;
   }
 
@@ -2873,7 +2942,7 @@ function renderGroupTable(data) {
 
     const companyRows = g.companies.map(c => `
       <tr class="ga-detail-${i}" style="display:none">
-        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="3">↳ ${c.name}</td>
+        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="4">↳ ${c.name}</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty.toFixed(2)}</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
@@ -2886,6 +2955,7 @@ function renderGroupTable(data) {
       <td><strong>${g.group}</strong></td>
       <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(232,160,32,0.15);color:var(--wire)">${g.sp || '—'}</span></td>
       <td style="font-size:12px;color:var(--muted)">${g.state || '—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${g.location || '—'}</td>
       <td class="td-num">${g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
       <td class="td-num"><strong>${g.qty.toFixed(2)}</strong></td>
       <td class="td-num" style="${diffColor}">${diffText}</td>
@@ -2895,7 +2965,7 @@ function renderGroupTable(data) {
     ${companyRows}`;
   }).join('') + `
   <tr class="summary-row">
-    <td colspan="3"><strong>TOTAL</strong></td>
+    <td colspan="4"><strong>TOTAL</strong></td>
     <td class="td-num"><strong>${data.reduce((s,g)=>s+g.forecastQty,0).toFixed(2)}</strong></td>
     <td class="td-num"><strong>${data.reduce((s,g)=>s+g.qty,0).toFixed(2)}</strong></td>
     <td class="td-num" style="${data.reduce((s,g)=>s+g.diff,0)>=0?'color:var(--success)':'color:var(--danger)'}">
