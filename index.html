@@ -2399,6 +2399,75 @@ function parseAcsrForecastData(rows) {
   }
 }
 
+
+// ── State normalization — fixes typos & variants from Master sheet ──────────
+const STATE_NORM_MAP = {
+  // Rajasthan
+  'rajasthan':'Rajasthan','rajastahn':'Rajasthan','rajathan':'Rajasthan',
+  'reajasthan':'Rajasthan','rjasthan':'Rajasthan',
+  'ajmer road':'Rajasthan','gangapur city':'Rajasthan','jhunjhunu':'Rajasthan',
+  'alwer':'Rajasthan','baewar':'Rajasthan','bassi':'Rajasthan',
+  'newai':'Rajasthan','ramgarh':'Rajasthan','jaipur':'Rajasthan',
+  'makreda':'Rajasthan','ratlam':'Rajasthan',
+  // Uttar Pradesh
+  'up':'Uttar Pradesh','u.p':'Uttar Pradesh','u.p.':'Uttar Pradesh',
+  'uttar pradesh':'Uttar Pradesh','uttarpradesh':'Uttar Pradesh',
+  'uttar  pradesh':'Uttar Pradesh','uittar pradesh':'Uttar Pradesh',
+  'uttra pradesh':'Uttar Pradesh','uttar pradesh':'Uttar Pradesh',
+  'ghaziabad':'Uttar Pradesh','firozabad':'Uttar Pradesh',
+  'chunnar':'Uttar Pradesh','civil lines':'Uttar Pradesh',
+  // Haryana
+  'haryana':'Haryana','hariyana':'Haryana','hariyana':'Haryana',
+  'sonipat':'Haryana','karnal':'Haryana','nama':'Haryana',
+  'road no 5 vkia':'Haryana',
+  // Punjab
+  'punjab':'Punjab','panjab':'Punjab',
+  // Gujarat
+  'gujarat':'Gujarat','gujrat':'Gujarat','gujraj':'Gujarat',
+  'vadodara':'Gujarat','mundra':'Gujarat',
+  // Madhya Pradesh
+  'mp':'Madhya Pradesh','m.p':'Madhya Pradesh','m. p.':'Madhya Pradesh',
+  'madhya pradesh':'Madhya Pradesh','ratlam mp':'Madhya Pradesh',
+  'indore, madhya pradesh':'Madhya Pradesh',
+  // Uttarakhand
+  'uttarakhand':'Uttarakhand','uttarkhand':'Uttarakhand',
+  'uttrakhand':'Uttarakhand','uttra khand':'Uttarakhand',
+  // West Bengal
+  'west bengal':'West Bengal','wb':'West Bengal','west bangal':'West Bengal',
+  'bangal':'West Bengal','kolkata':'West Bengal',
+  // Maharashtra
+  'maharashtra':'Maharashtra','maharastra':'Maharashtra',
+  'mumbai':'Maharashtra','thane':'Maharashtra','aurangabad':'Maharashtra',
+  // Delhi
+  'delhi':'Delhi','new delhi':'Delhi','narela,delhi':'Delhi',
+  // Himachal Pradesh
+  'himachal pradesh':'Himachal Pradesh','hp':'Himachal Pradesh',
+  'himachal wire':'Himachal Pradesh',
+  // Jammu & Kashmir
+  'j&k':'Jammu & Kashmir','jammu and kashmir':'Jammu & Kashmir','jammu':'Jammu & Kashmir',
+  // Other states
+  'jharkhand':'Jharkhand','bihar':'Bihar',
+  'odisha':'Odisha','orissa':'Odisha',
+  'karnataka':'Karnataka','mysore':'Karnataka',
+  'tamil nadu':'Tamil Nadu','tamilnadu':'Tamil Nadu',
+  'trichy':'Tamil Nadu','thiruvalla':'Kerala',
+  'telangana':'Telangana','hyderabad':'Telangana',
+  'andhra pradesh':'Andhra Pradesh',
+  'kerala':'Kerala','assam':'Assam',
+  'chhattisgarh':'Chhattisgarh','chattisgarh':'Chhattisgarh',
+  'silvassa':'Dadra & Nagar Haveli','dadar and nagar haveli':'Dadra & Nagar Haveli',
+};
+
+function normalizeState(raw) {
+  if (!raw) return '';
+  const key = raw.trim().toLowerCase();
+  if (STATE_NORM_MAP[key]) return STATE_NORM_MAP[key];
+  // If it looks like an address / too long → discard
+  if (raw.trim().length > 30) return '';
+  // Title-case it
+  return raw.trim().replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function buildGroupMap(masterRows) {
   // Master sheet: col0=Email, col1=Company, col5=SP, col6=Group, col10=State
   groupMap = {};
@@ -2410,7 +2479,7 @@ function buildGroupMap(masterRows) {
     const company = (r[1] || '').trim();
     const group   = (r[6] || company || 'Ungrouped').trim();
     const sp      = (r[5] || '').trim();
-    const state   = (r[10] || '').trim();
+    const state   = normalizeState(r[10]);
     if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state };
     const gKey = canonGroupKey(group);
     if (sp    && !groupSpMap[gKey])    groupSpMap[gKey]    = sp;
