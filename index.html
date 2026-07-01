@@ -1040,7 +1040,6 @@
         <div class="dash-banner-actions">
           <div class="form-group" style="margin:0">
             <select id="anaMonth" style="width:130px">
-              <option value="2026-07" selected>Jul 2026</option>
               <option value="2026-06">Jun 2026</option>
               <option value="2026-05">May 2026</option>
               <option value="2026-04">Apr 2026</option>
@@ -1171,34 +1170,6 @@
               <option value="ACSR Core Wire">ACSR</option>
             </select>
           </div>
-          <div class="form-group" style="margin:0;position:relative" id="stateDropdownWrap">
-            <button type="button" id="stateDropdownBtn"
-              onclick="toggleStateDropdown(event)"
-              style="background:var(--input-bg);border:1px solid var(--border);border-radius:6px;
-                     padding:7px 12px;color:var(--white);font-size:13px;cursor:pointer;
-                     width:160px;text-align:left;display:flex;align-items:center;justify-content:space-between;gap:6px;">
-              <span id="stateDropdownLabel">All States</span>
-              <span style="font-size:10px;opacity:0.6">▼</span>
-            </button>
-            <div id="stateDropdownPanel"
-              style="display:none;position:absolute;top:calc(100% + 6px);left:0;z-index:300;
-                     background:var(--card-bg);border:1px solid var(--border);border-radius:10px;
-                     min-width:210px;max-height:320px;overflow-y:auto;
-                     box-shadow:0 8px 28px rgba(0,0,0,0.45);padding:6px 0;">
-              <!-- search inside dropdown -->
-              <div style="padding:6px 10px 4px">
-                <input id="stateSearch" type="text" placeholder="Search state…"
-                  oninput="filterStateOptions()"
-                  style="width:100%;background:var(--input-bg);border:1px solid var(--border);
-                         border-radius:5px;padding:5px 8px;color:var(--white);font-size:12px;outline:none;box-sizing:border-box;">
-              </div>
-              <div style="padding:4px 10px 6px;border-bottom:1px solid var(--border);display:flex;gap:10px">
-                <span onclick="selectAllStates()" style="font-size:11px;color:var(--wire);cursor:pointer;font-weight:600">All</span>
-                <span onclick="clearAllStates()" style="font-size:11px;color:var(--muted);cursor:pointer">Clear</span>
-              </div>
-              <div id="stateCheckList" style="padding:4px 0"></div>
-            </div>
-          </div>
           <div class="form-group" style="margin:0">
             <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
               <option value="all">All Time</option>
@@ -1282,7 +1253,6 @@
                 <option value="achievement">Achievement %</option>
                 <option value="group">Group Name (A-Z)</option>
                 <option value="sp">Sales Person (A-Z)</option>
-                <option value="state">State (A-Z)</option>
               </select>
             </div>
             <div class="form-group" style="min-width:110px">
@@ -1300,9 +1270,9 @@
             <thead>
               <tr>
                 <th onclick="setGASort('group')" style="cursor:pointer">Group Name ↕</th>
-                <th onclick="setGASort('state')" style="cursor:pointer">State ↕</th>
                 <th>SP</th>
-                <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">June Forecast (MT) ↕</th>
+                <th>State</th>
+                <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">July Forecast (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">Actual (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('diff')" style="cursor:pointer">Diff (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('achievement')" style="cursor:pointer">Achievement % ↕</th>
@@ -1559,7 +1529,6 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="top10VolMonth" style="width:130px">
-                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -1594,7 +1563,6 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="top10ValMonth" style="width:130px">
-                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -1754,7 +1722,6 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="spMonth" style="width:130px">
-                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -1791,7 +1758,6 @@
           <div class="report-actions">
             <div class="form-group">
               <select id="dwMonth" style="width:130px">
-                <option value="2026-07" selected>Jul 2026</option>
                 <option value="2026-06">Jun 2026</option>
                 <option value="2026-05">May 2026</option>
                 <option value="2026-04">Apr 2026</option>
@@ -2120,8 +2086,6 @@ function initApp() {
   if (saved && savedVersion === DATA_VERSION) {
     dispatchData = JSON.parse(saved);
     refreshDashboard();
-    populateMonthDropdowns();
-    populateStateDropdown();
     showToast('✅ Loaded saved dispatch data (' + dispatchData.length + ' rows)');
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} dispatch rows loaded from saved data.</span>`;
   } else if (saved && savedVersion !== DATA_VERSION) {
@@ -2174,22 +2138,20 @@ function setAllDatesToToday() {
 // ─── NAVIGATION ──────────────────────────────────────────
 function showPage(name, el) {
   // Stop donut animation when leaving analytics
-  if (typeof _donut !== 'undefined' && _donut.raf) {
-    cancelAnimationFrame(_donut.raf);
-    _donut.raf = null;
+  if (typeof _donutState !== 'undefined' && _donutState.raf) {
+    cancelAnimationFrame(_donutState.raf);
+    _donutState.raf = null;
   }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
   if (el) el.classList.add('active');
-  if (name === 'analytics'      && dispatchData.length > 0) { setTimeout(loadAnalytics, 50); }
-  if (name === 'groupanalytics' && dispatchData.length > 0) { setTimeout(loadGroupAnalytics, 50); }
-  if (name === 'salesperson'    && dispatchData.length > 0) { setTimeout(loadSalesPersonReport, 50); }
-  if (name === 'top10vol'       && dispatchData.length > 0) { setTimeout(loadTop10Vol, 50); }
-  if (name === 'top10val'       && dispatchData.length > 0) { setTimeout(loadTop10Val, 50); }
-  if (name === 'bot10vol'       && dispatchData.length > 0) { setTimeout(loadBot10Vol, 50); }
-  if (name === 'bot10val'       && dispatchData.length > 0) { setTimeout(loadBot10Val, 50); }
-  if (name === 'daywise'        && dispatchData.length > 0) { setTimeout(loadDaywiseReport, 50); }
+  if (name === 'analytics' && dispatchData.length > 0) {
+    setTimeout(loadAnalytics, 50);
+  }
+  if (name === 'groupanalytics' && dispatchData.length > 0) {
+    setTimeout(loadGroupAnalytics, 50);
+  }
   if (name === 'setup') {
     setTimeout(() => { if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin) loadManageUsers(); }, 50);
   }
@@ -2219,7 +2181,6 @@ function handleFileUpload(event) {
         const masterWs = wb.Sheets[masterName];
         const masterRows = XLSX.utils.sheet_to_json(masterWs, {header:1, defval:''});
         buildGroupMap(masterRows);
-        populateStateDropdown(); // fill state checkboxes after map is built
       }
 
       status.innerHTML = `<span style="color:var(--success)">✅ Loaded ${dispatchData.length} dispatch rows from "${file.name}"</span>`;
@@ -2280,7 +2241,6 @@ function parseDispatchRows(rows) {
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
   localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
-  populateMonthDropdowns();
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
@@ -2288,7 +2248,6 @@ function parseDispatchRows(rows) {
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
 let groupMap = {};       // { companyName.lower: { group, salesPerson } }
 let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
-let groupStateMap = {};  // { canonGroupKey: state } — from Master sheet col10
 let gaGroupData = [];    // computed for rendering
 let forecastMap = {};       // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 let acsrForecastMap = {};   // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "ACSR 26-27" sheet
@@ -2387,12 +2346,16 @@ function parseForecastData(rows) {
     const group = getGroupForParty(rawName);
     const key = canonGroupKey(group);
     const sp = (r[1] || '').trim();
-    const julyForecast = safe(r[13]);  // col N — PC Target Jul-26 (ONLY forecast column)
+    const julyForecast = safe(r[13]);
+    const state = (r[2] || '').trim();
+    const location = (r[3] || '').trim();
     if (forecastMap[key]) {
       forecastMap[key].julyForecast += julyForecast;
       if (!forecastMap[key].sp) forecastMap[key].sp = sp;
+      if (!forecastMap[key].state) forecastMap[key].state = state;
+      if (!forecastMap[key].location) forecastMap[key].location = location;
     } else {
-      forecastMap[key] = { group, sp, juneForecast: 0, julyForecast };
+      forecastMap[key] = { group, sp, juneForecast: 0, julyForecast, state, location };
     }
   }
 }
@@ -2414,105 +2377,33 @@ function parseAcsrForecastData(rows) {
     const group = getGroupForParty(rawName);
     const key = canonGroupKey(group);
     const sp = (r[1] || '').trim();
-    const julyForecast = safe(r[8]);  // col I — ACSR Target Jul-26 (ONLY forecast column)
+    const julyForecast = safe(r[8]);
+    const state = (r[2] || '').trim();
+    const location = (r[3] || '').trim();
     if (acsrForecastMap[key]) {
       acsrForecastMap[key].julyForecast += julyForecast;
       if (!acsrForecastMap[key].sp) acsrForecastMap[key].sp = sp;
+      if (!acsrForecastMap[key].state) acsrForecastMap[key].state = state;
+      if (!acsrForecastMap[key].location) acsrForecastMap[key].location = location;
     } else {
-      acsrForecastMap[key] = { group, sp, juneForecast: 0, julyForecast };
+      acsrForecastMap[key] = { group, sp, juneForecast: 0, julyForecast, state, location };
     }
   }
 }
 
-
-// ── State normalization — fixes typos & variants from Master sheet ──────────
-const STATE_NORM_MAP = {
-  // Rajasthan
-  'rajasthan':'Rajasthan','rajastahn':'Rajasthan','rajathan':'Rajasthan',
-  'reajasthan':'Rajasthan','rjasthan':'Rajasthan',
-  'ajmer road':'Rajasthan','gangapur city':'Rajasthan','jhunjhunu':'Rajasthan',
-  'alwer':'Rajasthan','baewar':'Rajasthan','bassi':'Rajasthan',
-  'newai':'Rajasthan','ramgarh':'Rajasthan','jaipur':'Rajasthan',
-  'makreda':'Rajasthan','ratlam':'Rajasthan',
-  // Uttar Pradesh
-  'up':'Uttar Pradesh','u.p':'Uttar Pradesh','u.p.':'Uttar Pradesh',
-  'uttar pradesh':'Uttar Pradesh','uttarpradesh':'Uttar Pradesh',
-  'uttar  pradesh':'Uttar Pradesh','uittar pradesh':'Uttar Pradesh',
-  'uttra pradesh':'Uttar Pradesh','uttar pradesh':'Uttar Pradesh',
-  'ghaziabad':'Uttar Pradesh','firozabad':'Uttar Pradesh',
-  'chunnar':'Uttar Pradesh','civil lines':'Uttar Pradesh',
-  // Haryana
-  'haryana':'Haryana','hariyana':'Haryana','hariyana':'Haryana',
-  'sonipat':'Haryana','karnal':'Haryana','nama':'Haryana',
-  'road no 5 vkia':'Haryana',
-  // Punjab
-  'punjab':'Punjab','panjab':'Punjab',
-  // Gujarat
-  'gujarat':'Gujarat','gujrat':'Gujarat','gujraj':'Gujarat',
-  'vadodara':'Gujarat','mundra':'Gujarat',
-  // Madhya Pradesh
-  'mp':'Madhya Pradesh','m.p':'Madhya Pradesh','m. p.':'Madhya Pradesh',
-  'madhya pradesh':'Madhya Pradesh','ratlam mp':'Madhya Pradesh',
-  'indore, madhya pradesh':'Madhya Pradesh',
-  // Uttarakhand
-  'uttarakhand':'Uttarakhand','uttarkhand':'Uttarakhand',
-  'uttrakhand':'Uttarakhand','uttra khand':'Uttarakhand',
-  // West Bengal
-  'west bengal':'West Bengal','wb':'West Bengal','west bangal':'West Bengal',
-  'bangal':'West Bengal','kolkata':'West Bengal',
-  // Maharashtra
-  'maharashtra':'Maharashtra','maharastra':'Maharashtra',
-  'mumbai':'Maharashtra','thane':'Maharashtra','aurangabad':'Maharashtra',
-  // Delhi
-  'delhi':'Delhi','new delhi':'Delhi','narela,delhi':'Delhi',
-  // Himachal Pradesh
-  'himachal pradesh':'Himachal Pradesh','hp':'Himachal Pradesh',
-  'himachal wire':'Himachal Pradesh',
-  // Jammu & Kashmir
-  'j&k':'Jammu & Kashmir','jammu and kashmir':'Jammu & Kashmir','jammu':'Jammu & Kashmir',
-  // Other states
-  'jharkhand':'Jharkhand','bihar':'Bihar',
-  'odisha':'Odisha','orissa':'Odisha',
-  'karnataka':'Karnataka','mysore':'Karnataka',
-  'tamil nadu':'Tamil Nadu','tamilnadu':'Tamil Nadu',
-  'trichy':'Tamil Nadu','thiruvalla':'Kerala',
-  'telangana':'Telangana','hyderabad':'Telangana',
-  'andhra pradesh':'Andhra Pradesh',
-  'kerala':'Kerala','assam':'Assam',
-  'chhattisgarh':'Chhattisgarh','chattisgarh':'Chhattisgarh',
-  'silvassa':'Dadra & Nagar Haveli','dadar and nagar haveli':'Dadra & Nagar Haveli',
-};
-
-function normalizeState(raw) {
-  if (!raw) return '';
-  const trimmed = String(raw).trim();
-  if (!trimmed) return '';
-  const key = trimmed.toLowerCase();
-  if (STATE_NORM_MAP[key]) return STATE_NORM_MAP[key];
-  // If it looks like an address / too long → discard
-  if (trimmed.length > 35) return '';
-  // Known junk values → discard
-  if (['na', 'n/a', '-', '—', 'none', 'null', 'undefined'].includes(key)) return '';
-  // Title-case short values
-  return trimmed.replace(/\w/g, c => c.toUpperCase());
-}
-
 function buildGroupMap(masterRows) {
-  // Master sheet: col0=Email, col1=Company, col5=SP, col6=Group, col10=State
+  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name
   groupMap = {};
-  groupSpMap = {};
-  groupStateMap = {}; // canonGroupKey -> state
+  groupSpMap = {}; // canonical group key -> Sales Person (from POS/Master only)
   if (!masterRows || masterRows.length < 2) return;
   for (let i = 1; i < masterRows.length; i++) {
     const r = masterRows[i];
     const company = (r[1] || '').trim();
-    const group   = (r[6] || company || 'Ungrouped').trim();
-    const sp      = (r[5] || '').trim();
-    const state   = normalizeState(r[10]);
-    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state };
+    const group = (r[6] || company || 'Ungrouped').trim();
+    const sp = (r[5] || '').trim();
+    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company };
     const gKey = canonGroupKey(group);
-    if (sp    && !groupSpMap[gKey])    groupSpMap[gKey]    = sp;
-    if (state && !groupStateMap[gKey]) groupStateMap[gKey] = state;
+    if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
   }
 }
 
@@ -2600,7 +2491,7 @@ function renderSpPacing() {
   if (spFilter && spFilter.value) rows = rows.filter(r => r.sp === spFilter.value);
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
     return;
   }
 
@@ -2616,7 +2507,7 @@ function renderSpPacing() {
       <td class="td-num">${r.forecast.toFixed(1)}</td>
       <td class="td-num">${r.actual.toFixed(1)}</td>
       <td class="td-num">${r.expectedTillToday.toFixed(1)}</td>
-      <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
+      <td class="td-num">${r.perDayTarget.toFixed(1)}</td>
       <td class="td-num" style="color:${paceColor};font-weight:700">${paceLabel}</td>
     </tr>`;
   }).join('');
@@ -2645,7 +2536,7 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
     const party = (r.party || '').trim();
     const groupDisplay = getGroupForParty(party);
     const gKey = canonGroupKey(groupDisplay);
-    if (!groups[gKey]) groups[gKey] = { group: groupDisplay, state: groupStateMap[gKey] || '', companies: {}, qty: 0, value: 0 };
+    if (!groups[gKey]) groups[gKey] = { group: groupDisplay, companies: {}, qty: 0, value: 0 };
     groups[gKey].qty += r.qty;
     groups[gKey].value += r.billAmount;
     if (!groups[gKey].companies[party]) groups[gKey].companies[party] = { qty: 0, value: 0 };
@@ -2692,10 +2583,14 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
 
     const diff = actual.qty - forecastQty;
     const achievement = forecastQty > 0 ? (actual.qty / forecastQty) * 100 : null;
+    const state = (pcForecast && pcForecast.state) || (acsrForecast && acsrForecast.state) || '';
+    const location = (pcForecast && pcForecast.location) || (acsrForecast && acsrForecast.location) || '';
 
     return {
       group: groupName,
       sp,
+      state,
+      location,
       companies: Object.entries(actual.companies).map(([name, v]) => ({ name, qty: v.qty, value: v.value })).sort((a,b) => b.value - a.value),
       qty: actual.qty,
       value: actual.value,
@@ -2721,94 +2616,15 @@ function forecastMonthLabel(period) {
   return 'June'; // "All Time" falls back to June (the default/legacy forecast)
 }
 
-
-// ── Multi-select State Dropdown helpers ──────────────────────────────────────
-let _selectedStates = new Set();
-
-function getSelectedStates() {
-  return [..._selectedStates];
-}
-
-function populateStateDropdown() {
-  const list = document.getElementById('stateCheckList');
-  if (!list) return;
-  const allStates = [...new Set(Object.values(groupStateMap).filter(Boolean))].sort();
-  // preserve existing selections
-  list.innerHTML = allStates.map(st => `
-    <label class="state-check-item" data-state="${st.toLowerCase()}">
-      <input type="checkbox" value="${st}" ${_selectedStates.has(st) ? 'checked' : ''}
-        onchange="onStateCheck(this)">
-      ${st}
-    </label>`).join('');
-  updateStateLabel();
-}
-
-function onStateCheck(cb) {
-  if (cb.checked) _selectedStates.add(cb.value);
-  else _selectedStates.delete(cb.value);
-  updateStateLabel();
-  loadGroupAnalytics();
-}
-
-function updateStateLabel() {
-  const lbl = document.getElementById('stateDropdownLabel');
-  if (!lbl) return;
-  const count = _selectedStates.size;
-  lbl.textContent = count === 0 ? 'All States' : count === 1
-    ? [..._selectedStates][0]
-    : `${count} States`;
-  // tint button when active
-  const btn = document.getElementById('stateDropdownBtn');
-  if (btn) btn.style.borderColor = count > 0 ? 'var(--wire)' : 'var(--border)';
-}
-
-function toggleStateDropdown(e) {
-  e.stopPropagation();
-  const panel = document.getElementById('stateDropdownPanel');
-  const isOpen = panel.style.display !== 'none';
-  panel.style.display = isOpen ? 'none' : 'block';
-  if (!isOpen) document.getElementById('stateSearch').focus();
-}
-
-function filterStateOptions() {
-  const q = (document.getElementById('stateSearch').value || '').toLowerCase();
-  document.querySelectorAll('#stateCheckList .state-check-item').forEach(el => {
-    el.classList.toggle('hidden', q && !el.dataset.state.includes(q));
-  });
-}
-
-function selectAllStates() {
-  document.querySelectorAll('#stateCheckList input[type=checkbox]').forEach(cb => {
-    cb.checked = true; _selectedStates.add(cb.value);
-  });
-  updateStateLabel(); loadGroupAnalytics();
-}
-
-function clearAllStates() {
-  _selectedStates.clear();
-  document.querySelectorAll('#stateCheckList input[type=checkbox]').forEach(cb => cb.checked = false);
-  updateStateLabel(); loadGroupAnalytics();
-}
-
-// Close dropdown on outside click
-document.addEventListener('click', function(e) {
-  const wrap = document.getElementById('stateDropdownWrap');
-  if (wrap && !wrap.contains(e.target)) {
-    const panel = document.getElementById('stateDropdownPanel');
-    if (panel) panel.style.display = 'none';
-  }
-});
-
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
     document.getElementById('gaBody').innerHTML = '<tr><td colspan="8" class="empty-state">No dispatch data — upload POS file first</td></tr>';
     return;
   }
 
-  const spFilter     = document.getElementById('gaSpFilter').value;
-  const period       = document.getElementById('gaPeriod').value;
-  const productFilter= document.getElementById('gaProductFilter').value;
-  const stateFilter  = getSelectedStates(); // array of selected state strings
+  const spFilter = document.getElementById('gaSpFilter').value;
+  const period = document.getElementById('gaPeriod').value;
+  const productFilter = document.getElementById('gaProductFilter').value;
 
   gaGroupData = buildGroupRows(period, productFilter, spFilter);
   const fcHeader = document.getElementById('gaForecastColHeader');
@@ -2827,23 +2643,6 @@ function loadGroupAnalytics() {
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
 
-  // Populate State multi-select from groupStateMap
-  populateStateDropdown();
-
-  // Apply state multi-filter
-  if (stateFilter.length > 0) {
-    const sf = stateFilter.map(s => s.toLowerCase());
-    gaGroupData = gaGroupData.filter(g => {
-      const gKey = canonGroupKey(g.group);
-      const gState = (groupStateMap[gKey] || '').toLowerCase();
-      const companyMatch = (g.companies || []).some(c => {
-        const cInfo = groupMap[(c.name || '').toLowerCase()];
-        return cInfo && sf.includes((cInfo.state || '').toLowerCase());
-      });
-      return sf.includes(gState) || companyMatch;
-    });
-  }
-
   // KPI
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
   const totalForecast = gaGroupData.reduce((s, g) => s + g.forecastQty, 0);
@@ -2853,7 +2652,7 @@ function loadGroupAnalytics() {
   document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
   document.getElementById('gaTotalForecast').textContent = totalForecast.toFixed(1);
   document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% achieved` : 'Sync forecast to compare';
-  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${stateFilter.length ? stateFilter.join(', ') : 'All States'} | ${gaGroupData.length} groups`;
+  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups`;
   document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
   renderGroupTable(gaGroupData);
@@ -2882,8 +2681,7 @@ function getSortedGAGroupData() {
   return [...gaGroupData].sort((a, b) => {
     let va, vb;
     if (col === 'group') { va = a.group.toLowerCase(); vb = b.group.toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
-    if (col === 'sp')    { va = (a.sp || '').toLowerCase();    vb = (b.sp || '').toLowerCase();    return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
-    if (col === 'state') { va = (a.state || '').toLowerCase(); vb = (b.state || '').toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
+    if (col === 'sp') { va = (a.sp || '').toLowerCase(); vb = (b.sp || '').toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
     if (col === 'forecast') { va = a.forecastQty; vb = b.forecastQty; }
     else if (col === 'actual') { va = a.qty; vb = b.qty; }
     else if (col === 'diff') { va = a.diff; vb = b.diff; }
@@ -2929,17 +2727,16 @@ function downloadGAReport() {
     return '#fed7d7';
   };
 
-  const fcLabel = forecastMonthLabel(period);
   let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px">';
-  html += '<tr><td colspan="6" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
-  html += '<tr><td colspan="6" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
-  html += '<tr><td colspan="6">Period: ' + (period === 'all' ? 'All Time' : period)
+  html += '<tr><td colspan="7" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
+  html += '<tr><td colspan="7" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
+  html += '<tr><td colspan="7">Period: ' + (period === 'all' ? 'All Time' : period)
     + ' | Sales Person: ' + (sp || 'All')
     + ' | Product: ' + (prod || 'All')
     + ' | Sorted by: ' + sortLabel + '</td></tr>';
   html += '<tr></tr>';
   html += '<tr style="background:#1f2937;color:#ffffff;font-weight:bold">'
-    + '<td>Group Name</td><td>State</td><td>SP</td><td>' + fcLabel + ' Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
+    + '<td>Group Name</td><td>SP</td><td>State</td><td>' + fcLabel + ' Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
 
   sortedData.forEach(g => {
     const bg = achBg(g.achievement);
@@ -2949,6 +2746,7 @@ function downloadGAReport() {
     html += '<tr style="background:' + bg + '">'
       + '<td>' + g.group + '</td>'
       + '<td>' + (g.sp || '—') + '</td>'
+      + '<td>' + (g.state || '—') + '</td>'
       + '<td align="right">' + fcText + '</td>'
       + '<td align="right">' + g.qty.toFixed(2) + '</td>'
       + '<td align="right">' + diffText + '</td>'
@@ -2959,7 +2757,7 @@ function downloadGAReport() {
   const totFc = sortedData.reduce((s,g)=>s+g.forecastQty,0);
   const totAch = totFc > 0 ? (totQty/totFc*100) : null;
   html += '<tr style="background:#374151;color:#ffffff;font-weight:bold">'
-    + '<td>TOTAL</td><td></td>'
+    + '<td>TOTAL</td><td></td><td></td>'
     + '<td align="right">' + totFc.toFixed(2) + '</td>'
     + '<td align="right">' + totQty.toFixed(2) + '</td>'
     + '<td align="right">' + ((totQty-totFc)>=0?'+':'') + (totQty-totFc).toFixed(2) + '</td>'
@@ -3009,8 +2807,8 @@ function renderGroupTable(data) {
     return `
     <tr>
       <td><strong>${g.group}</strong></td>
-      <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(52,152,219,0.12);color:var(--info)">${g.state || '—'}</span></td>
       <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(232,160,32,0.15);color:var(--wire)">${g.sp || '—'}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${g.state || '—'}</td>
       <td class="td-num">${g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
       <td class="td-num"><strong>${g.qty.toFixed(2)}</strong></td>
       <td class="td-num" style="${diffColor}">${diffText}</td>
@@ -3340,7 +3138,7 @@ function loadSalesReport() {
       <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="this.closest('tr').remove()">✕</button></td>
     </tr>`).join('') +
     `<tr class="summary-row">
-      <td colspan="3"><strong>TOTAL</strong></td>
+      <td colspan="2"><strong>TOTAL</strong></td>
       <td></td>
       <td class="td-num"><strong>${totQty.toFixed(1)}</strong></td>
       <td class="td-num"><strong>₹${fmtN(totVal)}</strong></td>
@@ -3782,7 +3580,7 @@ function loadSalesPersonReport() {
     ${partyRows}`;
   }).join('') +
   `<tr class="summary-row">
-    <td colspan="3"><strong>TOTAL</strong></td>
+    <td colspan="2"><strong>TOTAL</strong></td>
     <td class="td-num"><strong>${list.reduce((s,r)=>s+r.qty,0).toFixed(2)}</strong></td>
     <td class="td-num"><strong>₹${fmtN(list.reduce((s,r)=>s+r.value,0))}</strong></td>
     <td colspan="2"></td>
@@ -3973,7 +3771,7 @@ function loadDayWiseReport() {
     ${pendingRowsHtml}`;
   }).join('') +
   `<tr class="summary-row">
-    <td colspan="3"><strong>TOTAL</strong></td>
+    <td colspan="2"><strong>TOTAL</strong></td>
     <td class="td-num"><strong>${list.reduce((s,d)=>s+d.qty,0).toFixed(2)}</strong></td>
     <td class="td-num"><strong>₹${fmtN(list.reduce((s,d)=>s+d.value,0))}</strong></td>
     <td></td>
@@ -5575,32 +5373,21 @@ async function syncFromGoogleSheet() {
 
     // Also fetch Master sheet for group mapping
     try {
-      const masterGID = '736848536'; // Master sheet GID (live Google Sheet)
-      // Step 1: get sheet title from GID
+      const masterGID = '227823128'; // Master sheet GID (from POS file)
       const masterMetaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
       const metaRes2 = await fetch(masterMetaUrl, { headers: { Authorization: 'Bearer ' + googleAccessToken } });
       if (metaRes2.ok) {
         const meta2 = await metaRes2.json();
-        // Match by GID first, fallback to title
-        const masterObj = meta2.sheets?.find(s => String(s.properties.sheetId) === masterGID)
-                       || meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
+        const masterObj = meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
         if (masterObj) {
-          const masterTitle = masterObj.properties.title;
-          const masterRange = encodeURIComponent(masterTitle + '!A1:K2000');
+          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:J2000');
           const masterRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${masterRange}`, {
             headers: { Authorization: 'Bearer ' + googleAccessToken }
           });
           if (masterRes.ok) {
             const masterJson = await masterRes.json();
-            const masterRows = masterJson.values || [];
-            buildGroupMap(masterRows);
-            populateStateDropdown(); // fill state checkboxes after map is built
-            console.log(`✅ Master sheet loaded: ${masterTitle}, ${masterRows.length} rows, states mapped: ${Object.keys(groupStateMap).length}`);
-          } else {
-            console.warn('Master sheet fetch HTTP error:', masterRes.status);
+            buildGroupMap(masterJson.values || []);
           }
-        } else {
-          console.warn('Master sheet not found in spreadsheet');
         }
       }
     } catch(me) { console.warn('Master sheet fetch failed:', me.message); }
@@ -5608,7 +5395,6 @@ async function syncFromGoogleSheet() {
     const now = new Date().toLocaleTimeString('en-IN');
     if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows synced from Google Sheet — ${now}</span>`;
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ Live sync: ${dispatchData.length} rows. Last sync: ${now}</span>`;
-    populateMonthDropdowns();
     showToast('✅ Google Sheet synced! ' + dispatchData.length + ' rows loaded');
 
   } catch(e) {
@@ -5616,60 +5402,6 @@ async function syncFromGoogleSheet() {
     showToast('❌ ' + e.message, true);
   }
   setLoading(false);
-}
-
-// ─── DYNAMIC MONTH DROPDOWNS ──────────────────────────────
-// Called every time dispatchData is loaded/refreshed.
-// Extracts all unique months from dispatch dates and
-// populates every month-selector in the app automatically.
-
-function populateMonthDropdowns() {
-  // All month selects in the app
-  const SELECT_IDS = [
-    'spMonth','anaMonth','daywiseMonth',
-    'top10VolMonth','top10ValMonth','bot10VolMonth','bot10ValMonth'
-  ];
-
-  // Extract unique months from dispatchData dispatch dates (format DD-MM-YYYY)
-  const monthSet = new Set();
-  dispatchData.forEach(r => {
-    if (r.dispatchDate && r.dispatchDate.length >= 10) {
-      const dd = r.dispatchDate;          // e.g. "01-07-2026"
-      const mm = dd.slice(3,5);           // "07"
-      const yyyy = dd.slice(6,10);        // "2026"
-      if (mm && yyyy) monthSet.add(yyyy + '-' + mm); // "2026-07"
-    }
-  });
-
-  if (monthSet.size === 0) return; // no data yet
-
-  // Sort descending (newest first)
-  const months = [...monthSet].sort((a, b) => b.localeCompare(a));
-
-  // Build current month key  e.g. "2026-07"
-  const now = new Date();
-  const curKey = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-
-  // Month label map
-  const MON_NAMES = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function monthLabel(key) {
-    const [y, m] = key.split('-');
-    return MON_NAMES[parseInt(m,10)-1] + ' ' + y;   // "Jul 2026"
-  }
-
-  // Decide default: current month if it exists in data, else first (newest)
-  const defaultKey = months.includes(curKey) ? curKey : months[0];
-
-  SELECT_IDS.forEach(id => {
-    const sel = document.getElementById(id);
-    if (!sel) return;
-    const prev = sel.value; // remember current selection
-    sel.innerHTML = months.map(k =>
-      `<option value="${k}"${k === defaultKey ? ' selected' : ''}>${monthLabel(k)}</option>`
-    ).join('');
-    // If user had already chosen a month and it still exists, restore it
-    if (prev && months.includes(prev)) sel.value = prev;
-  });
 }
 </script>
 </body>
