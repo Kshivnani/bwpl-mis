@@ -1186,21 +1186,26 @@
       <div id="gaForecastStatus" style="padding:4px 20px 8px;font-size:12px;color:var(--muted)"></div>
 
       <!-- KPI Cards -->
-      <div class="overview-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="overview-grid" style="grid-template-columns:repeat(4,1fr)">
         <div class="stat-card" style="--accent-color:var(--wire)">
           <div class="label">Total Groups</div>
           <div class="value" id="gaTotalGroups">—</div>
-          <div class="sub">With dispatch data</div>
+          <div class="sub">With forecast/dispatch data</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--info)">
           <div class="label">Total Actual Qty (MT)</div>
           <div class="value" id="gaTotalQty">—</div>
-          <div class="sub">All groups combined</div>
+          <div class="sub" id="gaAchievement">All groups combined</div>
+        </div>
+        <div class="stat-card" style="--accent-color:var(--wire)">
+          <div class="label">🔵 PC Wire Forecast (MT)</div>
+          <div class="value" id="gaPcForecast">—</div>
+          <div class="sub" id="gaPcAchievement">Sync forecast to compare</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--success)">
-          <div class="label">Total Forecast (MT)</div>
-          <div class="value" id="gaTotalForecast">—</div>
-          <div class="sub" id="gaAchievement">vs actual</div>
+          <div class="label">🟡 ACSR Forecast (MT)</div>
+          <div class="value" id="gaAcsrForecast">—</div>
+          <div class="sub" id="gaAcsrAchievement">Sync forecast to compare</div>
         </div>
       </div>
 
@@ -2628,15 +2633,45 @@ function loadGroupAnalytics() {
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
 
-  // KPI
+  // KPI — compute PC Wire and ACSR forecast SEPARATELY (always, regardless of product filter)
+  // Both respect the current SP filter and period, but NOT the product filter —
+  // so you always see both numbers side by side.
+  const periodField = period === '2026-07' ? 'julyForecast' : 'juneForecast';
+  const periodOk = (period === 'all' || period === '2026-06' || period === '2026-07');
+
+  let pcForecastTotal = 0;
+  let acsrForecastTotal = 0;
+  if (periodOk) {
+    Object.entries(forecastMap).forEach(([, f]) => {
+      if (!spFilter || f.sp === spFilter) pcForecastTotal += f[periodField] || 0;
+    });
+    Object.entries(acsrForecastMap).forEach(([, f]) => {
+      if (!spFilter || f.sp === spFilter) acsrForecastTotal += f[periodField] || 0;
+    });
+  }
+
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
-  const totalForecast = gaGroupData.reduce((s, g) => s + g.forecastQty, 0);
+  const totalForecast = pcForecastTotal + acsrForecastTotal;
   const overallAch = totalForecast > 0 ? (totalQty / totalForecast * 100).toFixed(1) : '—';
+
+  // PC Wire actual (from product-filtered dispatch)
+  const pcActual = productFilter === 'ACSR Core Wire' ? '—'
+    : buildGroupRows(period, 'PC Wire', spFilter).reduce((s, g) => s + g.qty, 0);
+  const acsrActual = productFilter === 'PC Wire' ? '—'
+    : buildGroupRows(period, 'ACSR Core Wire', spFilter).reduce((s, g) => s + g.qty, 0);
+
+  const pcAch = (pcForecastTotal > 0 && typeof pcActual === 'number')
+    ? (pcActual / pcForecastTotal * 100).toFixed(1) + '% achieved' : 'Sync forecast to compare';
+  const acsrAch = (acsrForecastTotal > 0 && typeof acsrActual === 'number')
+    ? (acsrActual / acsrForecastTotal * 100).toFixed(1) + '% achieved' : 'Sync forecast to compare';
 
   document.getElementById('gaTotalGroups').textContent = gaGroupData.filter(g => g.forecastQty > 0).length;
   document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
-  document.getElementById('gaTotalForecast').textContent = totalForecast.toFixed(1);
-  document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% achieved` : 'Sync forecast to compare';
+  document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% overall achieved` : 'All groups combined';
+  document.getElementById('gaPcForecast').textContent = periodOk ? pcForecastTotal.toFixed(1) : '—';
+  document.getElementById('gaPcAchievement').textContent = periodOk ? pcAch : 'Select Jun/Jul period';
+  document.getElementById('gaAcsrForecast').textContent = periodOk ? acsrForecastTotal.toFixed(1) : '—';
+  document.getElementById('gaAcsrAchievement').textContent = periodOk ? acsrAch : 'Select Jun/Jul period';
   document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups`;
   document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
