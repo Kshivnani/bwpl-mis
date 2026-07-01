@@ -1179,6 +1179,20 @@
               <option value="2026-04">Apr 2026</option>
             </select>
           </div>
+          <div class="form-group" style="margin:0;position:relative">
+            <div id="gaStateFilterBtn" onclick="toggleStateDropdown()" style="cursor:pointer;min-width:130px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:6px;user-select:none">
+              <span id="gaStateFilterLabel">All States</span>
+              <span style="font-size:10px;opacity:0.6">▼</span>
+            </div>
+            <div id="gaStateDropdown" style="display:none;position:absolute;top:110%;left:0;z-index:999;min-width:180px;max-height:240px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);padding:6px 0">
+              <div style="padding:6px 12px;border-bottom:1px solid var(--border)">
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;font-weight:600">
+                  <input type="checkbox" id="gaStateAll" checked onchange="onStateAllChange(this)"> All States
+                </label>
+              </div>
+              <div id="gaStateCheckboxes" style="padding:4px 0"></div>
+            </div>
+          </div>
           <button class="btn btn-secondary" onclick="syncForecastSheet()">☁ Sync Forecast</button>
           <button class="btn btn-secondary" onclick="loadGroupAnalytics()">⟳ Refresh</button>
         </div>
@@ -2246,8 +2260,9 @@ function parseDispatchRows(rows) {
 }
 
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
-let groupMap = {};       // { companyName.lower: { group, salesPerson } }
+let groupMap = {};       // { companyName.lower: { group, salesPerson, state } }
 let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
+let groupStateMap = {};  // { canonGroupKey: state } — from Master sheet col K
 let gaGroupData = [];    // computed for rendering
 let forecastMap = {};       // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 let acsrForecastMap = {};   // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "ACSR 26-27" sheet
@@ -2392,18 +2407,21 @@ function parseAcsrForecastData(rows) {
 }
 
 function buildGroupMap(masterRows) {
-  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name
+  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name, col10=State
   groupMap = {};
-  groupSpMap = {}; // canonical group key -> Sales Person (from POS/Master only)
+  groupSpMap = {};
+  groupStateMap = {}; // canonical group key -> State (col K from Master sheet)
   if (!masterRows || masterRows.length < 2) return;
   for (let i = 1; i < masterRows.length; i++) {
     const r = masterRows[i];
     const company = (r[1] || '').trim();
     const group = (r[6] || company || 'Ungrouped').trim();
     const sp = (r[5] || '').trim();
-    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company };
+    const state = (r[10] || '').trim();
+    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state };
     const gKey = canonGroupKey(group);
     if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
+    if (state && !groupStateMap[gKey]) groupStateMap[gKey] = state;
   }
 }
 
@@ -2583,7 +2601,7 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
 
     const diff = actual.qty - forecastQty;
     const achievement = forecastQty > 0 ? (actual.qty / forecastQty) * 100 : null;
-    const state = (pcForecast && pcForecast.state) || (acsrForecast && acsrForecast.state) || '';
+    const state = groupStateMap[gKey] || (pcForecast && pcForecast.state) || (acsrForecast && acsrForecast.state) || '';
     const location = (pcForecast && pcForecast.location) || (acsrForecast && acsrForecast.location) || '';
 
     return {
@@ -2643,6 +2661,9 @@ function loadGroupAnalytics() {
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
 
+  // Populate State filter (checkboxes)
+  populateStateFilter(gaGroupData);
+
   // KPI
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
   const totalForecast = gaGroupData.reduce((s, g) => s + g.forecastQty, 0);
@@ -2675,10 +2696,66 @@ function setGASort(col) {
 // screen (whatever Sort-by + Order dropdowns are set to). Used by both the
 // on-screen table AND the Excel download, so the download always matches
 // what you're looking at.
+// State multi-select filter
+let gaSelectedStates = new Set(); // empty = all
+
+function toggleStateDropdown() {
+  const dd = document.getElementById('gaStateDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#gaStateFilterBtn') && !e.target.closest('#gaStateDropdown')) {
+    const dd = document.getElementById('gaStateDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+function populateStateFilter(data) {
+  const states = [...new Set(data.map(g => g.state).filter(Boolean).map(s => s.trim()))].sort();
+  const container = document.getElementById('gaStateCheckboxes');
+  if (!container) return;
+  container.innerHTML = states.map(s => `
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background=''">
+      <input type="checkbox" value="${s}" ${gaSelectedStates.size === 0 || gaSelectedStates.has(s) ? 'checked' : ''} onchange="onStateCheckboxChange()"> ${s}
+    </label>`).join('');
+}
+
+function onStateAllChange(cb) {
+  document.querySelectorAll('#gaStateCheckboxes input[type=checkbox]').forEach(b => b.checked = cb.checked);
+  gaSelectedStates = new Set();
+  updateStateLabel();
+  sortAndRenderGA();
+}
+
+function onStateCheckboxChange() {
+  const boxes = [...document.querySelectorAll('#gaStateCheckboxes input[type=checkbox]')];
+  const checked = boxes.filter(b => b.checked).map(b => b.value);
+  const allCb = document.getElementById('gaStateAll');
+  gaSelectedStates = (checked.length === boxes.length || checked.length === 0) ? new Set() : new Set(checked);
+  if (allCb) allCb.checked = gaSelectedStates.size === 0;
+  updateStateLabel();
+  sortAndRenderGA();
+}
+
+function updateStateLabel() {
+  const label = document.getElementById('gaStateFilterLabel');
+  if (!label) return;
+  label.textContent = gaSelectedStates.size === 0 ? 'All States'
+    : gaSelectedStates.size === 1 ? [...gaSelectedStates][0]
+    : gaSelectedStates.size + ' States';
+}
+
+function getFilteredGAData() {
+  if (gaSelectedStates.size === 0) return gaGroupData;
+  return gaGroupData.filter(g => gaSelectedStates.has((g.state || '').trim()));
+}
+
 function getSortedGAGroupData() {
+  const data = getFilteredGAData();
   const col = document.getElementById('gaSortCol').value;
   const dir = document.getElementById('gaSortDir').value;
-  return [...gaGroupData].sort((a, b) => {
+  return [...data].sort((a, b) => {
     let va, vb;
     if (col === 'group') { va = a.group.toLowerCase(); vb = b.group.toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
     if (col === 'sp') { va = (a.sp || '').toLowerCase(); vb = (b.sp || '').toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
@@ -2717,7 +2794,7 @@ function downloadGAReport() {
   const sortDir = document.getElementById('gaSortDir').value;
   const sortLabel = document.getElementById('gaSortCol').selectedOptions[0].textContent
     + ' (' + (sortDir === 'asc' ? 'Ascending' : 'Descending') + ')';
-  const sortedData = getSortedGAGroupData(); // same order as on-screen table
+  const sortedData = getSortedGAGroupData(); // respects current state filter + sort
 
   // Same thresholds as the on-screen achColor(): >=100% green, >=75% yellow, else red
   const achBg = (ach) => {
@@ -5373,14 +5450,15 @@ async function syncFromGoogleSheet() {
 
     // Also fetch Master sheet for group mapping
     try {
-      const masterGID = '227823128'; // Master sheet GID (from POS file)
+      const masterGID = '736848536'; // Master sheet GID (live POS sheet)
       const masterMetaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
       const metaRes2 = await fetch(masterMetaUrl, { headers: { Authorization: 'Bearer ' + googleAccessToken } });
       if (metaRes2.ok) {
         const meta2 = await metaRes2.json();
-        const masterObj = meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
+        const masterObj = meta2.sheets?.find(s => String(s.properties.sheetId) === masterGID)
+                       || meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
         if (masterObj) {
-          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:J2000');
+          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:K2000');
           const masterRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${masterRange}`, {
             headers: { Authorization: 'Bearer ' + googleAccessToken }
           });
