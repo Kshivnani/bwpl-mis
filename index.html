@@ -1179,6 +1179,34 @@
               <option value="2026-04">Apr 2026</option>
             </select>
           </div>
+          <div class="form-group" style="margin:0;position:relative">
+            <div id="gaStateFilterBtn" onclick="toggleStateDropdown()" style="cursor:pointer;min-width:130px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:6px;user-select:none">
+              <span id="gaStateFilterLabel">All States</span>
+              <span style="font-size:10px;opacity:0.6">▼</span>
+            </div>
+            <div id="gaStateDropdown" style="display:none;position:absolute;top:110%;left:0;z-index:999;min-width:180px;max-height:240px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);padding:6px 0">
+              <div style="padding:6px 12px;border-bottom:1px solid var(--border)">
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;font-weight:600">
+                  <input type="checkbox" id="gaStateAll" checked onchange="onStateAllChange(this)"> All States
+                </label>
+              </div>
+              <div id="gaStateCheckboxes" style="padding:4px 0"></div>
+            </div>
+          </div>
+          <div class="form-group" style="margin:0;position:relative">
+            <div id="gaLocationFilterBtn" onclick="toggleLocationDropdown()" style="cursor:pointer;min-width:130px;padding:6px 10px;border:1px solid var(--border);border-radius:6px;background:var(--card);color:var(--text);font-size:13px;display:flex;align-items:center;justify-content:space-between;gap:6px;user-select:none">
+              <span id="gaLocationFilterLabel">All Locations</span>
+              <span style="font-size:10px;opacity:0.6">▼</span>
+            </div>
+            <div id="gaLocationDropdown" style="display:none;position:absolute;top:110%;left:0;z-index:999;min-width:180px;max-height:240px;overflow-y:auto;background:var(--card);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);padding:6px 0">
+              <div style="padding:6px 12px;border-bottom:1px solid var(--border)">
+                <label style="display:flex;align-items:center;gap:8px;font-size:12px;cursor:pointer;font-weight:600">
+                  <input type="checkbox" id="gaLocationAll" checked onchange="onLocationAllChange(this)"> All Locations
+                </label>
+              </div>
+              <div id="gaLocationCheckboxes" style="padding:4px 0"></div>
+            </div>
+          </div>
           <button class="btn btn-secondary" onclick="syncForecastSheet()">☁ Sync Forecast</button>
           <button class="btn btn-secondary" onclick="loadGroupAnalytics()">⟳ Refresh</button>
         </div>
@@ -1223,7 +1251,7 @@
               </tr>
             </thead>
             <tbody id="gaPacingBody">
-              <tr><td colspan="7" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="9" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -1271,7 +1299,9 @@
               <tr>
                 <th onclick="setGASort('group')" style="cursor:pointer">Group Name ↕</th>
                 <th>SP</th>
-                <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">June Forecast (MT) ↕</th>
+                <th>State</th>
+                <th>Location</th>
+                <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">July Forecast (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">Actual (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('diff')" style="cursor:pointer">Diff (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('achievement')" style="cursor:pointer">Achievement % ↕</th>
@@ -1279,7 +1309,7 @@
               </tr>
             </thead>
             <tbody id="gaBody">
-              <tr><td colspan="7" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="9" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -2245,9 +2275,11 @@ function parseDispatchRows(rows) {
 }
 
 // ─── DEMAND FORECAST (Group-wise Sales) ──────────────────
-let groupMap = {};       // { companyName.lower: { group, salesPerson } }
-let groupSpMap = {};     // { canonGroupKey: salesPerson } — built from POS/Master, never from forecast sheet
-let gaGroupData = [];    // computed for rendering
+let groupMap = {};         // { companyName.lower: { group, salesPerson, state, location } }
+let groupSpMap = {};       // { canonGroupKey: salesPerson }
+let groupStateMap = {};    // { canonGroupKey: state } — Master sheet col K
+let groupLocationMap = {}; // { canonGroupKey: location } — Master sheet col AA (26)
+let gaGroupData = [];      // computed for rendering
 let forecastMap = {};       // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "PC Wire 26-27" sheet
 let acsrForecastMap = {};   // { canonGroupKey: { group, sp, juneForecast, julyForecast } } — from "ACSR 26-27" sheet
 
@@ -2345,12 +2377,16 @@ function parseForecastData(rows) {
     const group = getGroupForParty(rawName);
     const key = canonGroupKey(group);
     const sp = (r[1] || '').trim();
-    const julyForecast = safe(r[13]);  // col N — PC Target Jul-26 (ONLY forecast column)
+    const julyForecast = safe(r[13]);
+    const state = (r[2] || '').trim();
+    const location = (r[3] || '').trim();
     if (forecastMap[key]) {
       forecastMap[key].julyForecast += julyForecast;
       if (!forecastMap[key].sp) forecastMap[key].sp = sp;
+      if (!forecastMap[key].state) forecastMap[key].state = state;
+      if (!forecastMap[key].location) forecastMap[key].location = location;
     } else {
-      forecastMap[key] = { group, sp, juneForecast: 0, julyForecast };
+      forecastMap[key] = { group, sp, juneForecast: 0, julyForecast, state, location };
     }
   }
 }
@@ -2372,29 +2408,39 @@ function parseAcsrForecastData(rows) {
     const group = getGroupForParty(rawName);
     const key = canonGroupKey(group);
     const sp = (r[1] || '').trim();
-    const julyForecast = safe(r[8]);  // col I — ACSR Target Jul-26 (ONLY forecast column)
+    const julyForecast = safe(r[8]);
+    const state = (r[2] || '').trim();
+    const location = (r[3] || '').trim();
     if (acsrForecastMap[key]) {
       acsrForecastMap[key].julyForecast += julyForecast;
       if (!acsrForecastMap[key].sp) acsrForecastMap[key].sp = sp;
+      if (!acsrForecastMap[key].state) acsrForecastMap[key].state = state;
+      if (!acsrForecastMap[key].location) acsrForecastMap[key].location = location;
     } else {
-      acsrForecastMap[key] = { group, sp, juneForecast: 0, julyForecast };
+      acsrForecastMap[key] = { group, sp, juneForecast: 0, julyForecast, state, location };
     }
   }
 }
 
 function buildGroupMap(masterRows) {
-  // Master sheet: col0=Email, col1=Company Name, col5=Sales Person, col6=Group Name
+  // Master sheet: col1=Company Name, col5=Sales Person, col6=Group Name, col10=State, col26=Location (AA)
   groupMap = {};
-  groupSpMap = {}; // canonical group key -> Sales Person (from POS/Master only)
+  groupSpMap = {};
+  groupStateMap = {};
+  groupLocationMap = {};
   if (!masterRows || masterRows.length < 2) return;
   for (let i = 1; i < masterRows.length; i++) {
     const r = masterRows[i];
     const company = (r[1] || '').trim();
     const group = (r[6] || company || 'Ungrouped').trim();
     const sp = (r[5] || '').trim();
-    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company };
+    const state = (r[10] || '').trim();
+    const location = (r[26] || '').trim(); // col AA — city/location
+    if (company) groupMap[company.toLowerCase()] = { group, salesPerson: sp, company, state, location };
     const gKey = canonGroupKey(group);
     if (sp && !groupSpMap[gKey]) groupSpMap[gKey] = sp;
+    if (state && !groupStateMap[gKey]) groupStateMap[gKey] = state;
+    if (location && !groupLocationMap[gKey]) groupLocationMap[gKey] = location;
   }
 }
 
@@ -2482,7 +2528,7 @@ function renderSpPacing() {
   if (spFilter && spFilter.value) rows = rows.filter(r => r.sp === spFilter.value);
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No forecast data — sync Forecast sheet then upload POS file</td></tr>';
     return;
   }
 
@@ -2498,7 +2544,7 @@ function renderSpPacing() {
       <td class="td-num">${r.forecast.toFixed(1)}</td>
       <td class="td-num">${r.actual.toFixed(1)}</td>
       <td class="td-num">${r.expectedTillToday.toFixed(1)}</td>
-      <td class="td-num">${r.requiredDailyRate.toFixed(1)}</td>
+      <td class="td-num">${r.perDayTarget.toFixed(1)}</td>
       <td class="td-num" style="color:${paceColor};font-weight:700">${paceLabel}</td>
     </tr>`;
   }).join('');
@@ -2574,10 +2620,14 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
 
     const diff = actual.qty - forecastQty;
     const achievement = forecastQty > 0 ? (actual.qty / forecastQty) * 100 : null;
+    const state = groupStateMap[gKey] || (pcForecast && pcForecast.state) || (acsrForecast && acsrForecast.state) || '';
+    const location = groupLocationMap[gKey] || '';
 
     return {
       group: groupName,
       sp,
+      state,
+      location,
       companies: Object.entries(actual.companies).map(([name, v]) => ({ name, qty: v.qty, value: v.value })).sort((a,b) => b.value - a.value),
       qty: actual.qty,
       value: actual.value,
@@ -2605,7 +2655,7 @@ function forecastMonthLabel(period) {
 
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
-    document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
+    document.getElementById('gaBody').innerHTML = '<tr><td colspan="9" class="empty-state">No dispatch data — upload POS file first</td></tr>';
     return;
   }
 
@@ -2629,6 +2679,10 @@ function loadGroupAnalytics() {
   const spSel = document.getElementById('gaSpFilter');
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
+
+  // Populate State filter (checkboxes)
+  populateStateFilter(gaGroupData);
+  populateLocationFilter(gaGroupData);
 
   // KPI
   const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
@@ -2662,10 +2716,117 @@ function setGASort(col) {
 // screen (whatever Sort-by + Order dropdowns are set to). Used by both the
 // on-screen table AND the Excel download, so the download always matches
 // what you're looking at.
+// State + Location multi-select filters
+let gaSelectedStates    = new Set(); // empty = all
+let gaSelectedLocations = new Set(); // empty = all
+
+function toggleStateDropdown() {
+  document.getElementById('gaLocationDropdown').style.display = 'none';
+  const dd = document.getElementById('gaStateDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+function toggleLocationDropdown() {
+  document.getElementById('gaStateDropdown').style.display = 'none';
+  const dd = document.getElementById('gaLocationDropdown');
+  dd.style.display = dd.style.display === 'none' ? 'block' : 'none';
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#gaStateFilterBtn') && !e.target.closest('#gaStateDropdown')) {
+    const dd = document.getElementById('gaStateDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+  if (!e.target.closest('#gaLocationFilterBtn') && !e.target.closest('#gaLocationDropdown')) {
+    const dd = document.getElementById('gaLocationDropdown');
+    if (dd) dd.style.display = 'none';
+  }
+});
+
+function populateStateFilter(data) {
+  const states = [...new Set(data.map(g => g.state).filter(Boolean).map(s => s.trim()))].sort();
+  const container = document.getElementById('gaStateCheckboxes');
+  if (!container) return;
+  container.innerHTML = states.map(s => `
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background=''">
+      <input type="checkbox" value="${s}" ${gaSelectedStates.size === 0 || gaSelectedStates.has(s) ? 'checked' : ''} onchange="onStateCheckboxChange()"> ${s}
+    </label>`).join('');
+}
+
+function populateLocationFilter(data) {
+  const locs = [...new Set(data.map(g => g.location).filter(Boolean).map(l => l.trim()))].sort();
+  const container = document.getElementById('gaLocationCheckboxes');
+  if (!container) return;
+  container.innerHTML = locs.map(l => `
+    <label style="display:flex;align-items:center;gap:8px;padding:5px 12px;font-size:12px;cursor:pointer;white-space:nowrap" onmouseenter="this.style.background='var(--hover)'" onmouseleave="this.style.background=''">
+      <input type="checkbox" value="${l}" ${gaSelectedLocations.size === 0 || gaSelectedLocations.has(l) ? 'checked' : ''} onchange="onLocationCheckboxChange()"> ${l}
+    </label>`).join('');
+}
+
+function onStateAllChange(cb) {
+  document.querySelectorAll('#gaStateCheckboxes input[type=checkbox]').forEach(b => b.checked = cb.checked);
+  gaSelectedStates = new Set();
+  updateStateLabel();
+  sortAndRenderGA();
+}
+
+function onStateCheckboxChange() {
+  const boxes = [...document.querySelectorAll('#gaStateCheckboxes input[type=checkbox]')];
+  const checked = boxes.filter(b => b.checked).map(b => b.value);
+  const allCb = document.getElementById('gaStateAll');
+  gaSelectedStates = (checked.length === boxes.length || checked.length === 0) ? new Set() : new Set(checked);
+  if (allCb) allCb.checked = gaSelectedStates.size === 0;
+  updateStateLabel();
+  sortAndRenderGA();
+}
+
+function updateStateLabel() {
+  const label = document.getElementById('gaStateFilterLabel');
+  if (!label) return;
+  label.textContent = gaSelectedStates.size === 0 ? 'All States'
+    : gaSelectedStates.size === 1 ? [...gaSelectedStates][0]
+    : gaSelectedStates.size + ' States';
+}
+
+function onLocationAllChange(cb) {
+  document.querySelectorAll('#gaLocationCheckboxes input[type=checkbox]').forEach(b => b.checked = cb.checked);
+  gaSelectedLocations = new Set();
+  updateLocationLabel();
+  sortAndRenderGA();
+}
+
+function onLocationCheckboxChange() {
+  const boxes = [...document.querySelectorAll('#gaLocationCheckboxes input[type=checkbox]')];
+  const checked = boxes.filter(b => b.checked).map(b => b.value);
+  const allCb = document.getElementById('gaLocationAll');
+  gaSelectedLocations = (checked.length === boxes.length || checked.length === 0) ? new Set() : new Set(checked);
+  if (allCb) allCb.checked = gaSelectedLocations.size === 0;
+  updateLocationLabel();
+  sortAndRenderGA();
+}
+
+function updateLocationLabel() {
+  const label = document.getElementById('gaLocationFilterLabel');
+  if (!label) return;
+  label.textContent = gaSelectedLocations.size === 0 ? 'All Locations'
+    : gaSelectedLocations.size === 1 ? [...gaSelectedLocations][0]
+    : gaSelectedLocations.size + ' Locations';
+}
+
+function getFilteredGAData() {
+  let data = gaGroupData;
+  if (gaSelectedStates.size > 0)
+    data = data.filter(g => gaSelectedStates.has((g.state || '').trim()));
+  if (gaSelectedLocations.size > 0)
+    data = data.filter(g => gaSelectedLocations.has((g.location || '').trim()));
+  return data;
+}
+
 function getSortedGAGroupData() {
+  const data = getFilteredGAData();
   const col = document.getElementById('gaSortCol').value;
   const dir = document.getElementById('gaSortDir').value;
-  return [...gaGroupData].sort((a, b) => {
+  return [...data].sort((a, b) => {
     let va, vb;
     if (col === 'group') { va = a.group.toLowerCase(); vb = b.group.toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
     if (col === 'sp') { va = (a.sp || '').toLowerCase(); vb = (b.sp || '').toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
@@ -2704,7 +2865,16 @@ function downloadGAReport() {
   const sortDir = document.getElementById('gaSortDir').value;
   const sortLabel = document.getElementById('gaSortCol').selectedOptions[0].textContent
     + ' (' + (sortDir === 'asc' ? 'Ascending' : 'Descending') + ')';
-  const sortedData = getSortedGAGroupData(); // same order as on-screen table
+  const q = (document.getElementById('gaSearch').value || '').toLowerCase().trim();
+  let sortedData = getSortedGAGroupData(); // respects current state/location filter + sort
+  if (q) {
+    // Also respect the on-screen search box, so the export matches what's visible
+    sortedData = sortedData.filter(g =>
+      g.group.toLowerCase().includes(q) ||
+      g.companies.some(c => c.name.toLowerCase().includes(q))
+    );
+  }
+  if (!sortedData.length) { showToast('❌ No matching rows to download', true); return; }
 
   // Same thresholds as the on-screen achColor(): >=100% green, >=75% yellow, else red
   const achBg = (ach) => {
@@ -2714,17 +2884,16 @@ function downloadGAReport() {
     return '#fed7d7';
   };
 
-  const fcLabel = forecastMonthLabel(period);
   let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px">';
-  html += '<tr><td colspan="6" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
-  html += '<tr><td colspan="6" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
-  html += '<tr><td colspan="6">Period: ' + (period === 'all' ? 'All Time' : period)
+  html += '<tr><td colspan="7" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
+  html += '<tr><td colspan="7" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
+  html += '<tr><td colspan="7">Period: ' + (period === 'all' ? 'All Time' : period)
     + ' | Sales Person: ' + (sp || 'All')
     + ' | Product: ' + (prod || 'All')
     + ' | Sorted by: ' + sortLabel + '</td></tr>';
   html += '<tr></tr>';
   html += '<tr style="background:#1f2937;color:#ffffff;font-weight:bold">'
-    + '<td>Group Name</td><td>SP</td><td>' + fcLabel + ' Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
+    + '<td>Group Name</td><td>SP</td><td>State</td><td>' + fcLabel + ' Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
 
   sortedData.forEach(g => {
     const bg = achBg(g.achievement);
@@ -2734,6 +2903,7 @@ function downloadGAReport() {
     html += '<tr style="background:' + bg + '">'
       + '<td>' + g.group + '</td>'
       + '<td>' + (g.sp || '—') + '</td>'
+      + '<td>' + (g.state || '—') + '</td>'
       + '<td align="right">' + fcText + '</td>'
       + '<td align="right">' + g.qty.toFixed(2) + '</td>'
       + '<td align="right">' + diffText + '</td>'
@@ -2744,7 +2914,7 @@ function downloadGAReport() {
   const totFc = sortedData.reduce((s,g)=>s+g.forecastQty,0);
   const totAch = totFc > 0 ? (totQty/totFc*100) : null;
   html += '<tr style="background:#374151;color:#ffffff;font-weight:bold">'
-    + '<td>TOTAL</td><td></td>'
+    + '<td>TOTAL</td><td></td><td></td>'
     + '<td align="right">' + totFc.toFixed(2) + '</td>'
     + '<td align="right">' + totQty.toFixed(2) + '</td>'
     + '<td align="right">' + ((totQty-totFc)>=0?'+':'') + (totQty-totFc).toFixed(2) + '</td>'
@@ -2765,7 +2935,7 @@ function downloadGAReport() {
 function renderGroupTable(data) {
   const tbody = document.getElementById('gaBody');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No groups found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No groups found</td></tr>';
     return;
   }
 
@@ -2783,7 +2953,7 @@ function renderGroupTable(data) {
 
     const companyRows = g.companies.map(c => `
       <tr class="ga-detail-${i}" style="display:none">
-        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="2">↳ ${c.name}</td>
+        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="4">↳ ${c.name}</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty.toFixed(2)}</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
@@ -2795,6 +2965,8 @@ function renderGroupTable(data) {
     <tr>
       <td><strong>${g.group}</strong></td>
       <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(232,160,32,0.15);color:var(--wire)">${g.sp || '—'}</span></td>
+      <td style="font-size:12px;color:var(--muted)">${g.state || '—'}</td>
+      <td style="font-size:12px;color:var(--muted)">${g.location || '—'}</td>
       <td class="td-num">${g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
       <td class="td-num"><strong>${g.qty.toFixed(2)}</strong></td>
       <td class="td-num" style="${diffColor}">${diffText}</td>
@@ -2804,7 +2976,7 @@ function renderGroupTable(data) {
     ${companyRows}`;
   }).join('') + `
   <tr class="summary-row">
-    <td colspan="2"><strong>TOTAL</strong></td>
+    <td colspan="4"><strong>TOTAL</strong></td>
     <td class="td-num"><strong>${data.reduce((s,g)=>s+g.forecastQty,0).toFixed(2)}</strong></td>
     <td class="td-num"><strong>${data.reduce((s,g)=>s+g.qty,0).toFixed(2)}</strong></td>
     <td class="td-num" style="${data.reduce((s,g)=>s+g.diff,0)>=0?'color:var(--success)':'color:var(--danger)'}">
@@ -5359,14 +5531,15 @@ async function syncFromGoogleSheet() {
 
     // Also fetch Master sheet for group mapping
     try {
-      const masterGID = '227823128'; // Master sheet GID (from POS file)
+      const masterGID = '736848536'; // Master sheet GID (live POS sheet)
       const masterMetaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`;
       const metaRes2 = await fetch(masterMetaUrl, { headers: { Authorization: 'Bearer ' + googleAccessToken } });
       if (metaRes2.ok) {
         const meta2 = await metaRes2.json();
-        const masterObj = meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
+        const masterObj = meta2.sheets?.find(s => String(s.properties.sheetId) === masterGID)
+                       || meta2.sheets?.find(s => s.properties.title.toLowerCase().includes('master'));
         if (masterObj) {
-          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:J2000');
+          const masterRange = encodeURIComponent(masterObj.properties.title + '!A1:AA2000');
           const masterRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${masterRange}`, {
             headers: { Authorization: 'Bearer ' + googleAccessToken }
           });
