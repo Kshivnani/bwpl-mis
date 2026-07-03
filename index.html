@@ -2067,6 +2067,7 @@ function initApp() {
   appInitialized = true;
   document.getElementById('todayBadge').textContent = '📅 ' + today.toLocaleDateString('en-IN', {weekday:'short', day:'2-digit', month:'short', year:'numeric'});
   setAllDatesToToday();
+  populateAllMonthSelects();
   initProductivity();
   initFinancials();
   initManufacturing();
@@ -3462,12 +3463,12 @@ function loadTop10Val() {
   renderTop10Table('top10ValBody', stats);
 }
 function loadBot10Vol() {
-  const rows = getMonthData('2026-06');
+  const rows = getMonthData(currentMonthVal());
   const stats = computeCustomerStats(rows).filter(r => r.qty > 0).sort((a,b) => a.qty - b.qty).slice(0,10);
   renderTop10Table('bot10VolBody', stats);
 }
 function loadBot10Val() {
-  const rows = getMonthData('2026-06');
+  const rows = getMonthData(currentMonthVal());
   const stats = computeCustomerStats(rows).filter(r => r.value > 0).sort((a,b) => a.value - b.value).slice(0,10);
   renderTop10Table('bot10ValBody', stats);
 }
@@ -3785,6 +3786,39 @@ function getPrevMonthVal(mv) {
   m -= 1;
   if (m === 0) { m = 12; y -= 1; }
   return y + '-' + String(m).padStart(2, '0');
+}
+
+// ── AUTO MONTH ROLLOVER ─────────────────────────────────────
+// Everything below reads the LIVE system clock, so on the 1st of every
+// month all "Month" dropdowns and default reports automatically shift
+// to the new month with zero manual editing required.
+function currentMonthVal() {
+  // "YYYY-MM" for the current real-world month (e.g. "2026-07")
+  return today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+}
+// Fill a <select id="..."> with the last `count` months, most-recent first,
+// and select the current month by default.
+// valueFormat: 'ym' -> value "2026-07" (used by anaMonth/top10.../spMonth/dwMonth)
+//              'my' -> value "Jul-2026" (used by wrMonth)
+function populateMonthSelect(id, count, valueFormat) {
+  const sel = document.getElementById(id);
+  if (!sel) return;
+  sel.innerHTML = '';
+  let mv = currentMonthVal();
+  for (let i = 0; i < count; i++) {
+    const [y, m] = mv.split('-').map(Number);
+    const monShort = new Date(y, m - 1, 1).toLocaleString('en-US', { month: 'short' });
+    const opt = document.createElement('option');
+    opt.value = (valueFormat === 'my') ? (monShort + '-' + y) : mv;
+    opt.textContent = monShort + ' ' + y;
+    sel.appendChild(opt);
+    mv = getPrevMonthVal(mv);
+  }
+  sel.selectedIndex = 0; // current month is always the default selection
+}
+function populateAllMonthSelects() {
+  ['anaMonth', 'top10VolMonth', 'top10ValMonth', 'spMonth', 'dwMonth'].forEach(id => populateMonthSelect(id, 8, 'ym'));
+  populateMonthSelect('wrMonth', 8, 'my');
 }
 
 // ── MAIN loadAnalytics ───────────────────────────────────
