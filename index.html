@@ -153,6 +153,34 @@
     box-shadow: var(--ms-panel-shadow); min-width: 160px;
   }
   .theme-picker.open { display: block; }
+  .voice-options-list { max-height:220px; overflow-y:auto; margin-top:4px; }
+  .voice-opt {
+    display:flex; align-items:center; gap:8px; padding:8px 10px;
+    border-radius:7px; cursor:pointer; transition:background 0.15s;
+    font-size:12.5px; color:var(--white);
+  }
+  .voice-opt:hover { background:rgba(232,160,32,0.1); }
+  .voice-opt.selected { background:rgba(232,160,32,0.15); color:var(--wire); font-weight:600; }
+  .voice-opt .vname { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .voice-opt .vplay {
+    flex-shrink:0; width:22px; height:22px; border-radius:50%; border:none;
+    background:rgba(255,255,255,0.08); color:var(--muted); cursor:pointer;
+    display:flex; align-items:center; justify-content:center; font-size:10px;
+    transition:all 0.15s;
+  }
+  .voice-opt .vplay:hover { background:var(--wire); color:var(--steel); }
+  .voice-switch { position:relative; display:inline-block; width:34px; height:19px; flex-shrink:0; }
+  .voice-switch input { opacity:0; width:0; height:0; }
+  .voice-switch-slider {
+    position:absolute; cursor:pointer; inset:0; background:rgba(255,255,255,0.15);
+    border-radius:20px; transition:0.2s;
+  }
+  .voice-switch-slider::before {
+    content:''; position:absolute; height:14px; width:14px; left:3px; bottom:2.5px;
+    background:#fff; border-radius:50%; transition:0.2s;
+  }
+  .voice-switch input:checked + .voice-switch-slider { background:var(--wire); }
+  .voice-switch input:checked + .voice-switch-slider::before { transform:translateX(15px); }
   .theme-picker-title {
     font-size: 10px; color: var(--muted); text-transform: uppercase;
     letter-spacing: 1px; padding: 4px 8px 8px; font-weight: 700;
@@ -1048,7 +1076,22 @@
         </div>
       </div>
     </div>
-    <button class="theme-toggle-btn" onclick="toggleVoiceGreeting()" title="Toggle voice greeting" id="voiceToggleBtn">🔊</button>
+    <div class="theme-toggle-wrap" id="voiceToggleWrap">
+      <button class="theme-toggle-btn" onclick="toggleVoicePicker(event)" title="Voice settings" id="voiceToggleBtn">🔊</button>
+      <div class="theme-picker" id="voicePicker">
+        <div class="theme-picker-title" style="display:flex;align-items:center;justify-content:space-between">
+          <span>Voice Greeting</span>
+          <label class="voice-switch">
+            <input type="checkbox" id="voiceEnabledSwitch" onchange="onVoiceSwitchChange(this)">
+            <span class="voice-switch-slider"></span>
+          </label>
+        </div>
+        <div class="theme-picker-title" style="padding-top:2px">Choose Voice</div>
+        <div id="voiceOptionsList" class="voice-options-list">
+          <div style="padding:8px 10px;font-size:12px;color:var(--muted)">Loading voices…</div>
+        </div>
+      </div>
+    </div>
     <button class="sync-btn" onclick="syncFromGoogleSheet()">☁ Sync</button>
   </div>
 </div>
@@ -5592,19 +5635,30 @@ function signInWithGoogle() {
 
 // ── VOICE GREETING SYSTEM ────────────────────────────────
 const VOICE_KEY = 'bwpl_voice_enabled';
+const VOICE_NAME_KEY = 'bwpl_voice_name';
 
 function isVoiceEnabled() {
   const v = localStorage.getItem(VOICE_KEY);
   return v === null ? true : v === 'true';
 }
 
-function toggleVoiceGreeting() {
-  const enabled = !isVoiceEnabled();
+function getSelectedVoiceName() {
+  return localStorage.getItem(VOICE_NAME_KEY) || '';
+}
+
+function toggleVoicePicker(e) {
+  e.stopPropagation();
+  const picker = document.getElementById('voicePicker');
+  if (picker) picker.classList.toggle('open');
+  if (picker && picker.classList.contains('open')) populateVoiceOptions();
+}
+
+function onVoiceSwitchChange(el) {
+  const enabled = el.checked;
   localStorage.setItem(VOICE_KEY, String(enabled));
   const btn = document.getElementById('voiceToggleBtn');
   if (btn) btn.textContent = enabled ? '🔊' : '🔇';
   if (!enabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-  if (enabled) speakGreeting(currentUserEmail, true);
 }
 
 function getFirstName(displayName, email) {
@@ -5620,41 +5674,87 @@ function getTimeGreeting() {
   return 'Good evening';
 }
 
-function speakGreeting(email, isReplay) {
-  if (!('speechSynthesis' in window)) return;
-  if (!isReplay && !isVoiceEnabled()) return;
+function getVoiceByName(name) {
+  if (!('speechSynthesis' in window)) return null;
+  const voices = window.speechSynthesis.getVoices();
+  return voices.find(v => v.name === name) || null;
+}
 
+function pickBestVoice() {
+  const voices = window.speechSynthesis.getVoices();
+  const savedName = getSelectedVoiceName();
+  if (savedName) {
+    const saved = voices.find(v => v.name === savedName);
+    if (saved) return saved;
+  }
+  return voices.find(v => /en-IN|en-GB|en-US/.test(v.lang) && /female|Google/i.test(v.name))
+    || voices.find(v => /en-IN|en-GB|en-US/.test(v.lang))
+    || voices[0] || null;
+}
+
+function speakText(text, voiceOverride) {
+  if (!('speechSynthesis' in window)) return;
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1; utter.pitch = 1; utter.volume = 1;
+  const doSpeak = () => {
+    utter.voice = voiceOverride || pickBestVoice();
+    window.speechSynthesis.speak(utter);
+  };
+  if (window.speechSynthesis.getVoices().length) doSpeak();
+  else window.speechSynthesis.onvoiceschanged = doSpeak;
+}
+
+function speakGreeting(email, isReplay) {
+  if (!isReplay && !isVoiceEnabled()) return;
   const name = getFirstName(document.querySelector('#userBadge span') ? document.querySelector('#userBadge span').textContent : '', email);
   const text = name
     ? `Login successful. ${getTimeGreeting()}, ${name}.`
     : `Login successful. ${getTimeGreeting()}.`;
-
-  window.speechSynthesis.cancel();
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.rate = 1;
-  utter.pitch = 1;
-  utter.volume = 1;
-
-  const pickVoice = () => {
-    const voices = window.speechSynthesis.getVoices();
-    const preferred = voices.find(v => /en-IN|en-GB|en-US/.test(v.lang) && /female|Google/i.test(v.name))
-      || voices.find(v => /en-IN|en-GB|en-US/.test(v.lang))
-      || voices[0];
-    if (preferred) utter.voice = preferred;
-    window.speechSynthesis.speak(utter);
-  };
-
-  if (window.speechSynthesis.getVoices().length) {
-    pickVoice();
-  } else {
-    window.speechSynthesis.onvoiceschanged = pickVoice;
-  }
+  speakText(text);
 }
 
-// Initialize voice toggle icon on load
+function selectVoice(name) {
+  localStorage.setItem(VOICE_NAME_KEY, name);
+  populateVoiceOptions();
+  speakText('This is how I sound now.', getVoiceByName(name));
+}
+
+function previewVoice(e, name) {
+  e.stopPropagation();
+  speakText('Login successful. Hello there.', getVoiceByName(name));
+}
+
+function populateVoiceOptions() {
+  const list = document.getElementById('voiceOptionsList');
+  if (!list || !('speechSynthesis' in window)) return;
+  const render = () => {
+    let voices = window.speechSynthesis.getVoices();
+    if (!voices.length) return;
+    // Prefer English voices first, then the rest
+    voices = [...voices].sort((a, b) => {
+      const aEn = /^en/.test(a.lang) ? 0 : 1;
+      const bEn = /^en/.test(b.lang) ? 0 : 1;
+      return aEn - bEn;
+    }).slice(0, 25);
+    const selected = getSelectedVoiceName() || (pickBestVoice() ? pickBestVoice().name : '');
+    list.innerHTML = voices.map(v => `
+      <div class="voice-opt ${v.name === selected ? 'selected' : ''}" onclick="selectVoice('${v.name.replace(/'/g, "\\'")}')">
+        <span class="vname">${v.name} <span style="opacity:0.6">(${v.lang})</span></span>
+        <button class="vplay" onclick="previewVoice(event, '${v.name.replace(/'/g, "\\'")}')" title="Preview">▶</button>
+      </div>
+    `).join('');
+  };
+  if (window.speechSynthesis.getVoices().length) render();
+  else window.speechSynthesis.onvoiceschanged = render;
+}
+
+// Initialize voice toggle icon + switch state on load
 (function() {
   const btn = document.getElementById('voiceToggleBtn');
   if (btn) btn.textContent = isVoiceEnabled() ? '🔊' : '🔇';
+  const sw = document.getElementById('voiceEnabledSwitch');
+  if (sw) sw.checked = isVoiceEnabled();
 })();
 
 // ── THEME SYSTEM ──────────────────────────────────────────
@@ -5690,6 +5790,11 @@ document.addEventListener('click', function(e) {
   if (wrap && !wrap.contains(e.target)) {
     const picker = document.getElementById('themePicker');
     if (picker) picker.classList.remove('open');
+  }
+  const vwrap = document.getElementById('voiceToggleWrap');
+  if (vwrap && !vwrap.contains(e.target)) {
+    const vpicker = document.getElementById('voicePicker');
+    if (vpicker) vpicker.classList.remove('open');
   }
 });
 
