@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#1a2332">
 <title>BWPL MIS Automation — Bajrang Wire Products</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="icon" type="image/png" href="logo.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
@@ -32,7 +35,7 @@
     --monthly-accent: #3498db;
     --card-bg: #1e2e42;
     --border: rgba(232,160,32,0.2);
-    --font-display: 'Segoe UI', system-ui, sans-serif;
+    --font-display: 'Inter', 'Segoe UI', system-ui, sans-serif;
     --header-grad: linear-gradient(135deg, var(--steel-mid) 0%, #0f1a28 100%);
     --login-bg: linear-gradient(135deg, #0f1923 0%, #1a2332 50%, #0f1923 100%);
     --table-header-bg: rgba(0,0,0,0.3);
@@ -258,7 +261,7 @@
       radial-gradient(ellipse at 80% 20%, rgba(0,255,224,0.03) 0%, transparent 40%);
   }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { background:var(--steel); color:var(--white); font-family:var(--font-display); min-height:100vh; overflow-x:hidden; }
+  body { background:var(--steel); color:var(--white); font-family:var(--font-display); min-height:100vh; overflow-x:hidden; -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale; }
   body {
     background-image:
       radial-gradient(ellipse 900px 500px at 8% -10%, rgba(232,160,32,0.05) 0%, transparent 60%),
@@ -319,11 +322,19 @@
     text-transform:uppercase; padding:8px 10px 4px;
   }
   .sidebar-item {
-    display:flex; align-items:center; gap:10px; padding:10px 14px;
+    display:flex; align-items:center; gap:10px; padding:9px 14px;
     cursor:pointer; border-left:3px solid transparent; border-radius:8px;
     font-size:13px; color:var(--muted); transition:all 0.18s ease;
     position:relative; margin-bottom:2px;
   }
+  .nav-icon {
+    width:26px; height:26px; min-width:26px; border-radius:7px;
+    background:rgba(255,255,255,0.05); display:flex; align-items:center; justify-content:center;
+    font-size:13px; transition:all 0.18s ease;
+  }
+  .sidebar-item:hover .nav-icon { background:rgba(232,160,32,0.15); transform:scale(1.06); }
+  .sidebar-item.active .nav-icon { background:rgba(232,160,32,0.22); }
+  .sidebar-item .dot { display:none; }
   .sidebar-item:hover { background:rgba(232,160,32,0.08); color:var(--white); transform:translateX(2px); }
   .sidebar-item.active {
     background:linear-gradient(90deg, rgba(232,160,32,0.16), rgba(232,160,32,0.02));
@@ -365,6 +376,20 @@
   .dash-banner-title { font-size:21px; font-weight:800; color:var(--white); letter-spacing:0.3px; position:relative; z-index:1; }
   .dash-banner-sub { font-size:13px; color:var(--muted); margin-top:4px; position:relative; z-index:1; }
   .dash-banner-actions { display:flex; gap:8px; position:relative; z-index:1; }
+
+  .dash-eyebrow {
+    display:inline-flex; align-items:center; gap:7px; font-size:10px; font-weight:800;
+    letter-spacing:1.6px; color:var(--wire); margin-bottom:8px; position:relative; z-index:1;
+  }
+  .live-dot {
+    width:7px; height:7px; border-radius:50%; background:var(--success);
+    box-shadow:0 0 0 0 rgba(46,204,113,0.6); animation:pulseDot 2s infinite;
+  }
+  .stat-icon {
+    width:38px; height:38px; border-radius:10px; display:flex; align-items:center; justify-content:center;
+    margin-bottom:14px; position:relative; z-index:1;
+  }
+  .stat-icon svg { width:19px; height:19px; }
 
   .overview-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:24px; }
   .stat-card {
@@ -420,6 +445,11 @@
   .report-header h2 { font-size:16px; font-weight:700; }
   .report-header h2::before { content:'▸'; color:var(--wire); margin-right:6px; }
   .report-header .meta { font-size:12px; color:var(--muted); margin-top:2px; }
+  .panel-tag {
+    font-size:9px; font-weight:800; letter-spacing:1px; text-transform:uppercase;
+    color:var(--muted); background:var(--input-bg); border:1px solid var(--border);
+    padding:4px 9px; border-radius:20px;
+  }
   .report-actions { display:flex; gap:8px; align-items:center; }
   .btn {
     border:none; border-radius:7px; padding:8px 15px; font-size:12px;
@@ -1030,44 +1060,44 @@
     <div class="sidebar-section">
       <div class="sidebar-label">Overview</div>
       <div class="sidebar-item active" onclick="showPage('dashboard', this)">
-        <span class="dot dot-daily"></span> Dashboard
+        <span class="nav-icon">📊</span> Dashboard
       </div>
       <div class="sidebar-item" onclick="showPage('analytics', this)">
-        <span class="dot dot-monthly"></span> Analytics (Charts)
+        <span class="nav-icon">📈</span> Analytics (Charts)
       </div>
       <div class="sidebar-item" onclick="showPage('groupanalytics', this)">
-        <span class="dot dot-monthly"></span> Demand Forecast
+        <span class="nav-icon">🔮</span> Demand Forecast
       </div>
     </div>
 
     <div class="sidebar-section">
       <div class="sidebar-label">Daily Reports <span class="freq-badge freq-daily">By 10:30 AM</span></div>
       <div class="sidebar-item" onclick="showPage('sales', this)">
-        <span class="dot dot-daily"></span> Daily Sales Register
+        <span class="nav-icon">🧾</span> Daily Sales Register
         <span class="freq-tag freq-daily">Daily</span>
       </div>
       <div class="sidebar-item" onclick="showPage('collection', this)">
-        <span class="dot dot-daily"></span> Daily Collection Report
+        <span class="nav-icon">💰</span> Daily Collection Report
         <span class="freq-tag freq-daily">Daily</span>
       </div>
       <div class="sidebar-item" onclick="showPage('compliance', this)">
-        <span class="dot dot-daily"></span> Sales Compliance
+        <span class="nav-icon">✅</span> Sales Compliance
         <span class="freq-tag freq-daily">Daily</span>
       </div>
       <div class="sidebar-item" onclick="showPage('productivity', this)">
-        <span class="dot dot-daily"></span> Productivity Report
+        <span class="nav-icon">⚙️</span> Productivity Report
         <span class="freq-tag freq-daily">Daily</span>
       </div>
       <div class="sidebar-item" onclick="showPage('vehicle', this)">
-        <span class="dot dot-daily"></span> Vehicle Placement Failure
+        <span class="nav-icon">🚚</span> Vehicle Placement Failure
         <span class="freq-tag freq-daily">Daily</span>
       </div>
       <div class="sidebar-item" onclick="showPage('travel', this)">
-        <span class="dot dot-daily"></span> Official Travel Report
+        <span class="nav-icon">✈️</span> Official Travel Report
         <span class="freq-tag freq-daily">Daily</span>
       </div>
       <div class="sidebar-item" onclick="showPage('pricelist', this)">
-        <span class="dot dot-daily"></span> Price List Compliance
+        <span class="nav-icon">🏷️</span> Price List Compliance
         <span class="freq-tag freq-daily">Daily</span>
       </div>
     </div>
@@ -1075,39 +1105,39 @@
     <div class="sidebar-section">
       <div class="sidebar-label">Monthly Reports</div>
       <div class="sidebar-item" onclick="showPage('top10vol', this)">
-        <span class="dot dot-monthly"></span> Top 10 by Volume
+        <span class="nav-icon">🏆</span> Top 10 by Volume
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('bot10vol', this)">
-        <span class="dot dot-monthly"></span> Bottom 10 by Volume
+        <span class="nav-icon">📉</span> Bottom 10 by Volume
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('bot10val', this)">
-        <span class="dot dot-monthly"></span> Bottom 10 by Value
+        <span class="nav-icon">📉</span> Bottom 10 by Value
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('complaints', this)">
-        <span class="dot dot-monthly"></span> Customer Complaints
+        <span class="nav-icon">📢</span> Customer Complaints
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('financials', this)">
-        <span class="dot dot-monthly"></span> Financials
+        <span class="nav-icon">🏦</span> Financials
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('manufacturing', this)">
-        <span class="dot dot-monthly"></span> Manufacturing & Sales
+        <span class="nav-icon">🏭</span> Manufacturing &amp; Sales
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('salesperson', this)">
-        <span class="dot dot-monthly"></span> Sales Person Report
+        <span class="nav-icon">🧑‍💼</span> Sales Person Report
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('daywise', this)">
-        <span class="dot dot-monthly"></span> Day-wise Sales Report
+        <span class="nav-icon">📅</span> Day-wise Sales Report
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
       <div class="sidebar-item" onclick="showPage('wirerod', this)">
-        <span class="dot dot-monthly"></span> Wire Rod Report
+        <span class="nav-icon">🧵</span> Wire Rod Report
         <span class="freq-tag freq-monthly">Monthly</span>
       </div>
     </div>
@@ -1115,10 +1145,10 @@
     <div class="sidebar-section">
       <div class="sidebar-label">History & Setup</div>
       <div class="sidebar-item" onclick="showPage('history', this)">
-        <span class="dot dot-daily"></span> Report History
+        <span class="nav-icon">🕓</span> Report History
       </div>
       <div class="sidebar-item" onclick="showPage('setup', this)">
-        <span class="dot dot-monthly"></span> Setup / Upload Data
+        <span class="nav-icon">📤</span> Setup / Upload Data
       </div>
     </div>
   </div>
@@ -1144,6 +1174,9 @@
       <!-- Welcome / Title Banner -->
       <div class="dash-banner">
         <div>
+          <div class="dash-eyebrow">
+            <span class="live-dot"></span> LIVE OVERVIEW
+          </div>
           <div class="dash-banner-title">Bajrang Wire Products — MIS Dashboard</div>
           <div class="dash-banner-sub" id="dashBannerDate">Loading date…</div>
         </div>
@@ -1155,36 +1188,55 @@
       <!-- KPI Cards -->
       <div class="overview-grid" style="grid-template-columns:repeat(3,1fr)">
         <div class="stat-card" style="--accent-color:var(--wire)">
+          <div class="stat-icon" style="background:rgba(232,160,32,0.14); color:var(--wire)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="3" width="15" height="13"/><path d="M16 8h4l3 3v5h-7V8Z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          </div>
           <div class="label">Today's Dispatch Qty</div>
           <div class="value" id="todayQty">—</div>
           <div class="sub">MT dispatched today</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--success)">
+          <div class="stat-icon" style="background:rgba(46,204,113,0.14); color:var(--success)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
           <div class="label">Today's Bill Value</div>
           <div class="value" id="todayVal">—</div>
           <div class="sub">Rs. (with GST / estimated)</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--info)">
+          <div class="stat-icon" style="background:rgba(52,152,219,0.14); color:var(--info)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8 12 14.7 8.7 11.4 3 17"/></svg>
+          </div>
           <div class="label">MTD Dispatch Qty</div>
           <div class="value" id="mtdQty">—</div>
           <div class="sub">Month to date (MT)</div>
         </div>
         <div class="stat-card" style="--accent-color:#9b59b6">
+          <div class="stat-icon" style="background:rgba(155,89,182,0.14); color:#9b59b6">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          </div>
           <div class="label">MTD Bill Value</div>
           <div class="value" id="mtdVal">—</div>
           <div class="sub">Rs. Lakhs (MTD)</div>
         </div>
         <div class="stat-card" style="--accent-color:var(--spark)">
+          <div class="stat-icon" style="background:rgba(240,192,64,0.16); color:var(--spark)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
           <div class="label">Pending Orders (Today)</div>
           <div class="value" id="pendingQty">—</div>
           <div class="sub" id="pendingSub">Qty (MT) — provisional, truck not out</div>
         </div>
         <div class="stat-card" style="--accent-color:#e74c3c">
+          <div class="stat-icon" style="background:rgba(231,76,60,0.14); color:#e74c3c">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a5 5 0 1 0 0-10 5 5 0 0 0 0 10Z"/><path d="M6 22c0-3.3 2.7-6 6-6s6 2.7 6 6"/></svg>
+          </div>
           <div class="label">Top Sales Person (MTD)</div>
           <div class="value" id="topSpName" style="font-size:18px">—</div>
           <div class="sub" id="topSpSub">By value (MTD)</div>
         </div>
       </div>
+
 
       <!-- Charts Row 1: Trend + Today's Product Mix -->
       <div class="overview-grid" style="grid-template-columns:2fr 1fr; margin-bottom:16px">
@@ -1194,6 +1246,7 @@
               <h2>Dispatch Trend</h2>
               <div class="meta">Daily Qty (MT) &amp; Value (Rs.) — current month</div>
             </div>
+            <span class="panel-tag">Chart</span>
           </div>
           <div class="section-pad" style="height:300px"><canvas id="chartDashTrend"></canvas></div>
         </div>
@@ -1203,6 +1256,7 @@
               <h2>PC Wire vs ACSR</h2>
               <div class="meta" id="dashProductMixMeta">MTD Qty (MT) &amp; Value (Rs.) comparison</div>
             </div>
+            <span class="panel-tag">Chart</span>
           </div>
           <div class="section-pad" style="height:300px; position:relative">
             <canvas id="chartDashProductMix"></canvas>
