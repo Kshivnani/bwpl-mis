@@ -2095,6 +2095,15 @@ function initApp() {
     showToast('⚠️ Data format updated — please re-upload POS file', true);
     document.getElementById('dataStatus').innerHTML = `<span style="color:var(--spark)">⚠️ Data updated (v5). Please re-upload POS Excel file from Setup page.</span>`;
   }
+
+  // Auto-sync Wire Rod sheet every 2 minutes. Only fires if we already have a
+  // valid Google auth token (i.e. the user has synced at least once this
+  // session) — this avoids popping up the OAuth consent screen unprompted.
+  setInterval(() => {
+    if (window._gToken || googleAccessToken) {
+      syncWireRodSheet();
+    }
+  }, 2 * 60 * 1000);
 }
 
 function formatDate(d) {
