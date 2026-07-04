@@ -1048,6 +1048,7 @@
         </div>
       </div>
     </div>
+    <button class="theme-toggle-btn" onclick="toggleVoiceGreeting()" title="Toggle voice greeting" id="voiceToggleBtn">🔊</button>
     <button class="sync-btn" onclick="syncFromGoogleSheet()">☁ Sync</button>
   </div>
 </div>
@@ -5589,6 +5590,73 @@ function signInWithGoogle() {
     });
 }
 
+// ── VOICE GREETING SYSTEM ────────────────────────────────
+const VOICE_KEY = 'bwpl_voice_enabled';
+
+function isVoiceEnabled() {
+  const v = localStorage.getItem(VOICE_KEY);
+  return v === null ? true : v === 'true';
+}
+
+function toggleVoiceGreeting() {
+  const enabled = !isVoiceEnabled();
+  localStorage.setItem(VOICE_KEY, String(enabled));
+  const btn = document.getElementById('voiceToggleBtn');
+  if (btn) btn.textContent = enabled ? '🔊' : '🔇';
+  if (!enabled && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  if (enabled) speakGreeting(currentUserEmail, true);
+}
+
+function getFirstName(displayName, email) {
+  if (displayName && displayName.trim()) return displayName.trim().split(' ')[0];
+  if (email) return email.split('@')[0].split(/[._]/)[0].replace(/\b\w/, c => c.toUpperCase());
+  return '';
+}
+
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function speakGreeting(email, isReplay) {
+  if (!('speechSynthesis' in window)) return;
+  if (!isReplay && !isVoiceEnabled()) return;
+
+  const name = getFirstName(document.querySelector('#userBadge span') ? document.querySelector('#userBadge span').textContent : '', email);
+  const text = name
+    ? `Login successful. ${getTimeGreeting()}, ${name}.`
+    : `Login successful. ${getTimeGreeting()}.`;
+
+  window.speechSynthesis.cancel();
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.rate = 1;
+  utter.pitch = 1;
+  utter.volume = 1;
+
+  const pickVoice = () => {
+    const voices = window.speechSynthesis.getVoices();
+    const preferred = voices.find(v => /en-IN|en-GB|en-US/.test(v.lang) && /female|Google/i.test(v.name))
+      || voices.find(v => /en-IN|en-GB|en-US/.test(v.lang))
+      || voices[0];
+    if (preferred) utter.voice = preferred;
+    window.speechSynthesis.speak(utter);
+  };
+
+  if (window.speechSynthesis.getVoices().length) {
+    pickVoice();
+  } else {
+    window.speechSynthesis.onvoiceschanged = pickVoice;
+  }
+}
+
+// Initialize voice toggle icon on load
+(function() {
+  const btn = document.getElementById('voiceToggleBtn');
+  if (btn) btn.textContent = isVoiceEnabled() ? '🔊' : '🔇';
+})();
+
 // ── THEME SYSTEM ──────────────────────────────────────────
 const THEME_ICONS = { dark:'🌙', light:'☀️', slate:'🔵', emerald:'🌿', vibe:'⚡' };
 const THEME_KEY = 'bwpl_theme';
@@ -5667,6 +5735,9 @@ auth.onAuthStateChanged(user => {
         `;
         headerRight.appendChild(userDiv);
       }
+
+      // 🔊 Voice greeting on successful login
+      speakGreeting(user.email);
     }, 150);
   } else {
     // Full reset — clear all session state
