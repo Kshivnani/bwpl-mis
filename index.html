@@ -533,29 +533,159 @@
     position:fixed; inset:0; z-index:9999;
     background: var(--login-bg);
     display:flex; align-items:center; justify-content:center;
+    overflow:hidden; padding:20px; box-sizing:border-box;
   }
+
+  /* Animated industrial backdrop — wire mesh + drifting sparks */
+  .login-bg-decor { position:absolute; inset:0; overflow:hidden; pointer-events:none; }
+  .login-bg-decor svg.wire-mesh {
+    position:absolute; inset:0; width:100%; height:100%;
+    opacity:0.16; stroke:var(--wire); fill:none;
+  }
+  .login-bg-decor .wire-mesh path { stroke-width:1.2; }
+  .login-orb {
+    position:absolute; border-radius:50%; filter:blur(60px);
+    background:radial-gradient(circle, var(--wire) 0%, transparent 70%);
+    opacity:0.22; animation:orbFloat 14s ease-in-out infinite;
+  }
+  .login-orb.o1 { width:340px; height:340px; top:-120px; left:-100px; animation-delay:0s; }
+  .login-orb.o2 {
+    width:280px; height:280px; bottom:-110px; right:-80px; animation-delay:4s;
+    background:radial-gradient(circle, var(--info) 0%, transparent 70%);
+  }
+  .login-orb.o3 {
+    width:200px; height:200px; top:40%; right:12%; animation-delay:8s; opacity:0.14;
+  }
+  @keyframes orbFloat {
+    0%, 100% { transform:translate(0,0) scale(1); }
+    50% { transform:translate(24px,-28px) scale(1.08); }
+  }
+  .login-spark {
+    position:absolute; width:3px; height:3px; border-radius:50%;
+    background:var(--spark); box-shadow:0 0 8px 2px var(--spark);
+    animation:sparkRise linear infinite;
+  }
+  @keyframes sparkRise {
+    0% { transform:translateY(0) translateX(0); opacity:0; }
+    10% { opacity:0.9; }
+    90% { opacity:0.5; }
+    100% { transform:translateY(-100vh) translateX(20px); opacity:0; }
+  }
+
   .login-card {
+    position:relative; z-index:2;
     background: var(--card-bg); border:1px solid var(--border);
-    border-radius:16px; padding:48px 40px; width:380px;
-    text-align:center; box-shadow:0 24px 64px rgba(0,0,0,0.5);
+    border-radius:20px; padding:44px 38px 34px; width:400px; max-width:100%;
+    text-align:center; box-shadow:0 30px 80px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset;
+    backdrop-filter:blur(6px);
+    animation:cardRise 0.6s cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes cardRise {
+    from { opacity:0; transform:translateY(18px) scale(0.98); }
+    to { opacity:1; transform:translateY(0) scale(1); }
+  }
+  .login-card::before {
+    content:''; position:absolute; top:0; left:14%; right:14%; height:2px;
+    background:linear-gradient(90deg, transparent, var(--wire), transparent);
+    border-radius:2px;
   }
   .login-logo {
-    background:#fff; border-radius:10px; padding:12px 20px;
-    display:inline-block; margin-bottom:24px;
+    background:#fff; border-radius:12px; padding:12px 22px;
+    display:inline-block; margin-bottom:20px;
+    box-shadow:0 8px 24px rgba(0,0,0,0.25);
   }
   .login-logo img { height:36px; display:block; }
-  .login-title { font-size:22px; font-weight:800; color:var(--white); margin-bottom:6px; }
-  .login-sub { font-size:13px; color:var(--muted); margin-bottom:32px; }
-  .login-btn {
-    width:100%; padding:14px; border-radius:8px; border:none; cursor:pointer;
-    background:#fff; color:#333; font-size:15px; font-weight:600;
-    display:flex; align-items:center; justify-content:center; gap:10px;
-    transition:box-shadow 0.2s; box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  .login-badge-row {
+    display:flex; align-items:center; justify-content:center; gap:6px;
+    margin-bottom:14px;
   }
-  .login-btn:hover { box-shadow:0 4px 16px rgba(0,0,0,0.35); }
-  .login-btn img { width:20px; height:20px; }
-  .login-err { color:var(--danger); font-size:12px; margin-top:16px; min-height:18px; }
-  .login-restrict { font-size:11px; color:var(--muted); margin-top:20px; }
+  .login-badge-row .pulse-dot {
+    width:7px; height:7px; border-radius:50%; background:var(--success);
+    box-shadow:0 0 0 0 rgba(46,204,113,0.6); animation:pulseDot 2s infinite;
+  }
+  @keyframes pulseDot {
+    0% { box-shadow:0 0 0 0 rgba(46,204,113,0.55); }
+    70% { box-shadow:0 0 0 7px rgba(46,204,113,0); }
+    100% { box-shadow:0 0 0 0 rgba(46,204,113,0); }
+  }
+  .login-badge-row span { font-size:10px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); font-weight:700; }
+  .login-title {
+    font-size:23px; font-weight:800; color:var(--white); margin-bottom:6px;
+    letter-spacing:0.3px;
+  }
+  .login-sub { font-size:13px; color:var(--muted); margin-bottom:30px; line-height:1.5; }
+
+  .login-field { position:relative; margin-bottom:14px; text-align:left; }
+  .login-field .field-icon {
+    position:absolute; left:14px; top:50%; transform:translateY(-50%);
+    width:16px; height:16px; color:var(--muted); pointer-events:none;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .login-field .field-icon svg { width:16px; height:16px; }
+  .login-field input {
+    width:100%; padding:13px 14px 13px 40px; border-radius:10px;
+    border:1px solid var(--input-border); background:var(--input-bg);
+    color:var(--white); font-size:14px; box-sizing:border-box; outline:none;
+    transition:border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  }
+  .login-field input::placeholder { color:var(--muted); opacity:0.75; }
+  .login-field input:focus {
+    border-color:var(--wire); box-shadow:0 0 0 3px rgba(232,160,32,0.15);
+  }
+  .login-field .toggle-pass {
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    cursor:pointer; color:var(--muted); display:flex; align-items:center;
+    padding:2px; border-radius:4px; transition:color 0.15s;
+  }
+  .login-field .toggle-pass:hover { color:var(--wire); }
+  .login-field .toggle-pass svg { width:16px; height:16px; }
+
+  .login-row-between {
+    display:flex; align-items:center; justify-content:flex-end;
+    margin:2px 0 18px;
+  }
+  .login-row-between a {
+    color:var(--muted); font-size:12px; cursor:pointer; text-decoration:none;
+    transition:color 0.15s; border-bottom:1px dashed transparent;
+  }
+  .login-row-between a:hover { color:var(--wire); border-bottom-color:var(--wire); }
+
+  .login-submit-btn {
+    width:100%; padding:13px; border-radius:10px; border:none; cursor:pointer;
+    background:linear-gradient(135deg, var(--wire) 0%, var(--wire-dim) 100%);
+    color:var(--steel); font-size:15px; font-weight:800; letter-spacing:0.2px;
+    box-shadow:0 10px 24px -8px rgba(232,160,32,0.55);
+    transition:transform 0.15s, box-shadow 0.2s, filter 0.2s;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .login-submit-btn:hover { transform:translateY(-1px); filter:brightness(1.06); box-shadow:0 14px 28px -8px rgba(232,160,32,0.65); }
+  .login-submit-btn:active { transform:translateY(0); }
+  .login-submit-btn .btn-arrow { transition:transform 0.2s; }
+  .login-submit-btn:hover .btn-arrow { transform:translateX(3px); }
+
+  .login-divider {
+    display:flex; align-items:center; gap:12px; margin:22px 0 18px; width:100%;
+  }
+  .login-divider .line { flex:1; height:1px; background:var(--input-border); }
+  .login-divider span { color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px; }
+
+  .login-btn {
+    width:100%; padding:13px; border-radius:10px; border:1px solid var(--input-border); cursor:pointer;
+    background:#fff; color:#333; font-size:14px; font-weight:600;
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    transition:box-shadow 0.2s, transform 0.15s; box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  }
+  .login-btn:hover { box-shadow:0 6px 18px rgba(0,0,0,0.3); transform:translateY(-1px); }
+  .login-btn img { width:18px; height:18px; }
+  .login-err {
+    color:var(--danger); font-size:12px; margin-top:16px; min-height:18px;
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
+  .login-restrict {
+    font-size:11px; color:var(--muted); margin-top:24px;
+    padding-top:16px; border-top:1px solid var(--input-border);
+    display:flex; align-items:center; justify-content:center; gap:6px;
+  }
   .login-restrict span { color:var(--wire); font-weight:600; }
   #appWrapper { display:none; }
   /* ── MOBILE RESPONSIVE ── */
@@ -658,10 +788,15 @@
     }
 
     /* Login card */
-    .login-card { width: 88%; padding: 28px 20px; border-radius: 12px; }
-    .login-title { font-size: 17px; }
-    .login-sub { font-size: 12px; }
-    .login-btn { font-size: 14px; padding: 12px; }
+    .login-card { width: 92%; padding: 32px 22px 26px; border-radius: 16px; }
+    .login-title { font-size: 18px; }
+    .login-sub { font-size: 12px; margin-bottom: 24px; }
+    .login-btn { font-size: 13px; padding: 12px; }
+    .login-submit-btn { font-size: 14px; padding: 12px; }
+    .login-orb { filter: blur(40px); }
+    .login-orb.o1 { width: 220px; height: 220px; }
+    .login-orb.o2 { width: 190px; height: 190px; }
+    .login-orb.o3 { display: none; }
 
     /* Charts height */
     .section-pad canvas { max-height: 220px; }
@@ -705,34 +840,74 @@
 
 <!-- LOGIN SCREEN -->
 <div id="loginScreen">
+  <!-- Animated industrial backdrop -->
+  <div class="login-bg-decor">
+    <svg class="wire-mesh" viewBox="0 0 800 600" preserveAspectRatio="none">
+      <path d="M-20,80 C150,140 250,20 420,90 S650,180 820,60"></path>
+      <path d="M-20,220 C180,160 260,300 440,230 S680,120 820,240"></path>
+      <path d="M-20,360 C160,420 300,300 460,380 S700,460 820,340"></path>
+      <path d="M-20,500 C200,440 320,560 480,490 S720,400 820,520"></path>
+    </svg>
+    <div class="login-orb o1"></div>
+    <div class="login-orb o2"></div>
+    <div class="login-orb o3"></div>
+    <div class="login-spark" style="left:12%; animation-duration:9s; animation-delay:0s;"></div>
+    <div class="login-spark" style="left:28%; animation-duration:12s; animation-delay:2s;"></div>
+    <div class="login-spark" style="left:48%; animation-duration:8s; animation-delay:1s;"></div>
+    <div class="login-spark" style="left:67%; animation-duration:11s; animation-delay:3.5s;"></div>
+    <div class="login-spark" style="left:82%; animation-duration:10s; animation-delay:5s;"></div>
+    <div class="login-spark" style="left:92%; animation-duration:13s; animation-delay:1.5s;"></div>
+  </div>
+
   <div class="login-card">
     <div class="login-logo">
       <img src="logo.png" alt="Bajrang Wire Products" onerror="this.style.display='none'">
     </div>
+
+    <div class="login-badge-row">
+      <span class="pulse-dot"></span>
+      <span>Secure Access Portal</span>
+    </div>
+
     <div class="login-title">BWPL MIS Automation</div>
     <div class="login-sub">Bajrang Wire Products — Daily Report System</div>
 
     <!-- Email/Password Form -->
-    <div style="width:100%;margin-bottom:16px">
-      <input type="email" id="loginEmail" placeholder="Enter your email"
-        style="width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;margin-bottom:10px;box-sizing:border-box;outline:none"
-        onkeydown="if(event.key==='Enter')signInWithEmail()">
-      <input type="password" id="loginPassword" placeholder="Enter your password"
-        style="width:100%;padding:11px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.07);color:#fff;font-size:14px;margin-bottom:12px;box-sizing:border-box;outline:none"
-        onkeydown="if(event.key==='Enter')signInWithEmail()">
-      <button onclick="signInWithEmail()" style="width:100%;padding:12px;border-radius:8px;border:none;cursor:pointer;background:var(--wire);color:var(--steel);font-size:15px;font-weight:700">
-        Sign In
-      </button>
-      <div style="text-align:right;margin-top:8px">
-        <a onclick="forgotPassword()" style="color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline">Forgot password?</a>
+    <div style="width:100%">
+      <div class="login-field">
+        <span class="field-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 6c0-1.1-.9-2-2-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V6Z"/><path d="m2 7 10 6 10-6"/></svg>
+        </span>
+        <input type="email" id="loginEmail" placeholder="Enter your email" autocomplete="username"
+          onkeydown="if(event.key==='Enter')signInWithEmail()">
       </div>
+
+      <div class="login-field">
+        <span class="field-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+        </span>
+        <input type="password" id="loginPassword" placeholder="Enter your password" autocomplete="current-password"
+          onkeydown="if(event.key==='Enter')signInWithEmail()">
+        <span class="toggle-pass" id="togglePassBtn" onclick="togglePasswordVisibility()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </span>
+      </div>
+
+      <div class="login-row-between">
+        <a onclick="forgotPassword()">Forgot password?</a>
+      </div>
+
+      <button class="login-submit-btn" onclick="signInWithEmail()">
+        Sign In
+        <span class="btn-arrow">→</span>
+      </button>
     </div>
 
     <!-- Divider -->
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;width:100%">
-      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
-      <span style="color:var(--muted);font-size:12px">or</span>
-      <div style="flex:1;height:1px;background:rgba(255,255,255,0.1)"></div>
+    <div class="login-divider">
+      <div class="line"></div>
+      <span>or continue with</span>
+      <div class="line"></div>
     </div>
 
     <!-- Google Login -->
@@ -742,6 +917,10 @@
     </button>
 
     <div class="login-err" id="loginErr"></div>
+
+    <div class="login-restrict">
+      🔒 Access restricted to <span>@bajranggroup.com</span> accounts
+    </div>
   </div>
 </div>
 
@@ -5216,6 +5395,21 @@ provider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
 
 // Google OAuth access token store karne ke liye
 let googleAccessToken = null;
+
+function togglePasswordVisibility() {
+  const input = document.getElementById('loginPassword');
+  const btn = document.getElementById('togglePassBtn');
+  if (!input || !btn) return;
+  const showEye = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z"/><circle cx="12" cy="12" r="3"/></svg>';
+  const hideEye = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.6 21.6 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.6 21.6 0 0 1-2.16 3.19M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="M1 1l22 22"/></svg>';
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.innerHTML = hideEye;
+  } else {
+    input.type = 'password';
+    btn.innerHTML = showEye;
+  }
+}
 
 function signInWithEmail() {
   const email = document.getElementById('loginEmail').value.trim();
