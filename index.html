@@ -4526,16 +4526,23 @@ function deriveMonthLabel(v) {
   } else {
     const s = String(v).trim();
     if (!s) return null;
-    // Try native parse first (handles ISO "2026-06-17" and "6/17/2026")
-    const parsed = new Date(s);
-    if (!isNaN(parsed.getTime())) {
-      d = parsed;
+    if (/^\d{4}[\/\-]\d{1,2}[\/\-]\d{1,2}/.test(s)) {
+      // Unambiguous ISO format "2026-06-17" — safe to use native parse
+      const parsed = new Date(s);
+      if (!isNaN(parsed.getTime())) d = parsed;
     } else {
-      // Try DD/MM/YYYY or DD-MM-YYYY explicitly
+      // Sheet dates are DD/MM/YYYY (Indian format). Parse this explicitly FIRST —
+      // native new Date("01/04/2026") assumes US MM/DD/YYYY and silently reads it
+      // as 4-Jan instead of 1-Apr, which was corrupting the month bucketing for
+      // any day-of-month <= 12.
       const m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})/);
       if (m) {
         const yr = m[3].length === 2 ? '20'+m[3] : m[3];
         d = new Date(Date.UTC(+yr, +m[2]-1, +m[1]));
+      } else {
+        // Last resort — free-form string, let JS try
+        const parsed = new Date(s);
+        if (!isNaN(parsed.getTime())) d = parsed;
       }
     }
   }
