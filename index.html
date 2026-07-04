@@ -4621,9 +4621,12 @@ function parseWRData(rows) {
     const discount = safe(r[13]);           // Discount — as-is
     const landedValue = actualValue + freight - discount; // Landed = Actual + Freight - Discount
     const landedAvgPrice = qty > 0 ? landedValue / qty : 0; // Landed Avg = Landed / Qty
-    // Use ONLY the sheet's "Order Month" column (col AA) — no fallback to
-    // any other column (not the "Month" col Z, not derived from Date).
-    const derivedMonth = (r[26]||'').trim();
+    // Use ONLY the actual receipt Date column (col B) to bucket the month.
+    // "Order Month" (col AA) tracks when the PO was raised, not when material
+    // was received — e.g. a PO from March can land in April. This report is
+    // about Wire Rod actually RECEIVED in a month, so it must key off Date,
+    // not Order Month or the sheet's "Month" formula column.
+    const derivedMonth = deriveMonthLabel(r[1]);
     wrData.push({
       sno: r[0], date: r[1], party: (r[2]||'').trim(),
       grade: (r[5]||'Other').trim(), size: (r[6]||'-').trim(),
