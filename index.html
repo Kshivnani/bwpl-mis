@@ -1668,7 +1668,7 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
+              <tr id="finHeaderRow">
                 <th>Metric</th>
                 <th class="td-num">Apr-26</th><th class="td-num">May-26</th>
                 <th class="td-num">Jun-26</th><th class="td-num">Jul-26</th>
@@ -1697,7 +1697,7 @@
         <div class="table-wrap">
           <table id="mfgTable">
             <thead>
-              <tr>
+              <tr id="mfgHeaderRow">
                 <th>Product</th>
                 <th class="td-num">Apr-26 Prod</th><th class="td-num">Apr-26 Sales</th>
                 <th class="td-num">May-26 Prod</th><th class="td-num">May-26 Sales</th>
@@ -2151,6 +2151,27 @@ function showPage(name, el) {
   }
   if (name === 'groupanalytics' && dispatchData.length > 0) {
     setTimeout(loadGroupAnalytics, 50);
+  }
+  if (name === 'top10vol' && dispatchData.length > 0) {
+    setTimeout(loadTop10Vol, 50);
+  }
+  if (name === 'top10val' && dispatchData.length > 0) {
+    setTimeout(loadTop10Val, 50);
+  }
+  if (name === 'bot10vol' && dispatchData.length > 0) {
+    setTimeout(loadBot10Vol, 50);
+  }
+  if (name === 'bot10val' && dispatchData.length > 0) {
+    setTimeout(loadBot10Val, 50);
+  }
+  if (name === 'salesperson' && dispatchData.length > 0) {
+    setTimeout(loadSalesPersonReport, 50);
+  }
+  if (name === 'daywise' && dispatchData.length > 0) {
+    setTimeout(loadDayWiseReport, 50);
+  }
+  if (name === 'wirerod' && typeof wrData !== 'undefined' && wrData.length > 0) {
+    setTimeout(loadWireRodReport, 50);
   }
   if (name === 'setup') {
     setTimeout(() => { if (typeof isSuperAdmin !== 'undefined' && isSuperAdmin) loadManageUsers(); }, 50);
@@ -3821,6 +3842,41 @@ function populateAllMonthSelects() {
   populateMonthSelect('wrMonth', 8, 'my');
 }
 
+// Indian FY runs Apr–Mar. These return the current FY-half (H1: Apr-Sep,
+// H2: Oct-Mar) and current FY-quarter, both computed from the live clock —
+// so Financials/Manufacturing tables auto-shift to the next half/quarter
+// without any manual edits.
+function getFYHalfMonths() {
+  const y = today.getFullYear(), m = today.getMonth(); // Apr = 3
+  const fyStartYear = (m >= 3) ? y : y - 1;
+  const monthInFY = (m - 3 + 12) % 12; // 0=Apr ... 11=Mar
+  const halfStartOffset = monthInFY < 6 ? 0 : 6;
+  const months = [];
+  for (let i = 0; i < 6; i++) {
+    const d = new Date(fyStartYear, 3 + halfStartOffset + i, 1);
+    months.push({
+      label: d.toLocaleString('en-US', { month: 'short' }) + '-' + String(d.getFullYear()).slice(-2),
+      val: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    });
+  }
+  return months;
+}
+function getFYQuarterMonths() {
+  const y = today.getFullYear(), m = today.getMonth();
+  const fyStartYear = (m >= 3) ? y : y - 1;
+  const monthInFY = (m - 3 + 12) % 12;
+  const qStartOffset = Math.floor(monthInFY / 3) * 3;
+  const months = [];
+  for (let i = 0; i < 3; i++) {
+    const d = new Date(fyStartYear, 3 + qStartOffset + i, 1);
+    months.push({
+      label: d.toLocaleString('en-US', { month: 'short' }) + '-' + String(d.getFullYear()).slice(-2),
+      val: d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0')
+    });
+  }
+  return months;
+}
+
 // ── MAIN loadAnalytics ───────────────────────────────────
 function loadAnalytics() {
   const mv = document.getElementById('anaMonth').value;
@@ -4065,7 +4121,12 @@ function addComplaintRow() {
 
 // ─── FINANCIALS ───────────────────────────────────────────
 function initFinancials() {
-  const months = ['Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26'];
+  const fyMonths = getFYHalfMonths();
+  const months = fyMonths.map(x => x.label);
+  const headerRow = document.getElementById('finHeaderRow');
+  if (headerRow) {
+    headerRow.innerHTML = '<th>Metric</th>' + months.map(mo => `<th class="td-num">${mo}</th>`).join('');
+  }
   const tbody = document.getElementById('finBody');
   tbody.innerHTML = FIN_METRICS.map((m, i) => `
     <tr>
@@ -4082,6 +4143,11 @@ function initFinancials() {
 
 // ─── MANUFACTURING ────────────────────────────────────────
 function initManufacturing() {
+  const qMonths = getFYQuarterMonths();
+  const headerRow = document.getElementById('mfgHeaderRow');
+  if (headerRow) {
+    headerRow.innerHTML = '<th>Product</th>' + qMonths.map(mo => `<th class="td-num">${mo.label} Prod</th><th class="td-num">${mo.label} Sales</th>`).join('');
+  }
   const tbody = document.getElementById('mfgBody');
   tbody.innerHTML = MFG_PRODUCTS.map((p,i) => `
     <tr>
@@ -4095,8 +4161,8 @@ function initManufacturing() {
     </tr>`).join('');
 }
 function loadManufacturing() {
-  // Auto-fill sales columns from dispatch data
-  ['2026-04','2026-05','2026-06'].forEach((mv, mi) => {
+  // Auto-fill sales columns from dispatch data — always the current FY quarter
+  getFYQuarterMonths().map(x => x.val).forEach((mv, mi) => {
     const rows = getMonthData(mv);
     MFG_PRODUCTS.forEach((p, pi) => {
       const qty = rows.filter(r => (r.product||'').includes(p.split(' ')[0])).reduce((s,r) => s+r.qty, 0);
@@ -4276,7 +4342,7 @@ function downloadReport(type) {
 
   } else if (type === 'financials') {
     title = 'Financials BWPL';
-    const months = ['Apr-26','May-26','Jun-26','Jul-26','Aug-26','Sep-26'];
+    const months = getFYHalfMonths().map(x => x.label);
     const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Financials'],
       ['Frequency: Monthly — 10th of each month'],[]
       ,['Metric',...months]];
@@ -4287,9 +4353,10 @@ function downloadReport(type) {
 
   } else if (type === 'manufacturing') {
     title = 'Manufacturing & Sales Records';
+    const qMonths = getFYQuarterMonths().map(x => x.label);
     const rows = [['BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.'],['Manufacturing & Sales Records'],
       ['Frequency: Monthly — 7th Working Day'],[]
-      ,['Product','Apr-26 Prod','Apr-26 Sales','May-26 Prod','May-26 Sales','Jun-26 Prod','Jun-26 Sales']];
+      ,['Product', ...qMonths.flatMap(mo => [mo+' Prod', mo+' Sales'])]];
     MFG_PRODUCTS.forEach((p,i) => {
       rows.push([p, ...Array.from({length:6}, (_,j) => document.getElementById(`mfg_${i}_${j}`)?.value||'')]);
     });
