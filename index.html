@@ -280,13 +280,11 @@
   }
   .header-brand { display:flex; align-items:center; gap:12px; flex-shrink:0; }
   .header-brand .logo {
-    height:36px; width:auto; background: #ffffff; flex-shrink:0;
-    border-radius: 7px; display:flex; align-items:center; justify-content:center;
-    overflow:hidden; padding:5px 12px;
-    box-shadow:0 4px 14px rgba(0,0,0,0.3), 0 0 0 1px rgba(232,160,32,0.25);
+    width:46px; height:38px; background: #ffffff; flex-shrink:0;
+    border-radius: 8px; display:flex; align-items:center; justify-content:center;
+    overflow:hidden; box-shadow:0 4px 14px rgba(0,0,0,0.3), 0 0 0 1px rgba(232,160,32,0.25);
     transition: transform 0.25s ease;
   }
-  .header-brand .logo img { height:100%; width:auto; display:block; object-fit:contain; }
   .header-brand .logo:hover { transform: scale(1.06) rotate(-2deg); }
   .header-title-wrap { display:flex; flex-direction:column; }
   .header-brand h1 {
@@ -792,7 +790,7 @@
       position: sticky; top: 0; z-index: 200;
     }
     .header-brand { gap: 8px; flex: 1; min-width: 0; }
-    .header-brand .logo { width: auto; height: 26px; padding:4px 8px; flex-shrink: 0; }
+    .header-brand .logo { width: 32px; height: 26px; flex-shrink: 0; }
     .header-title-wrap { min-width: 0; }
     .header-brand h1 { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .header-sub { display: none; }
@@ -1021,7 +1019,7 @@
 <!-- HEADER -->
 <div class="header">
   <div class="header-brand">
-    <div class="logo"><img src="logo.png" alt="Bajrang"></div>
+    <div class="logo"><img src="logo.png" alt="Bajrang" style="width:100%;height:100%;object-fit:contain;padding:4px"></div>
     <div class="header-title-wrap">
       <h1>BWPL MIS Automation</h1>
       <span class="header-sub">Bajrang Wire Products — Daily Report System</span>
