@@ -1144,6 +1144,13 @@
     </div>
 
     <div class="sidebar-section">
+      <div class="sidebar-label">Masters</div>
+      <div class="sidebar-item" onclick="showPage('groupmaster', this)">
+        <span class="nav-icon">🏢</span> Group / Company Master
+      </div>
+    </div>
+
+    <div class="sidebar-section">
       <div class="sidebar-label">History & Setup</div>
       <div class="sidebar-item" onclick="showPage('history', this)">
         <span class="nav-icon">🕓</span> Report History
@@ -2193,6 +2200,74 @@
       </div>
     </div>
 
+    <!-- GROUP / COMPANY MASTER -->
+    <div class="page" id="page-groupmaster">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Group / Company Master</h2>
+            <div class="meta">Group Name → Company → State → Location — saved to cloud, with live Sales pulled from dispatch data</div>
+          </div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
+            <input type="file" id="gmExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleCompanyMasterFileUpload(event)">
+            <button class="btn btn-secondary" onclick="exportCompanyMasterExcel()">⬇ Export Excel</button>
+            <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
+          </div>
+        </div>
+        <div id="gmCloudStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
+
+        <div class="section-pad" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+          <div class="form-group" style="min-width:160px">
+            <label>Group Name</label>
+            <input id="gmNewGroup" placeholder="e.g. Mamodia Group">
+          </div>
+          <div class="form-group" style="min-width:180px">
+            <label>Company Name</label>
+            <input id="gmNewCompany" placeholder="e.g. Mamodia Wires Pvt Ltd">
+          </div>
+          <div class="form-group" style="min-width:140px">
+            <label>State</label>
+            <input id="gmNewState" placeholder="e.g. Uttar Pradesh">
+          </div>
+          <div class="form-group" style="min-width:140px">
+            <label>Location</label>
+            <input id="gmNewLocation" placeholder="e.g. Kanpur">
+          </div>
+          <button class="btn btn-primary" onclick="addCompanyMasterRow()">+ Add Company</button>
+        </div>
+
+        <div class="section-pad" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding-top:0">
+          <div class="form-group" style="min-width:220px;flex:1">
+            <label>Search</label>
+            <input id="gmSearch" placeholder="Search group, company, state, location..." oninput="renderCompanyMaster()">
+          </div>
+          <div class="form-group" style="min-width:160px">
+            <label>Sales Shown For</label>
+            <select id="gmSalesFilter" onchange="gmSalesFilter=this.value; renderCompanyMaster()">
+              <option value="all">All Time</option>
+              <option value="month">This Month</option>
+            </select>
+          </div>
+          <div style="font-size:12px;color:var(--muted);padding-bottom:8px" id="gmCount"></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Group Name</th><th>Company Name</th><th>State</th><th>Location</th>
+                <th class="td-num">Sales Qty (MT)</th><th class="td-num">Sales Value (₹)</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="gmBody">
+              <tr><td colspan="7" class="empty-state">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- HISTORY -->
     <div class="page" id="page-history">
       <div class="report-panel">
@@ -2327,6 +2402,12 @@
 let dispatchData = [];  // All rows from Dispatch Planning
 let today = new Date();
 let todayStr = formatDate(today);
+
+// ── Group / Company Master (Firestore-backed) ──
+let companyMasterData = [];  // [{ id, group, company, state, location }]
+let gmSalesFilter = 'all';   // 'all' | 'month'
+let gmEditingId = null;
+let gmLoaded = false;
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
 
 // BWPL products for compliance
@@ -2453,6 +2534,10 @@ function showPage(name, el) {
   }
   if (name === 'groupanalytics' && dispatchData.length > 0) {
     setTimeout(loadGroupAnalytics, 50);
+  }
+  if (name === 'groupmaster') {
+    if (!gmLoaded) { gmLoaded = true; setTimeout(loadCompanyMaster, 50); }
+    else setTimeout(renderCompanyMaster, 50);
   }
   if (name === 'top10vol' && dispatchData.length > 0) {
     setTimeout(loadTop10Vol, 50);
@@ -2725,6 +2810,296 @@ function buildGroupMap(masterRows) {
 function getGroupForParty(party) {
   if (!party) return 'Ungrouped';
   return (groupMap[party.trim().toLowerCase()] || {}).group || party.trim();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// GROUP / COMPANY MASTER — cloud-synced (Firestore) + Excel import
+// Group Name / Company Name / State / Location, with live Sales
+// (Qty + Value) computed from dispatchData for each company.
+// ═══════════════════════════════════════════════════════════════
+
+function companyMasterKey(company) {
+  return String(company || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function escapeHtml(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function loadCompanyMaster() {
+  const status = document.getElementById('gmCloudStatus');
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Loading from cloud...</span>';
+  try {
+    const snap = await db.collection('companyMaster').get();
+    companyMasterData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${companyMasterData.length} companies loaded from cloud</span>`;
+    renderCompanyMaster();
+  } catch (e) {
+    console.error('[Company Master Load Error]', e);
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+    showToast('❌ Failed to load company master: ' + e.message, true);
+  }
+}
+
+async function saveCompanyMasterRow(row) {
+  const key = companyMasterKey(row.company);
+  if (!key) { showToast('❌ Company name required', true); return; }
+  try {
+    await db.collection('companyMaster').doc(key).set({
+      group: (row.group || row.company || '').trim(),
+      company: (row.company || '').trim(),
+      state: (row.state || '').trim(),
+      location: (row.location || '').trim(),
+      updatedBy: currentUserEmail || 'unknown',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    const newRow = { id: key, group: (row.group || row.company || '').trim(), company: (row.company || '').trim(), state: (row.state || '').trim(), location: (row.location || '').trim() };
+    const idx = companyMasterData.findIndex(r => r.id === key);
+    if (idx >= 0) companyMasterData[idx] = newRow; else companyMasterData.push(newRow);
+    showToast('✅ Saved: ' + newRow.company);
+    renderCompanyMaster();
+  } catch (e) {
+    console.error('[Company Master Save Error]', e);
+    showToast('❌ Save failed: ' + e.message, true);
+  }
+}
+
+async function deleteCompanyMasterRow(id) {
+  if (!confirm('Delete this company from the master list?')) return;
+  try {
+    await db.collection('companyMaster').doc(id).delete();
+    companyMasterData = companyMasterData.filter(r => r.id !== id);
+    renderCompanyMaster();
+    showToast('🗑️ Deleted');
+  } catch (e) {
+    console.error('[Company Master Delete Error]', e);
+    showToast('❌ Delete failed: ' + e.message, true);
+  }
+}
+
+function addCompanyMasterRow() {
+  const group = (document.getElementById('gmNewGroup').value || '').trim();
+  const company = (document.getElementById('gmNewCompany').value || '').trim();
+  const state = (document.getElementById('gmNewState').value || '').trim();
+  const location = (document.getElementById('gmNewLocation').value || '').trim();
+  if (!company) { showToast('❌ Company name required', true); return; }
+  saveCompanyMasterRow({ group: group || company, company, state, location });
+  document.getElementById('gmNewGroup').value = '';
+  document.getElementById('gmNewCompany').value = '';
+  document.getElementById('gmNewState').value = '';
+  document.getElementById('gmNewLocation').value = '';
+}
+
+function editCompanyMasterRow(id) { gmEditingId = id; renderCompanyMaster(); }
+function cancelEditCompanyMasterRow() { gmEditingId = null; renderCompanyMaster(); }
+
+async function saveEditCompanyMasterRow(id) {
+  const group = (document.getElementById('gmEditGroup').value || '').trim();
+  const state = (document.getElementById('gmEditState').value || '').trim();
+  const location = (document.getElementById('gmEditLocation').value || '').trim();
+  const existing = companyMasterData.find(r => r.id === id);
+  const company = existing ? existing.company : id;
+  gmEditingId = null;
+  await saveCompanyMasterRow({ group: group || company, company, state, location });
+}
+
+// This-month suffix in the same "MM-YYYY" form used elsewhere (matches
+// dispatchDate.slice(3), since dispatchDate is stored as "DD-MM-YYYY").
+function gmCurrentMonthSuffix() {
+  return String(today.getMonth() + 1).padStart(2, '0') + '-' + today.getFullYear();
+}
+
+// Sums Qty + Bill Amount from dispatchData for one company (case/space
+// insensitive match against the "party" field), optionally restricted
+// to the current month.
+function computeCompanySales(companyName, monthOnly) {
+  const target = companyMasterKey(companyName);
+  const suffix = monthOnly ? gmCurrentMonthSuffix() : null;
+  let qty = 0, value = 0;
+  for (let i = 0; i < dispatchData.length; i++) {
+    const r = dispatchData[i];
+    if (companyMasterKey(r.party || '') !== target) continue;
+    if (suffix && (!r.dispatchDate || r.dispatchDate.slice(3) !== suffix)) continue;
+    qty += r.qty || 0;
+    value += r.billAmount || 0;
+  }
+  return { qty, value };
+}
+
+function renderCompanyMaster() {
+  const tbody = document.getElementById('gmBody');
+  if (!tbody) return;
+  const countEl = document.getElementById('gmCount');
+  const q = (document.getElementById('gmSearch')?.value || '').toLowerCase().trim();
+  const monthOnly = gmSalesFilter === 'month';
+
+  let rows = companyMasterData.slice();
+  if (q) {
+    rows = rows.filter(r =>
+      (r.group || '').toLowerCase().includes(q) ||
+      (r.company || '').toLowerCase().includes(q) ||
+      (r.state || '').toLowerCase().includes(q) ||
+      (r.location || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+
+  rows.sort((a, b) => {
+    const g = (a.group || '').localeCompare(b.group || '');
+    if (g !== 0) return g;
+    return (a.company || '').localeCompare(b.company || '');
+  });
+
+  // Group subtotal (Qty + Value) per group, using every company that
+  // belongs to that group — so the group row shows the combined sales
+  // of all its companies automatically.
+  const groupTotals = {};
+  rows.forEach(r => {
+    const gKey = (r.group || r.company || '').trim().toLowerCase();
+    const s = computeCompanySales(r.company, monthOnly);
+    if (!groupTotals[gKey]) groupTotals[gKey] = { qty: 0, value: 0 };
+    groupTotals[gKey].qty += s.qty;
+    groupTotals[gKey].value += s.value;
+  });
+
+  let html = '';
+  let lastGroup = null;
+  rows.forEach(r => {
+    const gKey = (r.group || r.company || '').trim().toLowerCase();
+    if (r.group !== lastGroup) {
+      const gt = groupTotals[gKey];
+      html += `<tr style="background:rgba(232,160,32,0.08)">
+        <td colspan="4"><strong>📁 ${escapeHtml(r.group || '—')}</strong></td>
+        <td class="td-num"><strong>${gt.qty.toFixed(2)}</strong></td>
+        <td class="td-num"><strong>₹${Math.round(gt.value).toLocaleString('en-IN')}</strong></td>
+        <td></td>
+      </tr>`;
+      lastGroup = r.group;
+    }
+
+    const s = computeCompanySales(r.company, monthOnly);
+
+    if (gmEditingId === r.id) {
+      html += `<tr id="gmEditRow-${r.id}">
+        <td><input id="gmEditGroup" value="${escapeHtml(r.group || '')}" style="width:110px"></td>
+        <td>${escapeHtml(r.company)}</td>
+        <td><input id="gmEditState" value="${escapeHtml(r.state || '')}" style="width:110px"></td>
+        <td><input id="gmEditLocation" value="${escapeHtml(r.location || '')}" style="width:120px"></td>
+        <td class="td-num">${s.qty.toFixed(2)}</td>
+        <td class="td-num">₹${Math.round(s.value).toLocaleString('en-IN')}</td>
+        <td>
+          <button class="btn btn-success" style="padding:3px 8px;font-size:11px" onclick="saveEditCompanyMasterRow('${r.id}')">💾</button>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="cancelEditCompanyMasterRow()">✕</button>
+        </td>
+      </tr>`;
+    } else {
+      html += `<tr>
+        <td></td>
+        <td>${escapeHtml(r.company)}</td>
+        <td>${escapeHtml(r.state) || '—'}</td>
+        <td>${escapeHtml(r.location) || '—'}</td>
+        <td class="td-num">${s.qty.toFixed(2)}</td>
+        <td class="td-num">₹${Math.round(s.value).toLocaleString('en-IN')}</td>
+        <td>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="editCompanyMasterRow('${r.id}')">✏️</button>
+          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="deleteCompanyMasterRow('${r.id}')">✕</button>
+        </td>
+      </tr>`;
+    }
+  });
+
+  tbody.innerHTML = html;
+  if (countEl) countEl.textContent = `${rows.length} companies across ${Object.keys(groupTotals).length} groups`;
+}
+
+// Bulk import Group Name / Company Name / State / Location from an
+// uploaded Excel file. Header row can have columns in any order —
+// matched by name (must include a "Company" column at minimum).
+function handleCompanyMasterFileUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const status = document.getElementById('gmCloudStatus');
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Reading Excel file...</span>';
+
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    try {
+      const data = new Uint8Array(e.target.result);
+      const wb = XLSX.read(data, { type: 'array' });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+      if (rows.length < 2) { showToast('❌ Excel file has no data rows', true); if (status) status.innerHTML = ''; return; }
+
+      const header = rows[0].map(h => String(h || '').trim().toLowerCase());
+      const idxGroup = header.findIndex(h => h.includes('group'));
+      const idxCompany = header.findIndex(h => h.includes('company'));
+      const idxState = header.findIndex(h => h.includes('state'));
+      const idxLocation = header.findIndex(h => h.includes('location') || h.includes('city'));
+
+      if (idxCompany === -1) {
+        showToast('❌ Excel must have a "Company Name" column', true);
+        if (status) status.innerHTML = '<span style="color:var(--danger)">❌ No "Company Name" column found in header row</span>';
+        event.target.value = '';
+        return;
+      }
+
+      const dataRows = rows.slice(1).filter(r => String(r[idxCompany] || '').trim());
+      let imported = 0;
+      const CHUNK = 400; // stay under Firestore's 500-op batch limit
+      for (let start = 0; start < dataRows.length; start += CHUNK) {
+        const batch = db.batch();
+        dataRows.slice(start, start + CHUNK).forEach(r => {
+          const company = String(r[idxCompany] || '').trim();
+          const group = idxGroup >= 0 ? String(r[idxGroup] || '').trim() : '';
+          const state = idxState >= 0 ? String(r[idxState] || '').trim() : '';
+          const location = idxLocation >= 0 ? String(r[idxLocation] || '').trim() : '';
+          const key = companyMasterKey(company);
+          batch.set(db.collection('companyMaster').doc(key), {
+            group: group || company, company, state, location,
+            updatedBy: currentUserEmail || 'unknown',
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+          }, { merge: true });
+          imported++;
+        });
+        await batch.commit();
+      }
+
+      const skipped = rows.length - 1 - dataRows.length;
+      if (status) status.innerHTML = `<span style="color:var(--success)">✅ Imported ${imported} companies${skipped ? ', skipped ' + skipped + ' blank row(s)' : ''}</span>`;
+      showToast(`✅ ${imported} companies imported from Excel`);
+      await loadCompanyMaster();
+    } catch (err) {
+      console.error('[Company Master Import Error]', err);
+      if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${err.message}</span>`;
+      showToast('❌ Import failed: ' + err.message, true);
+    }
+    event.target.value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function exportCompanyMasterExcel() {
+  if (companyMasterData.length === 0) { showToast('❌ No companies to export yet', true); return; }
+  const header = ['Group Name', 'Company Name', 'State', 'Location', 'Sales Qty — All Time (MT)', 'Sales Value — All Time (₹)'];
+  const rows = [header];
+  companyMasterData.slice()
+    .sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.company || '').localeCompare(b.company || ''))
+    .forEach(r => {
+      const s = computeCompanySales(r.company, false);
+      rows.push([r.group || '', r.company || '', r.state || '', r.location || '', s.qty, Math.round(s.value)]);
+    });
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  XLSX.utils.book_append_sheet(wb, ws, 'Company Master');
+  XLSX.writeFile(wb, 'BWPL_Company_Master_' + toInputDate(today) + '.xlsx');
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
@@ -5236,7 +5611,7 @@ const ALL_PAGES = [
   'productivity','vehicle','travel','pricelist',
   'top10vol','top10val','bot10vol','bot10val',
   'complaints','financials','manufacturing','salesperson','daywise',
-  'wirerod','history','setup'
+  'wirerod','groupmaster','history','setup'
 ];
 
 // Sidebar item label → page ID mapping (also used to build friendly names
@@ -5252,6 +5627,7 @@ const SIDEBAR_PAGE_MAP = {
   'financials':'financials', 'manufacturing & sales':'manufacturing',
   'sales person report':'salesperson', 'day-wise sales report':'daywise',
   'wire rod report':'wirerod',
+  'group / company master':'groupmaster',
   'history':'history', 'setup':'setup'
 };
 
