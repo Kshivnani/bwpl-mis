@@ -1470,6 +1470,15 @@
               <option value="ACSR Core Wire">ACSR</option>
             </select>
           </div>
+          <div class="form-group" style="margin:0">
+            <select id="gaPeriod" onchange="loadGroupAnalytics()" style="width:130px">
+              <option value="all">All Time</option>
+              <option value="2026-07" selected>Jul 2026</option>
+              <option value="2026-06">Jun 2026</option>
+              <option value="2026-05">May 2026</option>
+              <option value="2026-04">Apr 2026</option>
+            </select>
+          </div>
           <button class="btn btn-secondary" onclick="syncForecastSheet()">☁ Sync Forecast</button>
           <button class="btn btn-secondary" onclick="loadGroupAnalytics()">⟳ Refresh</button>
         </div>
@@ -1538,11 +1547,8 @@
             <div class="form-group" style="min-width:140px">
               <label style="font-size:11px;color:var(--muted)">Sort by</label>
               <select id="gaSortCol" onchange="sortAndRenderGA()" style="width:100%">
-                <option value="forecast">July Forecast</option>
-                <option value="actual" selected>July Actual (MT)</option>
-                <option value="apr">April (MT)</option>
-                <option value="may">May (MT)</option>
-                <option value="june">June (MT)</option>
+                <option value="forecast" id="gaSortColForecastOpt">June Forecast</option>
+                <option value="actual">Actual (MT)</option>
                 <option value="diff">Diff (MT)</option>
                 <option value="achievement">Achievement %</option>
                 <option value="group">Group Name (A-Z)</option>
@@ -1563,21 +1569,17 @@
           <table>
             <thead>
               <tr>
-                <th>S.No</th>
                 <th onclick="setGASort('group')" style="cursor:pointer">Group Name ↕</th>
                 <th>SP</th>
-                <th class="td-num" onclick="setGASort('apr')" style="cursor:pointer">April (MT) ↕</th>
-                <th class="td-num" onclick="setGASort('may')" style="cursor:pointer">May (MT) ↕</th>
-                <th class="td-num" onclick="setGASort('june')" style="cursor:pointer">June (MT) ↕</th>
-                <th class="td-num" onclick="setGASort('forecast')" style="cursor:pointer">July Forecast (MT) ↕</th>
-                <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">July Actual (MT) ↕</th>
+                <th class="td-num" id="gaForecastColHeader" onclick="setGASort('forecast')" style="cursor:pointer">June Forecast (MT) ↕</th>
+                <th class="td-num" onclick="setGASort('actual')" style="cursor:pointer">Actual (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('diff')" style="cursor:pointer">Diff (MT) ↕</th>
                 <th class="td-num" onclick="setGASort('achievement')" style="cursor:pointer">Achievement % ↕</th>
                 <th>Action</th>
               </tr>
             </thead>
             <tbody id="gaBody">
-              <tr><td colspan="11" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
+              <tr><td colspan="7" class="empty-state">Sync Forecast sheet then upload POS file</td></tr>
             </tbody>
           </table>
         </div>
@@ -2533,17 +2535,7 @@ function showPage(name, el) {
     setTimeout(loadAnalytics, 50);
   }
   if (name === 'groupanalytics' && dispatchData.length > 0) {
-    // Company Master (Group/Company/State/Location — the "GM-Parties" style
-    // sheet) is the second grouping source; make sure it's loaded and merged
-    // into groupMap before we compute group-wise rows, whether or not the
-    // user has ever opened the Group Master page in this session.
-    if (!gmLoaded) {
-      gmLoaded = true;
-      loadCompanyMaster().then(() => { mergeCompanyMasterIntoGroupMap(); loadGroupAnalytics(); });
-    } else {
-      mergeCompanyMasterIntoGroupMap();
-      setTimeout(loadGroupAnalytics, 50);
-    }
+    setTimeout(loadGroupAnalytics, 50);
   }
   if (name === 'groupmaster') {
     if (!gmLoaded) { gmLoaded = true; setTimeout(loadCompanyMaster, 50); }
@@ -2820,43 +2812,6 @@ function buildGroupMap(masterRows) {
 function getGroupForParty(party) {
   if (!party) return 'Ungrouped';
   return (groupMap[party.trim().toLowerCase()] || {}).group || party.trim();
-}
-
-// Merge the cloud "Group / Company Master" (Group Name / Company Name / State /
-// Location — populated either by hand or by bulk-importing a "GM-Parties"-style
-// Excel tab via handleCompanyMasterFileUpload) INTO groupMap, so a company gets
-// grouped correctly whether it was defined in the POS "Master" sheet OR in the
-// Company Master / Parties sheet. Master-sheet entries are never overwritten —
-// this only ADDS companies that Master doesn't already know about, and only
-// upgrades a group name away from "own name" if Company Master has a real group
-// for that company. Call this after loadCompanyMaster() and again before any
-// grouping/aggregation run (buildGroupRows / loadGroupAnalytics), so both
-// sources are always merged.
-function mergeCompanyMasterIntoGroupMap() {
-  if (!companyMasterData || !companyMasterData.length) return;
-  companyMasterData.forEach(r => {
-    const company = (r.company || '').trim();
-    if (!company) return;
-    const key = company.toLowerCase();
-    const group = (r.group || company).trim();
-    const existing = groupMap[key];
-    if (!existing) {
-      // Not known to the Master sheet at all — add it fresh.
-      groupMap[key] = { group, salesPerson: '', company };
-    } else if (!existing.group || existing.group.toLowerCase() === company.toLowerCase()) {
-      // Master sheet only had it as "own name" (no real group) — Company
-      // Master's grouping takes precedence if it actually assigns a group.
-      if (group && group.toLowerCase() !== company.toLowerCase()) existing.group = group;
-    }
-  });
-}
-
-// State / Location lookup for a company, used when expanding a group's
-// company list in the Demand Forecast panel.
-function getCompanyStateLocation(company) {
-  const key = companyMasterKey(company);
-  const rec = companyMasterData.find(r => companyMasterKey(r.company) === key);
-  return { state: (rec && rec.state) || '—', location: (rec && rec.location) || '—' };
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -3143,21 +3098,7 @@ function handleCompanyMasterFileUpload(event) {
     try {
       const data = new Uint8Array(e.target.result);
       const wb = XLSX.read(data, { type: 'array' });
-
-      // Pick the right tab automatically: prefer a sheet whose name looks like
-      // a parties/grouping list (e.g. "GM-Parties", "NK-Parties State Wise"),
-      // then fall back to any sheet whose header row actually has a "Company"
-      // column, then finally the first sheet — so a combined workbook (forecast
-      // numbers + parties grouping in separate tabs) still imports correctly.
-      let sheetName = wb.SheetNames.find(n => /part(y|ies)/i.test(n));
-      if (!sheetName) {
-        sheetName = wb.SheetNames.find(n => {
-          const hdr = XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, defval: '' })[0] || [];
-          return hdr.some(h => String(h || '').trim().toLowerCase().includes('compan'));
-        });
-      }
-      if (!sheetName) sheetName = wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
+      const ws = wb.Sheets[wb.SheetNames[0]];
       const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
 
       if (rows.length < 2) { showToast('❌ Excel file has no data rows', true); if (status) status.innerHTML = ''; return; }
@@ -3170,8 +3111,8 @@ function handleCompanyMasterFileUpload(event) {
       const idxForecast = header.findIndex(h => h.includes('forecast') || h.includes('target'));
 
       if (idxCompany === -1) {
-        showToast('❌ Excel must have a "Company Name" column (looked in sheet "' + sheetName + '")', true);
-        if (status) status.innerHTML = '<span style="color:var(--danger)">❌ No "Company Name" column found in sheet "' + sheetName + '"</span>';
+        showToast('❌ Excel must have a "Company Name" column', true);
+        if (status) status.innerHTML = '<span style="color:var(--danger)">❌ No "Company Name" column found in header row</span>';
         event.target.value = '';
         return;
       }
@@ -3429,64 +3370,32 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
   });
 }
 
-// Builds one row per group with April / May / June / July-Actual (MT) and
-// July Forecast (MT) — the fixed "last 3 months + this month" format. Runs
-// buildGroupRows() once per month (Apr–Jul) and merges by canonical group
-// key, plus one "all time" pass to get the fullest company list (with
-// State/Location later looked up from Company Master) for the expand view.
-// Grouping itself already comes from BOTH sources — the POS "Master" sheet
-// AND the Company Master / "GM-Parties"-style sheet — because groupMap is
-// merged from both before this runs (see mergeCompanyMasterIntoGroupMap()).
-function buildGroupRowsMonthly(productFilter, spFilter) {
-  const monthField = { '2026-04': 'apr', '2026-05': 'may', '2026-06': 'june', '2026-07': 'julyActual' };
-  const periods = Object.keys(monthField);
-  const allTime = buildGroupRows('all', productFilter, spFilter);
-
-  const byKey = {};
-  allTime.forEach(g => {
-    byKey[canonGroupKey(g.group)] = {
-      group: g.group, sp: g.sp, companies: g.companies,
-      apr: 0, may: 0, june: 0, julyActual: 0, julyForecast: 0
-    };
-  });
-  periods.forEach(p => {
-    buildGroupRows(p, productFilter, spFilter).forEach(g => {
-      const key = canonGroupKey(g.group);
-      if (!byKey[key]) {
-        byKey[key] = { group: g.group, sp: g.sp, companies: g.companies, apr: 0, may: 0, june: 0, julyActual: 0, julyForecast: 0 };
-      }
-      byKey[key][monthField[p]] = g.qty;
-      if (p === '2026-07') byKey[key].julyForecast = g.forecastQty;
-      if ((!byKey[key].sp || byKey[key].sp === '—') && g.sp) byKey[key].sp = g.sp;
-    });
-  });
-
-  return Object.values(byKey)
-    .filter(g => g.apr > 0 || g.may > 0 || g.june > 0 || g.julyActual > 0 || g.julyForecast > 0)
-    .map(g => ({
-      ...g,
-      diff: g.julyForecast > 0 ? g.julyActual - g.julyForecast : 0,
-      achievement: g.julyForecast > 0 ? (g.julyActual / g.julyForecast) * 100 : null
-    }))
-    .sort((a, b) => (b.julyForecast - a.julyForecast) || (b.julyActual - a.julyActual));
+// Display label for whichever forecast month is currently selected
+function forecastMonthLabel(period) {
+  if (period === '2026-07') return 'July';
+  if (period === '2026-06') return 'June';
+  return 'June'; // "All Time" falls back to June (the default/legacy forecast)
 }
 
 function loadGroupAnalytics() {
   if (dispatchData.length === 0) {
-    document.getElementById('gaBody').innerHTML = '<tr><td colspan="11" class="empty-state">No dispatch data — upload POS file first</td></tr>';
+    document.getElementById('gaBody').innerHTML = '<tr><td colspan="7" class="empty-state">No dispatch data — upload POS file first</td></tr>';
     return;
   }
 
-  mergeCompanyMasterIntoGroupMap(); // always combine POS Master + Company/GM-Parties grouping
-
   const spFilter = document.getElementById('gaSpFilter').value;
+  const period = document.getElementById('gaPeriod').value;
   const productFilter = document.getElementById('gaProductFilter').value;
 
-  gaGroupData = buildGroupRowsMonthly(productFilter, spFilter);
+  gaGroupData = buildGroupRows(period, productFilter, spFilter);
+  const fcHeader = document.getElementById('gaForecastColHeader');
+  if (fcHeader) fcHeader.textContent = forecastMonthLabel(period) + ' Forecast (MT) ↕';
+  const fcSortOpt = document.getElementById('gaSortColForecastOpt');
+  if (fcSortOpt) fcSortOpt.textContent = forecastMonthLabel(period) + ' Forecast';
 
   // Filter by SP if selected (forecast SP)
   if (spFilter) {
-    gaGroupData = gaGroupData.filter(g => g.sp === spFilter || g.julyActual > 0);
+    gaGroupData = gaGroupData.filter(g => g.sp === spFilter || g.qty > 0);
   }
 
   // Populate SP filter
@@ -3495,17 +3404,17 @@ function loadGroupAnalytics() {
   const curSp = spSel.value;
   spSel.innerHTML = '<option value="">All Sales Persons</option>' + sps.map(s => `<option value="${s}" ${s===curSp?'selected':''}>${s}</option>`).join('');
 
-  // KPI (July, since that's the current live month)
-  const totalQty = gaGroupData.reduce((s, g) => s + g.julyActual, 0);
-  const totalForecast = gaGroupData.reduce((s, g) => s + g.julyForecast, 0);
+  // KPI
+  const totalQty = gaGroupData.reduce((s, g) => s + g.qty, 0);
+  const totalForecast = gaGroupData.reduce((s, g) => s + g.forecastQty, 0);
   const overallAch = totalForecast > 0 ? (totalQty / totalForecast * 100).toFixed(1) : '—';
 
-  document.getElementById('gaTotalGroups').textContent = gaGroupData.filter(g => g.julyForecast > 0).length;
+  document.getElementById('gaTotalGroups').textContent = gaGroupData.filter(g => g.forecastQty > 0).length;
   document.getElementById('gaTotalQty').textContent = totalQty.toFixed(1);
   document.getElementById('gaTotalForecast').textContent = totalForecast.toFixed(1);
   document.getElementById('gaAchievement').textContent = overallAch !== '—' ? `${overallAch}% achieved` : 'Sync forecast to compare';
-  document.getElementById('gaBannerSub').textContent = `Apr–Jul 2026 | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups`;
-  document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — Apr/May/June actual, July forecast vs actual';
+  document.getElementById('gaBannerSub').textContent = `${period === 'all' ? 'All Time' : period} | ${spFilter || 'All Sales Persons'} | ${gaGroupData.length} groups`;
+  document.getElementById('gaTableMeta').textContent = gaGroupData.length + ' groups — forecast vs actual';
 
   renderGroupTable(gaGroupData);
   renderSpPacing();
@@ -3534,11 +3443,8 @@ function getSortedGAGroupData() {
     let va, vb;
     if (col === 'group') { va = a.group.toLowerCase(); vb = b.group.toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
     if (col === 'sp') { va = (a.sp || '').toLowerCase(); vb = (b.sp || '').toLowerCase(); return dir === 'asc' ? va.localeCompare(vb) : vb.localeCompare(va); }
-    if (col === 'apr') { va = a.apr; vb = b.apr; }
-    else if (col === 'may') { va = a.may; vb = b.may; }
-    else if (col === 'june') { va = a.june; vb = b.june; }
-    else if (col === 'forecast') { va = a.julyForecast; vb = b.julyForecast; }
-    else if (col === 'actual') { va = a.julyActual; vb = b.julyActual; }
+    if (col === 'forecast') { va = a.forecastQty; vb = b.forecastQty; }
+    else if (col === 'actual') { va = a.qty; vb = b.qty; }
     else if (col === 'diff') { va = a.diff; vb = b.diff; }
     else if (col === 'achievement') { va = a.achievement ?? -999; vb = b.achievement ?? -999; }
     return dir === 'asc' ? va - vb : vb - va;
@@ -3566,6 +3472,7 @@ function filterGroupTable() {
 
 function downloadGAReport() {
   if (!gaGroupData.length) { showToast('❌ No data to download', true); return; }
+  const period = document.getElementById('gaPeriod').value;
   const sp = document.getElementById('gaSpFilter').value;
   const prod = document.getElementById('gaProductFilter').value;
   const sortDir = document.getElementById('gaSortDir').value;
@@ -3581,46 +3488,37 @@ function downloadGAReport() {
     return '#fed7d7';
   };
 
+  const fcLabel = forecastMonthLabel(period);
   let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px">';
-  html += '<tr><td colspan="9" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
-  html += '<tr><td colspan="9" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
-  html += '<tr><td colspan="9">Sales Person: ' + (sp || 'All')
+  html += '<tr><td colspan="6" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
+  html += '<tr><td colspan="6" style="font-weight:bold">Demand Forecast — Group-wise</td></tr>';
+  html += '<tr><td colspan="6">Period: ' + (period === 'all' ? 'All Time' : period)
+    + ' | Sales Person: ' + (sp || 'All')
     + ' | Product: ' + (prod || 'All')
     + ' | Sorted by: ' + sortLabel + '</td></tr>';
   html += '<tr></tr>';
   html += '<tr style="background:#1f2937;color:#ffffff;font-weight:bold">'
-    + '<td>S.No</td><td>Group Name</td><td>SP</td><td>April (MT)</td><td>May (MT)</td><td>June (MT)</td>'
-    + '<td>July Forecast (MT)</td><td>July Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
+    + '<td>Group Name</td><td>SP</td><td>' + fcLabel + ' Forecast (MT)</td><td>Actual (MT)</td><td>Diff (MT)</td><td>Achievement %</td></tr>';
 
-  sortedData.forEach((g, i) => {
+  sortedData.forEach(g => {
     const bg = achBg(g.achievement);
-    const fcText = g.julyForecast > 0 ? g.julyForecast.toFixed(2) : '—';
-    const diffText = g.julyForecast > 0 ? (g.diff >= 0 ? '+' : '') + g.diff.toFixed(2) : '—';
+    const fcText = g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '—';
+    const diffText = g.forecastQty > 0 ? (g.diff >= 0 ? '+' : '') + g.diff.toFixed(2) : '—';
     const achText = g.achievement !== null ? g.achievement.toFixed(1) + '%' : '—';
     html += '<tr style="background:' + bg + '">'
-      + '<td>' + (i + 1) + '</td>'
       + '<td>' + g.group + '</td>'
       + '<td>' + (g.sp || '—') + '</td>'
-      + '<td align="right">' + g.apr.toFixed(2) + '</td>'
-      + '<td align="right">' + g.may.toFixed(2) + '</td>'
-      + '<td align="right">' + g.june.toFixed(2) + '</td>'
       + '<td align="right">' + fcText + '</td>'
-      + '<td align="right">' + g.julyActual.toFixed(2) + '</td>'
+      + '<td align="right">' + g.qty.toFixed(2) + '</td>'
       + '<td align="right">' + diffText + '</td>'
       + '<td align="right"><b>' + achText + '</b></td></tr>';
   });
 
-  const totApr = sortedData.reduce((s,g)=>s+g.apr,0);
-  const totMay = sortedData.reduce((s,g)=>s+g.may,0);
-  const totJune = sortedData.reduce((s,g)=>s+g.june,0);
-  const totQty = sortedData.reduce((s,g)=>s+g.julyActual,0);
-  const totFc = sortedData.reduce((s,g)=>s+g.julyForecast,0);
+  const totQty = sortedData.reduce((s,g)=>s+g.qty,0);
+  const totFc = sortedData.reduce((s,g)=>s+g.forecastQty,0);
   const totAch = totFc > 0 ? (totQty/totFc*100) : null;
   html += '<tr style="background:#374151;color:#ffffff;font-weight:bold">'
-    + '<td colspan="2">TOTAL</td><td></td>'
-    + '<td align="right">' + totApr.toFixed(2) + '</td>'
-    + '<td align="right">' + totMay.toFixed(2) + '</td>'
-    + '<td align="right">' + totJune.toFixed(2) + '</td>'
+    + '<td>TOTAL</td><td></td>'
     + '<td align="right">' + totFc.toFixed(2) + '</td>'
     + '<td align="right">' + totQty.toFixed(2) + '</td>'
     + '<td align="right">' + ((totQty-totFc)>=0?'+':'') + (totQty-totFc).toFixed(2) + '</td>'
@@ -3630,7 +3528,7 @@ function downloadGAReport() {
   const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
-  link.download = 'Demand_Forecast_Jul_2026.xls';
+  link.download = 'Demand_Forecast_' + period + '.xls';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
@@ -3641,7 +3539,7 @@ function downloadGAReport() {
 function renderGroupTable(data) {
   const tbody = document.getElementById('gaBody');
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="11" class="empty-state">No groups found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No groups found</td></tr>';
     return;
   }
 
@@ -3654,34 +3552,25 @@ function renderGroupTable(data) {
 
   tbody.innerHTML = data.map((g, i) => {
     const achText = g.achievement !== null ? g.achievement.toFixed(1) + '%' : '—';
-    const diffText = g.julyForecast > 0 ? (g.diff >= 0 ? '+' : '') + g.diff.toFixed(2) : '—';
+    const diffText = g.forecastQty > 0 ? (g.diff >= 0 ? '+' : '') + g.diff.toFixed(2) : '—';
     const diffColor = g.diff >= 0 ? 'color:var(--success)' : 'color:var(--danger)';
 
-    // Companies in this group, sold-to breakdown — Company | State | Location | Qty (MT)
-    const companyRows = g.companies.map(c => {
-      const loc = getCompanyStateLocation(c.name);
-      return `
+    const companyRows = g.companies.map(c => `
       <tr class="ga-detail-${i}" style="display:none">
-        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="3">↳ ${escapeHtml(c.name)}</td>
-        <td style="color:var(--muted);font-size:12px">${escapeHtml(loc.state)}</td>
-        <td style="color:var(--muted);font-size:12px" colspan="2">${escapeHtml(loc.location)}</td>
-        <td class="td-num" style="color:var(--muted);font-size:12px" colspan="2">${c.qty.toFixed(2)} MT sold</td>
+        <td style="padding-left:24px;color:var(--muted);font-size:12px" colspan="2">↳ ${c.name}</td>
         <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
-        <td style="color:var(--muted);font-size:12px">—</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">${c.qty.toFixed(2)}</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
+        <td class="td-num" style="color:var(--muted);font-size:12px">—</td>
         <td></td>
-      </tr>`;
-    }).join('');
+      </tr>`).join('');
 
     return `
     <tr>
-      <td>${i + 1}</td>
-      <td><strong>${escapeHtml(g.group)}</strong></td>
+      <td><strong>${g.group}</strong></td>
       <td><span style="font-size:11px;padding:2px 7px;border-radius:10px;background:rgba(232,160,32,0.15);color:var(--wire)">${g.sp || '—'}</span></td>
-      <td class="td-num">${g.apr > 0 ? g.apr.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="td-num">${g.may > 0 ? g.may.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="td-num">${g.june > 0 ? g.june.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="td-num">${g.julyForecast > 0 ? g.julyForecast.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
-      <td class="td-num"><strong>${g.julyActual.toFixed(2)}</strong></td>
+      <td class="td-num">${g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '<span style="color:var(--muted)">—</span>'}</td>
+      <td class="td-num"><strong>${g.qty.toFixed(2)}</strong></td>
       <td class="td-num" style="${diffColor}">${diffText}</td>
       <td class="td-num" style="${achColor(g.achievement)}">${achText}</td>
       <td>${g.companies.length > 0 ? `<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="toggleGaDetail(${i},this)">▼ ${g.companies.length}</button>` : ''}</td>
@@ -3689,12 +3578,9 @@ function renderGroupTable(data) {
     ${companyRows}`;
   }).join('') + `
   <tr class="summary-row">
-    <td colspan="3"><strong>TOTAL</strong></td>
-    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.apr,0).toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.may,0).toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.june,0).toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.julyForecast,0).toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.julyActual,0).toFixed(2)}</strong></td>
+    <td colspan="2"><strong>TOTAL</strong></td>
+    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.forecastQty,0).toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${data.reduce((s,g)=>s+g.qty,0).toFixed(2)}</strong></td>
     <td class="td-num" style="${data.reduce((s,g)=>s+g.diff,0)>=0?'color:var(--success)':'color:var(--danger)'}">
       <strong>${((d=data.reduce((s,g)=>s+g.diff,0))>=0?'+':'')+d.toFixed(2)}</strong>
     </td>
