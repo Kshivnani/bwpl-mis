@@ -2242,23 +2242,35 @@
             <label>Search</label>
             <input id="gmSearch" placeholder="Search group, company, state, location..." oninput="renderCompanyMaster()">
           </div>
-          <div class="form-group" style="min-width:160px">
-            <label>Sales Shown For</label>
-            <select id="gmSalesFilter" onchange="gmSalesFilter=this.value; renderCompanyMaster()">
-              <option value="all">All Time</option>
-              <option value="month">This Month</option>
+          <div class="form-group" style="min-width:180px">
+            <label>Sales Person</label>
+            <select id="gmSpFilter" onchange="gmSpFilter=this.value; renderCompanyMaster()">
+              <option value="">All Sales Persons</option>
             </select>
           </div>
+          <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmExpandAll()">▾ Expand All</button>
+          <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmCollapseAll()">▸ Collapse All</button>
+          <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmToggleRecycleBin()">🗑️ Recently Deleted (<span id="gmDeletedCount">0</span>)</button>
           <div style="font-size:12px;color:var(--muted);padding-bottom:8px" id="gmCount"></div>
+        </div>
+
+        <div id="gmRecycleBinPanel" style="display:none;margin:0 20px 16px;border:1px solid rgba(232,160,32,0.35);border-radius:8px;padding:12px 16px;background:rgba(232,160,32,0.06)">
+          <div style="font-size:13px;font-weight:700;margin-bottom:8px">🗑️ Recently Deleted <span style="font-weight:400;color:var(--muted);font-size:11px">— auto-purged 30 days after deletion</span></div>
+          <div id="gmRecycleBinBody" style="font-size:13px">No deleted groups.</div>
         </div>
 
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Group Name</th><th>Company Name</th><th>State</th><th>Location</th>
-                <th class="td-num">Sales Qty (MT)</th><th class="td-num">Sales Value (₹)</th>
-                <th class="td-num">This Month Forecast (MT)</th><th class="td-num">This Month Achievement %</th>
+                <th>Group Name (click to expand)</th>
+                <th class="td-num" id="gmColM3">Apr (MT)</th>
+                <th class="td-num" id="gmColM2">May (MT)</th>
+                <th class="td-num" id="gmColM1">Jun (MT)</th>
+                <th class="td-num" id="gmColTarget">Jul Target (MT)</th>
+                <th class="td-num" id="gmColActual">Jul Actual (MT)</th>
+                <th class="td-num">Achievement %</th>
+                <th>Sales Person</th>
                 <th>Action</th>
               </tr>
             </thead>
@@ -2406,9 +2418,13 @@ let today = new Date();
 let todayStr = formatDate(today);
 
 // ── Group / Company Master (Firestore-backed) ──
-let companyMasterData = [];  // [{ id, group, company, state, location }]
-let gmSalesFilter = 'all';   // 'all' | 'month'
+let companyMasterData = [];  // [{ id, group, company, state, location }] — ACTIVE (non-deleted) only
+let gmDeletedData = [];      // [{ id, group, company, state, location, deletedAt }] — soft-deleted, in the 30-day recycle bin
+let gmRecycleBinOpen = false;
 let gmEditingId = null;
+let gmExpandedGroups = new Set(); // canonGroupKey()s currently expanded (dropdown open)
+let gmSpFilter = '';              // Sales Person filter for the Group/Company Master table
+let groupTargetsData = {};        // { canonGroupKey: { forecasts: { 'MM-YYYY': number } } } — cloud-synced group-level manual targets
 let gmLoaded = false;
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
 
@@ -2834,15 +2850,235 @@ async function loadCompanyMaster() {
   const status = document.getElementById('gmCloudStatus');
   if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Loading from cloud...</span>';
   try {
-    const snap = await db.collection('companyMaster').get();
-    companyMasterData = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const [companySnap, targetsSnap] = await Promise.all([
+      db.collection('companyMaster').get(),
+      db.collection('groupTargets').get()
+    ]);
+    const allDocs = companySnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    companyMasterData = allDocs.filter(r => !r.deleted);
+    gmDeletedData = allDocs.filter(r => r.deleted);
+    groupTargetsData = {};
+    targetsSnap.docs.forEach(d => { groupTargetsData[d.id] = d.data(); });
     if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${companyMasterData.length} companies loaded from cloud</span>`;
+    await gmPurgeExpiredDeleted(); // silently hard-deletes anything past the 30-day window
     renderCompanyMaster();
+    renderRecycleBin();
   } catch (e) {
     console.error('[Company Master Load Error]', e);
     if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
     showToast('❌ Failed to load company master: ' + e.message, true);
   }
+}
+
+// Firestore Timestamp, JS Date, or missing — normalize to a JS Date (or null).
+function gmToJsDate(ts) {
+  if (!ts) return null;
+  if (typeof ts.toDate === 'function') return ts.toDate();
+  if (ts instanceof Date) return ts;
+  return null;
+}
+
+// Hard-deletes anything that has sat in the recycle bin for 30+ days.
+// Runs quietly on every Group/Company Master load — no confirmation needed,
+// since the person already confirmed the original (soft) delete.
+async function gmPurgeExpiredDeleted() {
+  const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const expired = gmDeletedData.filter(r => {
+    const d = gmToJsDate(r.deletedAt);
+    return d && d.getTime() < cutoff;
+  });
+  if (expired.length === 0) return;
+  try {
+    const CHUNK = 400;
+    for (let start = 0; start < expired.length; start += CHUNK) {
+      const batch = db.batch();
+      expired.slice(start, start + CHUNK).forEach(r => batch.delete(db.collection('companyMaster').doc(r.id)));
+      await batch.commit();
+    }
+    const expiredIds = new Set(expired.map(r => r.id));
+    gmDeletedData = gmDeletedData.filter(r => !expiredIds.has(r.id));
+  } catch (e) {
+    console.error('[Recycle Bin Purge Error]', e);
+    // Non-fatal — they'll just sit in the bin a bit longer and get purged next load.
+  }
+}
+
+// Group-level manual target — cloud-synced (Firestore "groupTargets"
+// collection), keyed by canonGroupKey(group name), one number per month
+// so past months' targets are preserved (same pattern as company forecasts).
+function getGroupForecast(gKey) {
+  const period = gmCurrentMonthSuffix();
+  const g = groupTargetsData[gKey];
+  return (g && g.forecasts && g.forecasts[period]) || 0;
+}
+
+async function saveGroupForecast(gKey, rawValue) {
+  const period = gmCurrentMonthSuffix();
+  const parsed = parseFloat(rawValue);
+  const value = isNaN(parsed) ? 0 : parsed;
+  try {
+    await db.collection('groupTargets').doc(gKey).set({
+      ['forecasts.' + period]: value,
+      updatedBy: currentUserEmail || 'unknown',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, { merge: true });
+    if (!groupTargetsData[gKey]) groupTargetsData[gKey] = { forecasts: {} };
+    groupTargetsData[gKey].forecasts = groupTargetsData[gKey].forecasts || {};
+    groupTargetsData[gKey].forecasts[period] = value;
+    renderCompanyMaster();
+    showToast('✅ Group target saved');
+  } catch (e) {
+    console.error('[Group Target Save Error]', e);
+    showToast('❌ Group target save failed: ' + e.message, true);
+  }
+}
+
+// Soft-deletes an entire group: every company under it is flagged
+// deleted+deletedAt (not actually removed from Firestore) and moves into
+// the 30-day recycle bin. Nothing is permanently gone until gmPurgeExpiredDeleted
+// clears it out, or it's purged automatically after 30 days.
+async function deleteGroupMasterGroup(gKey, groupName) {
+  const toDelete = companyMasterData.filter(r => canonGroupKey(r.group || r.company || '') === gKey);
+  if (!confirm(`Move group "${groupName}" and all ${toDelete.length} companies under it to Recently Deleted?\n\nYou can restore it for 30 days before it's permanently removed.`)) return;
+  try {
+    const CHUNK = 400;
+    for (let start = 0; start < toDelete.length; start += CHUNK) {
+      const batch = db.batch();
+      toDelete.slice(start, start + CHUNK).forEach(r => {
+        batch.set(db.collection('companyMaster').doc(r.id), {
+          deleted: true,
+          deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+          deletedBy: currentUserEmail || 'unknown'
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+    const deletedIds = new Set(toDelete.map(r => r.id));
+    const nowStamp = new Date(); // optimistic local timestamp until next cloud refresh
+    gmDeletedData = gmDeletedData.concat(toDelete.map(r => ({ ...r, deleted: true, deletedAt: nowStamp })));
+    companyMasterData = companyMasterData.filter(r => !deletedIds.has(r.id));
+    gmExpandedGroups.delete(gKey);
+    renderCompanyMaster();
+    renderRecycleBin();
+    showToast(`🗑️ Moved "${groupName}" (${toDelete.length} companies) to Recently Deleted — restorable for 30 days`);
+  } catch (e) {
+    console.error('[Group Delete Error]', e);
+    showToast('❌ Group delete failed: ' + e.message, true);
+  }
+}
+
+// Restores every soft-deleted company under one group back to active.
+async function restoreGroupMasterGroup(gKey, groupName) {
+  const toRestore = gmDeletedData.filter(r => canonGroupKey(r.group || r.company || '') === gKey);
+  if (toRestore.length === 0) return;
+  try {
+    const CHUNK = 400;
+    for (let start = 0; start < toRestore.length; start += CHUNK) {
+      const batch = db.batch();
+      toRestore.slice(start, start + CHUNK).forEach(r => {
+        batch.set(db.collection('companyMaster').doc(r.id), {
+          deleted: false,
+          deletedAt: firebase.firestore.FieldValue.delete()
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+    const restoredIds = new Set(toRestore.map(r => r.id));
+    companyMasterData = companyMasterData.concat(toRestore.map(r => {
+      const { deleted, deletedAt, deletedBy, ...clean } = r;
+      return clean;
+    }));
+    gmDeletedData = gmDeletedData.filter(r => !restoredIds.has(r.id));
+    renderCompanyMaster();
+    renderRecycleBin();
+    showToast(`↩️ Restored "${groupName}" (${toRestore.length} companies)`);
+  } catch (e) {
+    console.error('[Group Restore Error]', e);
+    showToast('❌ Restore failed: ' + e.message, true);
+  }
+}
+
+function gmToggleRecycleBin() {
+  gmRecycleBinOpen = !gmRecycleBinOpen;
+  const panel = document.getElementById('gmRecycleBinPanel');
+  if (panel) panel.style.display = gmRecycleBinOpen ? 'block' : 'none';
+  if (gmRecycleBinOpen) renderRecycleBin();
+}
+
+function renderRecycleBin() {
+  const countEl = document.getElementById('gmDeletedCount');
+  const body = document.getElementById('gmRecycleBinBody');
+
+  // Bucket deleted companies by group, same as the main table.
+  const groups = {};
+  gmDeletedData.forEach(r => {
+    const gName = (r.group || r.company || '').trim();
+    const gKey = canonGroupKey(gName);
+    if (!groups[gKey]) groups[gKey] = { name: gName, count: 0, deletedAt: null };
+    groups[gKey].count += 1;
+    const d = gmToJsDate(r.deletedAt);
+    if (d && (!groups[gKey].deletedAt || d > groups[gKey].deletedAt)) groups[gKey].deletedAt = d;
+  });
+  const groupList = Object.entries(groups).sort((a, b) => (b[1].deletedAt || 0) - (a[1].deletedAt || 0));
+
+  if (countEl) countEl.textContent = gmDeletedData.length;
+  if (!body) return;
+
+  if (groupList.length === 0) {
+    body.innerHTML = 'Recycle bin is empty.';
+    return;
+  }
+
+  body.innerHTML = groupList.map(([gKey, g]) => {
+    const daysLeft = g.deletedAt ? Math.max(0, 30 - Math.floor((Date.now() - g.deletedAt.getTime()) / (24 * 60 * 60 * 1000))) : 30;
+    const dateStr = g.deletedAt ? g.deletedAt.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid rgba(255,255,255,0.06)">
+      <div>
+        <strong>📁 ${escapeHtml(g.name || '—')}</strong>
+        <span style="color:var(--muted)"> — ${g.count} compan${g.count === 1 ? 'y' : 'ies'}, deleted ${dateStr}</span>
+        <span style="color:var(--wire);font-size:11px"> · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left</span>
+      </div>
+      <button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="restoreGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">↩ Restore</button>
+    </div>`;
+  }).join('');
+}
+
+function gmToggleGroup(gKey) {
+  if (gmExpandedGroups.has(gKey)) gmExpandedGroups.delete(gKey); else gmExpandedGroups.add(gKey);
+  renderCompanyMaster();
+}
+function gmExpandAll() {
+  gmExpandedGroups = new Set(companyMasterData.map(r => canonGroupKey(r.group || r.company || '')));
+  renderCompanyMaster();
+}
+function gmCollapseAll() {
+  gmExpandedGroups = new Set();
+  renderCompanyMaster();
+}
+
+// Trailing-month helpers for the Group/Company Master table: offset 0 =
+// current month, 1 = previous month, etc. — always relative to "today".
+function gmMonthSuffix(offset) {
+  let m = today.getMonth() - offset, y = today.getFullYear();
+  while (m < 0) { m += 12; y -= 1; }
+  return String(m + 1).padStart(2, '0') + '-' + y;
+}
+function gmMonthLabel(offset) {
+  const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+  return d.toLocaleString('en-US', { month: 'short' });
+}
+
+// Actual dispatched qty (MT) for one company in one specific "MM-YYYY" month.
+function computeCompanyQtyForMonth(companyName, suffix) {
+  const target = companyMasterKey(companyName);
+  let qty = 0;
+  for (let i = 0; i < dispatchData.length; i++) {
+    const r = dispatchData[i];
+    if (companyMasterKey(r.party || '') !== target) continue;
+    if (!r.dispatchDate || r.dispatchDate.slice(3) !== suffix) continue;
+    qty += r.qty || 0;
+  }
+  return qty;
 }
 
 async function saveCompanyMasterRow(row) {
@@ -2854,14 +3090,18 @@ async function saveCompanyMasterRow(row) {
       company: (row.company || '').trim(),
       state: (row.state || '').trim(),
       location: (row.location || '').trim(),
+      deleted: false,
+      deletedAt: firebase.firestore.FieldValue.delete(),
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     const newRow = { id: key, group: (row.group || row.company || '').trim(), company: (row.company || '').trim(), state: (row.state || '').trim(), location: (row.location || '').trim() };
     const idx = companyMasterData.findIndex(r => r.id === key);
     if (idx >= 0) companyMasterData[idx] = newRow; else companyMasterData.push(newRow);
+    gmDeletedData = gmDeletedData.filter(r => r.id !== key); // un-hide if it was sitting in the recycle bin
     showToast('✅ Saved: ' + newRow.company);
     renderCompanyMaster();
+    renderRecycleBin();
   } catch (e) {
     console.error('[Company Master Save Error]', e);
     showToast('❌ Save failed: ' + e.message, true);
@@ -2869,15 +3109,43 @@ async function saveCompanyMasterRow(row) {
 }
 
 async function deleteCompanyMasterRow(id) {
-  if (!confirm('Delete this company from the master list?')) return;
+  const row = companyMasterData.find(r => r.id === id);
+  if (!confirm(`Move "${row ? row.company : id}" to Recently Deleted?\n\nYou can restore it for 30 days before it's permanently removed.`)) return;
   try {
-    await db.collection('companyMaster').doc(id).delete();
+    await db.collection('companyMaster').doc(id).set({
+      deleted: true,
+      deletedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      deletedBy: currentUserEmail || 'unknown'
+    }, { merge: true });
+    if (row) gmDeletedData.push({ ...row, deleted: true, deletedAt: new Date() });
     companyMasterData = companyMasterData.filter(r => r.id !== id);
     renderCompanyMaster();
-    showToast('🗑️ Deleted');
+    renderRecycleBin();
+    showToast('🗑️ Moved to Recently Deleted — restorable for 30 days');
   } catch (e) {
     console.error('[Company Master Delete Error]', e);
     showToast('❌ Delete failed: ' + e.message, true);
+  }
+}
+
+// Restores a single soft-deleted company back to active.
+async function restoreCompanyMasterRow(id) {
+  const row = gmDeletedData.find(r => r.id === id);
+  if (!row) return;
+  try {
+    await db.collection('companyMaster').doc(id).set({
+      deleted: false,
+      deletedAt: firebase.firestore.FieldValue.delete()
+    }, { merge: true });
+    const { deleted, deletedAt, deletedBy, ...clean } = row;
+    companyMasterData.push(clean);
+    gmDeletedData = gmDeletedData.filter(r => r.id !== id);
+    renderCompanyMaster();
+    renderRecycleBin();
+    showToast(`↩️ Restored: ${clean.company}`);
+  } catch (e) {
+    console.error('[Company Restore Error]', e);
+    showToast('❌ Restore failed: ' + e.message, true);
   }
 }
 
@@ -2966,7 +3234,15 @@ function renderCompanyMaster() {
   if (!tbody) return;
   const countEl = document.getElementById('gmCount');
   const q = (document.getElementById('gmSearch')?.value || '').toLowerCase().trim();
-  const monthOnly = gmSalesFilter === 'month';
+
+  // Dynamic month columns: 3 trailing ACTUAL months + current month Target/Actual.
+  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
+  const setHdr = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  setHdr('gmColM3', gmMonthLabel(3) + ' (MT)');
+  setHdr('gmColM2', gmMonthLabel(2) + ' (MT)');
+  setHdr('gmColM1', gmMonthLabel(1) + ' (MT)');
+  setHdr('gmColTarget', gmMonthLabel(0) + ' Target (MT)');
+  setHdr('gmColActual', gmMonthLabel(0) + ' Actual (MT)');
 
   let rows = companyMasterData.slice();
   if (q) {
@@ -2984,12 +3260,6 @@ function renderCompanyMaster() {
     return;
   }
 
-  rows.sort((a, b) => {
-    const g = (a.group || '').localeCompare(b.group || '');
-    if (g !== 0) return g;
-    return (a.company || '').localeCompare(b.company || '');
-  });
-
   // Same thresholds as the Demand Forecast page: >=100% green, >=75% amber, else red
   const achColor = (ach) => {
     if (ach === null) return 'color:var(--muted)';
@@ -2998,90 +3268,128 @@ function renderCompanyMaster() {
     return 'color:var(--danger);font-weight:600';
   };
 
-  // Group subtotal (Sales Qty/Value per the selected filter, PLUS this
-  // month's Forecast + Achieved + Achievement% — always current-month,
-  // regardless of the Sales Qty/Value filter — combined across every
-  // company that belongs to that group).
-  const groupTotals = {};
+  // Bucket companies by group (canonical key so casing differences merge),
+  // pulling each company's monthly qty straight from POS/dispatchData.
+  const groups = {};
   rows.forEach(r => {
-    const gKey = (r.group || r.company || '').trim().toLowerCase();
-    const s = computeCompanySales(r.company, monthOnly);
-    const monthQty = computeCompanySales(r.company, true).qty;
-    const forecast = getCompanyForecast(r);
-    if (!groupTotals[gKey]) groupTotals[gKey] = { qty: 0, value: 0, forecast: 0, monthQty: 0 };
-    groupTotals[gKey].qty += s.qty;
-    groupTotals[gKey].value += s.value;
-    groupTotals[gKey].forecast += forecast;
-    groupTotals[gKey].monthQty += monthQty;
+    const gName = (r.group || r.company || '').trim();
+    const gKey = canonGroupKey(gName);
+    if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], m3: 0, m2: 0, m1: 0, actual: 0 };
+    const c = {
+      row: r,
+      m3: computeCompanyQtyForMonth(r.company, m3),
+      m2: computeCompanyQtyForMonth(r.company, m2),
+      m1: computeCompanyQtyForMonth(r.company, m1),
+      actual: computeCompanyQtyForMonth(r.company, m0)
+    };
+    groups[gKey].companies.push(c);
+    groups[gKey].m3 += c.m3; groups[gKey].m2 += c.m2; groups[gKey].m1 += c.m1; groups[gKey].actual += c.actual;
   });
 
-  let html = '';
-  let lastGroup = null;
-  rows.forEach(r => {
-    const gKey = (r.group || r.company || '').trim().toLowerCase();
-    if (r.group !== lastGroup) {
-      const gt = groupTotals[gKey];
-      const gAch = gt.forecast > 0 ? (gt.monthQty / gt.forecast) * 100 : null;
-      const gAchText = gAch !== null ? gAch.toFixed(1) + '%' : '—';
-      html += `<tr style="background:rgba(232,160,32,0.08)">
-        <td colspan="4"><strong>📁 ${escapeHtml(r.group || '—')}</strong></td>
-        <td class="td-num"><strong>${gt.qty.toFixed(2)}</strong></td>
-        <td class="td-num"><strong>₹${Math.round(gt.value).toLocaleString('en-IN')}</strong></td>
-        <td class="td-num"><strong>${gt.forecast > 0 ? gt.forecast.toFixed(2) : '—'}</strong></td>
-        <td class="td-num" style="${achColor(gAch)}"><strong>${gAchText}</strong></td>
-        <td></td>
-      </tr>`;
-      lastGroup = r.group;
-    }
+  // Sales Person + manual group Target come from the group itself, not summed from companies.
+  Object.keys(groups).forEach(gKey => {
+    groups[gKey].sp = groupSpMap[gKey] || '—';
+    groups[gKey].target = getGroupForecast(gKey);
+  });
 
-    const s = computeCompanySales(r.company, monthOnly);
-    const monthQty = computeCompanySales(r.company, true).qty;
-    const forecast = getCompanyForecast(r);
-    const ach = forecast > 0 ? (monthQty / forecast) * 100 : null;
-    const achText = ach !== null ? ach.toFixed(1) + '%' : '—';
-    const forecastInputVal = forecast > 0 ? forecast : '';
+  // Populate the Sales Person filter (preserving current selection).
+  const spSelect = document.getElementById('gmSpFilter');
+  if (spSelect) {
+    const allSp = [...new Set(Object.values(groups).map(g => g.sp).filter(s => s && s !== '—'))].sort();
+    spSelect.innerHTML = '<option value="">All Sales Persons</option>' +
+      allSp.map(s => `<option value="${escapeHtml(s)}" ${s === gmSpFilter ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  }
 
-    if (gmEditingId === r.id) {
-      html += `<tr id="gmEditRow-${r.id}">
-        <td><input id="gmEditGroup" value="${escapeHtml(r.group || '')}" style="width:110px"></td>
-        <td>${escapeHtml(r.company)}</td>
-        <td><input id="gmEditState" value="${escapeHtml(r.state || '')}" style="width:110px"></td>
-        <td><input id="gmEditLocation" value="${escapeHtml(r.location || '')}" style="width:120px"></td>
-        <td class="td-num">${s.qty.toFixed(2)}</td>
-        <td class="td-num">₹${Math.round(s.value).toLocaleString('en-IN')}</td>
-        <td class="td-num">
-          <input type="number" step="0.1" value="${forecastInputVal}" placeholder="Set target" style="width:80px;text-align:right"
-            onblur="saveCompanyForecast('${r.id}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
-        </td>
-        <td class="td-num" style="${achColor(ach)}">${achText}</td>
-        <td>
-          <button class="btn btn-success" style="padding:3px 8px;font-size:11px" onclick="saveEditCompanyMasterRow('${r.id}')">💾</button>
-          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="cancelEditCompanyMasterRow()">✕</button>
-        </td>
-      </tr>`;
-    } else {
-      html += `<tr>
-        <td></td>
-        <td>${escapeHtml(r.company)}</td>
-        <td>${escapeHtml(r.state) || '—'}</td>
-        <td>${escapeHtml(r.location) || '—'}</td>
-        <td class="td-num">${s.qty.toFixed(2)}</td>
-        <td class="td-num">₹${Math.round(s.value).toLocaleString('en-IN')}</td>
-        <td class="td-num">
-          <input type="number" step="0.1" value="${forecastInputVal}" placeholder="Set target" style="width:80px;text-align:right"
-            onblur="saveCompanyForecast('${r.id}', this.value)" onkeydown="if(event.key==='Enter') this.blur()">
-        </td>
-        <td class="td-num" style="${achColor(ach)}">${achText}</td>
-        <td>
-          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="editCompanyMasterRow('${r.id}')">✏️</button>
-          <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="deleteCompanyMasterRow('${r.id}')">✕</button>
-        </td>
-      </tr>`;
-    }
+  let groupList = Object.entries(groups);
+  if (gmSpFilter) groupList = groupList.filter(([, g]) => g.sp === gmSpFilter);
+  groupList.sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+  // Grand total — top row.
+  const grand = groupList.reduce((acc, [, g]) => {
+    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1; acc.target += g.target; acc.actual += g.actual;
+    return acc;
+  }, { m3: 0, m2: 0, m1: 0, target: 0, actual: 0 });
+  const grandAch = grand.target > 0 ? (grand.actual / grand.target) * 100 : null;
+
+  let html = `<tr style="background:rgba(232,160,32,0.18)">
+    <td><strong>Σ TOTAL — ${groupList.length} groups</strong></td>
+    <td class="td-num"><strong>${grand.m3.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${grand.m2.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${grand.m1.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${grand.target > 0 ? grand.target.toFixed(2) : '—'}</strong></td>
+    <td class="td-num"><strong>${grand.actual.toFixed(2)}</strong></td>
+    <td class="td-num" style="${achColor(grandAch)}"><strong>${grandAch !== null ? grandAch.toFixed(1) + '%' : '—'}</strong></td>
+    <td></td><td></td>
+  </tr>`;
+
+  groupList.forEach(([gKey, g]) => {
+    const expanded = gmExpandedGroups.has(gKey) || q.length > 0; // auto-expand while searching
+    const gAch = g.target > 0 ? (g.actual / g.target) * 100 : null;
+    const gTargetVal = g.target > 0 ? g.target : '';
+
+    html += `<tr class="gm-group-row" data-gkey="${escapeHtml(gKey)}" style="background:rgba(232,160,32,0.08)">
+      <td style="cursor:pointer" onclick="gmToggleGroup('${gKey.replace(/'/g, "\\'")}')">
+        <strong>${expanded ? '▾' : '▸'} 📁 ${escapeHtml(g.name || '—')}</strong>
+        <span style="font-weight:400;color:var(--muted);font-size:11px"> (${g.companies.length})</span>
+      </td>
+      <td class="td-num"><strong>${g.m3.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>${g.m2.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>${g.m1.toFixed(2)}</strong></td>
+      <td class="td-num">
+        <input type="number" step="0.1" value="${gTargetVal}" placeholder="Set target" style="width:80px;text-align:right;font-weight:700"
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value)" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+      </td>
+      <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
+      <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
+      <td>${escapeHtml(g.sp)}</td>
+      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();deleteGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">🗑️ Delete Group</button></td>
+    </tr>`;
+
+    if (!expanded) return;
+
+    g.companies.sort((a, b) => (a.row.company || '').localeCompare(b.row.company || '')).forEach(c => {
+      const r = c.row;
+      if (gmEditingId === r.id) {
+        html += `<tr id="gmEditRow-${r.id}">
+          <td style="padding-left:28px">
+            <input id="gmEditGroup" value="${escapeHtml(r.group || '')}" style="width:120px" placeholder="Group"><br>
+            <span style="font-size:12px">${escapeHtml(r.company)}</span><br>
+            <input id="gmEditState" value="${escapeHtml(r.state || '')}" style="width:100px;margin-top:2px" placeholder="State">
+            <input id="gmEditLocation" value="${escapeHtml(r.location || '')}" style="width:100px;margin-top:2px" placeholder="Location">
+          </td>
+          <td class="td-num">${c.m3.toFixed(2)}</td>
+          <td class="td-num">${c.m2.toFixed(2)}</td>
+          <td class="td-num">${c.m1.toFixed(2)}</td>
+          <td class="td-num">—</td>
+          <td class="td-num">${c.actual.toFixed(2)}</td>
+          <td class="td-num">—</td>
+          <td>—</td>
+          <td>
+            <button class="btn btn-success" style="padding:3px 8px;font-size:11px" onclick="saveEditCompanyMasterRow('${r.id}')">💾</button>
+            <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="cancelEditCompanyMasterRow()">✕</button>
+          </td>
+        </tr>`;
+      } else {
+        html += `<tr>
+          <td style="padding-left:28px">${escapeHtml(r.company)}<div style="font-size:11px;color:var(--muted)">${escapeHtml(r.state) || '—'} · ${escapeHtml(r.location) || '—'}</div></td>
+          <td class="td-num">${c.m3.toFixed(2)}</td>
+          <td class="td-num">${c.m2.toFixed(2)}</td>
+          <td class="td-num">${c.m1.toFixed(2)}</td>
+          <td class="td-num">—</td>
+          <td class="td-num">${c.actual.toFixed(2)}</td>
+          <td class="td-num">—</td>
+          <td>—</td>
+          <td>
+            <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="editCompanyMasterRow('${r.id}')">✏️</button>
+            <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="deleteCompanyMasterRow('${r.id}')">✕</button>
+          </td>
+        </tr>`;
+      }
+    });
   });
 
   tbody.innerHTML = html;
-  if (countEl) countEl.textContent = `${rows.length} companies across ${Object.keys(groupTotals).length} groups`;
+  if (countEl) countEl.textContent = `${rows.length} companies across ${groupList.length} groups${gmSpFilter ? ' · filtered by ' + gmSpFilter : ''}`;
 }
 
 // Bulk import Group Name / Company Name / State / Location from an
@@ -3131,6 +3439,8 @@ function handleCompanyMasterFileUpload(event) {
           const key = companyMasterKey(company);
           const payload = {
             group: group || company, company, state, location,
+            deleted: false,
+            deletedAt: firebase.firestore.FieldValue.delete(),
             updatedBy: currentUserEmail || 'unknown',
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           };
@@ -3160,16 +3470,28 @@ function handleCompanyMasterFileUpload(event) {
 
 function exportCompanyMasterExcel() {
   if (companyMasterData.length === 0) { showToast('❌ No companies to export yet', true); return; }
-  const header = ['Group Name', 'Company Name', 'State', 'Location', 'Sales Qty — All Time (MT)', 'Sales Value — All Time (₹)', 'This Month Forecast (MT)', 'This Month Achieved (MT)', 'This Month Achievement %'];
+  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
+  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
+  const header = ['Group Name', 'Company Name', 'State', 'Location', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} Target (MT) — Group Level`, `${l0} Actual (MT)`, `${l0} Achievement % — Group Level`, 'Sales Person'];
   const rows = [header];
   companyMasterData.slice()
     .sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.company || '').localeCompare(b.company || ''))
     .forEach(r => {
-      const s = computeCompanySales(r.company, false);
-      const monthQty = computeCompanySales(r.company, true).qty;
-      const forecast = getCompanyForecast(r);
-      const ach = forecast > 0 ? Math.round((monthQty / forecast) * 1000) / 10 : '';
-      rows.push([r.group || '', r.company || '', r.state || '', r.location || '', s.qty, Math.round(s.value), forecast || '', monthQty, ach]);
+      const gKey = canonGroupKey(r.group || r.company || '');
+      const target = getGroupForecast(gKey);
+      const sp = groupSpMap[gKey] || '';
+      const actual = computeCompanyQtyForMonth(r.company, m0);
+      // Achievement % is a group-level figure (target is set per-group, not per-company),
+      // so it's only meaningful once per group — repeated here for spreadsheet readability.
+      const groupActualTotal = companyMasterData
+        .filter(x => canonGroupKey(x.group || x.company || '') === gKey)
+        .reduce((s, x) => s + computeCompanyQtyForMonth(x.company, m0), 0);
+      const ach = target > 0 ? Math.round((groupActualTotal / target) * 1000) / 10 : '';
+      rows.push([
+        r.group || '', r.company || '', r.state || '', r.location || '',
+        computeCompanyQtyForMonth(r.company, m3), computeCompanyQtyForMonth(r.company, m2), computeCompanyQtyForMonth(r.company, m1),
+        target || '', actual, ach, sp
+      ]);
     });
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
