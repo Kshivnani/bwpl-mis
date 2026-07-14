@@ -2234,6 +2234,10 @@
             <label>Location</label>
             <input id="gmNewLocation" placeholder="e.g. Kanpur">
           </div>
+          <div class="form-group" style="min-width:120px">
+            <label>Sales Person</label>
+            <input id="gmNewSp" placeholder="e.g. GM">
+          </div>
           <button class="btn btn-primary" onclick="addCompanyMasterRow()">+ Add Company</button>
         </div>
 
@@ -2246,6 +2250,29 @@
             <label>Sales Person</label>
             <select id="gmSpFilter" onchange="gmSpFilter=this.value; renderCompanyMaster()">
               <option value="">All Sales Persons</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:170px">
+            <label>Product Category</label>
+            <select id="gmProductFilter" onchange="gmProductFilter=this.value; renderCompanyMaster()">
+              <option value="">All Products</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:150px">
+            <label>Sort by</label>
+            <select id="gmSortBy" onchange="gmSortBy=this.value; renderCompanyMaster()">
+              <option value="group">Group Name (A-Z)</option>
+              <option value="sp">Sales Person</option>
+              <option value="actual">Actual (MT)</option>
+              <option value="target">Target (MT)</option>
+              <option value="achievement">Achievement %</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:120px">
+            <label>Order</label>
+            <select id="gmSortDir" onchange="gmSortDir=this.value; renderCompanyMaster()">
+              <option value="asc">↑ Ascending</option>
+              <option value="desc">↓ Descending</option>
             </select>
           </div>
           <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmExpandAll()">▾ Expand All</button>
@@ -2424,6 +2451,9 @@ let gmRecycleBinOpen = false;
 let gmEditingId = null;
 let gmExpandedGroups = new Set(); // canonGroupKey()s currently expanded (dropdown open)
 let gmSpFilter = '';              // Sales Person filter for the Group/Company Master table
+let gmProductFilter = '';         // Product Category filter (PC Wire / ACSR Core Wire / etc.) — derived from POS dispatch data
+let gmSortBy = 'group';           // Sort field: group | sp | actual | target | achievement
+let gmSortDir = 'asc';            // Sort direction: asc | desc
 let groupTargetsData = {};        // { canonGroupKey: { forecasts: { 'MM-YYYY': number } } } — cloud-synced group-level manual targets
 let gmLoaded = false;
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
@@ -3069,33 +3099,50 @@ function gmMonthLabel(offset) {
 }
 
 // Actual dispatched qty (MT) for one company in one specific "MM-YYYY" month.
-function computeCompanyQtyForMonth(companyName, suffix) {
+// productFilter (optional) restricts the sum to a single product/category
+// (e.g. "PC Wire", "ACSR Core Wire") — same product values used by the
+// Demand Forecast page's product filter, pulled straight from dispatchData.
+function computeCompanyQtyForMonth(companyName, suffix, productFilter) {
   const target = companyMasterKey(companyName);
   let qty = 0;
   for (let i = 0; i < dispatchData.length; i++) {
     const r = dispatchData[i];
     if (companyMasterKey(r.party || '') !== target) continue;
     if (!r.dispatchDate || r.dispatchDate.slice(3) !== suffix) continue;
+    if (productFilter && r.product !== productFilter) continue;
     qty += r.qty || 0;
   }
   return qty;
+}
+
+// Distinct product categories seen in dispatchData, for the Group Master
+// "Product Category" filter dropdown. Sorted with the two main categories
+// (PC Wire, ACSR Core Wire) first, matching the Demand Forecast page.
+function gmGetProductCategories() {
+  const set = new Set(dispatchData.map(r => r.product).filter(Boolean));
+  const priority = ['PC Wire', 'ACSR Core Wire'];
+  const rest = [...set].filter(p => !priority.includes(p)).sort();
+  return priority.filter(p => set.has(p)).concat(rest);
 }
 
 async function saveCompanyMasterRow(row) {
   const key = companyMasterKey(row.company);
   if (!key) { showToast('❌ Company name required', true); return; }
   try {
+    const spPayload = {};
+    if (row.sp !== undefined) spPayload.sp = (row.sp || '').trim();
     await db.collection('companyMaster').doc(key).set({
       group: (row.group || row.company || '').trim(),
       company: (row.company || '').trim(),
       state: (row.state || '').trim(),
       location: (row.location || '').trim(),
+      ...spPayload,
       deleted: false,
       deletedAt: firebase.firestore.FieldValue.delete(),
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    const newRow = { id: key, group: (row.group || row.company || '').trim(), company: (row.company || '').trim(), state: (row.state || '').trim(), location: (row.location || '').trim() };
+    const newRow = { id: key, group: (row.group || row.company || '').trim(), company: (row.company || '').trim(), state: (row.state || '').trim(), location: (row.location || '').trim(), sp: row.sp !== undefined ? (row.sp || '').trim() : (companyMasterData.find(r => r.id === key)?.sp || '') };
     const idx = companyMasterData.findIndex(r => r.id === key);
     if (idx >= 0) companyMasterData[idx] = newRow; else companyMasterData.push(newRow);
     gmDeletedData = gmDeletedData.filter(r => r.id !== key); // un-hide if it was sitting in the recycle bin
@@ -3154,12 +3201,14 @@ function addCompanyMasterRow() {
   const company = (document.getElementById('gmNewCompany').value || '').trim();
   const state = (document.getElementById('gmNewState').value || '').trim();
   const location = (document.getElementById('gmNewLocation').value || '').trim();
+  const sp = (document.getElementById('gmNewSp')?.value || '').trim();
   if (!company) { showToast('❌ Company name required', true); return; }
-  saveCompanyMasterRow({ group: group || company, company, state, location });
+  saveCompanyMasterRow({ group: group || company, company, state, location, sp });
   document.getElementById('gmNewGroup').value = '';
   document.getElementById('gmNewCompany').value = '';
   document.getElementById('gmNewState').value = '';
   document.getElementById('gmNewLocation').value = '';
+  if (document.getElementById('gmNewSp')) document.getElementById('gmNewSp').value = '';
 }
 
 function editCompanyMasterRow(id) { gmEditingId = id; renderCompanyMaster(); }
@@ -3169,10 +3218,11 @@ async function saveEditCompanyMasterRow(id) {
   const group = (document.getElementById('gmEditGroup').value || '').trim();
   const state = (document.getElementById('gmEditState').value || '').trim();
   const location = (document.getElementById('gmEditLocation').value || '').trim();
+  const sp = (document.getElementById('gmEditSp')?.value || '').trim();
   const existing = companyMasterData.find(r => r.id === id);
   const company = existing ? existing.company : id;
   gmEditingId = null;
-  await saveCompanyMasterRow({ group: group || company, company, state, location });
+  await saveCompanyMasterRow({ group: group || company, company, state, location, sp });
 }
 
 // This-month suffix in the same "MM-YYYY" form used elsewhere (matches
@@ -3277,18 +3327,24 @@ function renderCompanyMaster() {
     if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], m3: 0, m2: 0, m1: 0, actual: 0 };
     const c = {
       row: r,
-      m3: computeCompanyQtyForMonth(r.company, m3),
-      m2: computeCompanyQtyForMonth(r.company, m2),
-      m1: computeCompanyQtyForMonth(r.company, m1),
-      actual: computeCompanyQtyForMonth(r.company, m0)
+      sp: (r.sp || '').trim(), // Sales Person imported directly on this company row (from the GM-Parties Excel "SP" column)
+      m3: computeCompanyQtyForMonth(r.company, m3, gmProductFilter),
+      m2: computeCompanyQtyForMonth(r.company, m2, gmProductFilter),
+      m1: computeCompanyQtyForMonth(r.company, m1, gmProductFilter),
+      actual: computeCompanyQtyForMonth(r.company, m0, gmProductFilter)
     };
     groups[gKey].companies.push(c);
     groups[gKey].m3 += c.m3; groups[gKey].m2 += c.m2; groups[gKey].m1 += c.m1; groups[gKey].actual += c.actual;
   });
 
   // Sales Person + manual group Target come from the group itself, not summed from companies.
+  // Priority: groupSpMap (synced from the POS/EMS Master sheet) first, then the SP
+  // imported directly on the group's companies via the Group Master Excel upload.
   Object.keys(groups).forEach(gKey => {
-    groups[gKey].sp = groupSpMap[gKey] || '—';
+    const spVotes = {};
+    groups[gKey].companies.forEach(c => { if (c.sp) spVotes[c.sp] = (spVotes[c.sp] || 0) + 1; });
+    const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
+    groups[gKey].sp = groupSpMap[gKey] || importedSp || '—';
     groups[gKey].target = getGroupForecast(gKey);
   });
 
@@ -3300,9 +3356,41 @@ function renderCompanyMaster() {
       allSp.map(s => `<option value="${escapeHtml(s)}" ${s === gmSpFilter ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
   }
 
+  // Populate the Product Category filter (preserving current selection) — categories
+  // come straight from the dispatch data (e.g. PC Wire, ACSR Core Wire, GI Wire).
+  const productSelect = document.getElementById('gmProductFilter');
+  if (productSelect) {
+    const allProducts = gmGetProductCategories();
+    productSelect.innerHTML = '<option value="">All Products</option>' +
+      allProducts.map(p => `<option value="${escapeHtml(p)}" ${p === gmProductFilter ? 'selected' : ''}>${escapeHtml(p)}</option>`).join('');
+  }
+
   let groupList = Object.entries(groups);
   if (gmSpFilter) groupList = groupList.filter(([, g]) => g.sp === gmSpFilter);
-  groupList.sort((a, b) => a[1].name.localeCompare(b[1].name));
+  // When a product category is chosen, only show groups that actually have
+  // dispatch volume in that product (across the visible months).
+  if (gmProductFilter) groupList = groupList.filter(([, g]) => (g.m3 + g.m2 + g.m1 + g.actual) > 0);
+
+  // Sort — by Group Name, Sales Person, Actual/Target qty, or Achievement %.
+  const dir = gmSortDir === 'desc' ? -1 : 1;
+  groupList.sort((a, b) => {
+    const g1 = a[1], g2 = b[1];
+    switch (gmSortBy) {
+      case 'sp':
+        return dir * String(g1.sp || '').localeCompare(String(g2.sp || ''));
+      case 'actual':
+        return dir * (g1.actual - g2.actual);
+      case 'target':
+        return dir * (g1.target - g2.target);
+      case 'achievement': {
+        const a1 = g1.target > 0 ? g1.actual / g1.target : -1;
+        const a2 = g2.target > 0 ? g2.actual / g2.target : -1;
+        return dir * (a1 - a2);
+      }
+      default:
+        return dir * g1.name.localeCompare(g2.name);
+    }
+  });
 
   // Grand total — top row.
   const grand = groupList.reduce((acc, [, g]) => {
@@ -3356,6 +3444,7 @@ function renderCompanyMaster() {
             <span style="font-size:12px">${escapeHtml(r.company)}</span><br>
             <input id="gmEditState" value="${escapeHtml(r.state || '')}" style="width:100px;margin-top:2px" placeholder="State">
             <input id="gmEditLocation" value="${escapeHtml(r.location || '')}" style="width:100px;margin-top:2px" placeholder="Location">
+            <input id="gmEditSp" value="${escapeHtml(r.sp || '')}" style="width:100px;margin-top:2px" placeholder="Sales Person">
           </td>
           <td class="td-num">${c.m3.toFixed(2)}</td>
           <td class="td-num">${c.m2.toFixed(2)}</td>
@@ -3389,7 +3478,9 @@ function renderCompanyMaster() {
   });
 
   tbody.innerHTML = html;
-  if (countEl) countEl.textContent = `${rows.length} companies across ${groupList.length} groups${gmSpFilter ? ' · filtered by ' + gmSpFilter : ''}`;
+  if (countEl) countEl.textContent = `${rows.length} companies across ${groupList.length} groups`
+    + (gmSpFilter ? ' · SP: ' + gmSpFilter : '')
+    + (gmProductFilter ? ' · Product: ' + gmProductFilter : '');
 }
 
 // Bulk import Group Name / Company Name / State / Location from an
@@ -3417,6 +3508,7 @@ function handleCompanyMasterFileUpload(event) {
       const idxState = header.findIndex(h => h.includes('state'));
       const idxLocation = header.findIndex(h => h.includes('location') || h.includes('city'));
       const idxForecast = header.findIndex(h => h.includes('forecast') || h.includes('target'));
+      const idxSp = header.findIndex(h => h === 'sp' || h.includes('sales person') || h.includes('salesperson'));
 
       if (idxCompany === -1) {
         showToast('❌ Excel must have a "Company Name" column', true);
@@ -3436,9 +3528,10 @@ function handleCompanyMasterFileUpload(event) {
           const group = idxGroup >= 0 ? String(r[idxGroup] || '').trim() : '';
           const state = idxState >= 0 ? String(r[idxState] || '').trim() : '';
           const location = idxLocation >= 0 ? String(r[idxLocation] || '').trim() : '';
+          const sp = idxSp >= 0 ? String(r[idxSp] || '').trim() : '';
           const key = companyMasterKey(company);
           const payload = {
-            group: group || company, company, state, location,
+            group: group || company, company, state, location, sp,
             deleted: false,
             deletedAt: firebase.firestore.FieldValue.delete(),
             updatedBy: currentUserEmail || 'unknown',
@@ -3479,7 +3572,7 @@ function exportCompanyMasterExcel() {
     .forEach(r => {
       const gKey = canonGroupKey(r.group || r.company || '');
       const target = getGroupForecast(gKey);
-      const sp = groupSpMap[gKey] || '';
+      const sp = groupSpMap[gKey] || r.sp || '';
       const actual = computeCompanyQtyForMonth(r.company, m0);
       // Achievement % is a group-level figure (target is set per-group, not per-company),
       // so it's only meaningful once per group — repeated here for spreadsheet readability.
