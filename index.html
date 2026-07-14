@@ -2782,7 +2782,11 @@ async function syncForecastSheet() {
 // Canonical group key: case-insensitive + collapsed whitespace, so
 // "Mamodia Group", "MAMODIA GROUP", "mamodia  group" etc. all merge as one group.
 function canonGroupKey(name) {
-  return String(name || '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return String(name || '')
+    .trim()
+    .toUpperCase()
+    .replace(/\//g, '-')      // "/" breaks Firestore doc paths (e.g. "M/S Agarwal Traders")
+    .replace(/\s+/g, ' ');
 }
 
 function parseForecastData(rows) {
@@ -2867,7 +2871,11 @@ function getGroupForParty(party) {
 // ═══════════════════════════════════════════════════════════════
 
 function companyMasterKey(company) {
-  return String(company || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return String(company || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\//g, '-')      // "/" breaks Firestore doc paths (e.g. "M/S Agarwal Traders")
+    .replace(/\s+/g, ' ');
 }
 
 function escapeHtml(s) {
