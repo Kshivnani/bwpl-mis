@@ -2210,7 +2210,7 @@
             <div class="meta">Group Name → Company → State → Location — saved to cloud, with live Sales pulled from dispatch data</div>
           </div>
           <div class="report-actions">
-            <button class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
+            <button id="gmImportExcelBtn" class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
             <input type="file" id="gmExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleCompanyMasterFileUpload(event)">
             <button class="btn btn-secondary" onclick="exportCompanyMasterExcel()">⬇ Export Excel</button>
             <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
@@ -2218,7 +2218,7 @@
         </div>
         <div id="gmCloudStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
 
-        <div class="section-pad" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+        <div class="section-pad" id="gmAddCompanyForm" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
           <div class="form-group" style="min-width:160px">
             <label>Group Name</label>
             <input id="gmNewGroup" placeholder="e.g. Mamodia Group">
@@ -2879,6 +2879,23 @@ function companyMasterKey(company) {
     .replace(/\s+/g, ' ');
 }
 
+// Only the super-admin (inframis@bajranggroup.com, see SUPER_ADMIN_EMAILS)
+// may add/edit/delete/import Group Name, Company Name, Sales Person, or
+// Forecast/Target values on the Group / Company Master page. Everyone else
+// can view + export, but every write path below is gated by this check.
+// NOTE: this is a client-side UX guard only. A user could still bypass it
+// via the browser console, so the real enforcement MUST also live in your
+// Firestore Security Rules (restrict writes on companyMaster/groupTargets
+// to request.auth.token.email == 'inframis@bajranggroup.com').
+function canEditCompanyMaster() {
+  return !!isSuperAdmin;
+}
+function blockIfNotAdmin() {
+  if (canEditCompanyMaster()) return false;
+  showToast('❌ Only inframis@bajranggroup.com can edit Group/Company Master', true);
+  return true;
+}
+
 function escapeHtml(s) {
   return String(s == null ? '' : s)
     .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -2952,22 +2969,43 @@ function getGroupForecast(gKey) {
 }
 
 async function saveGroupForecast(gKey, rawValue) {
+  if (blockIfNotAdmin()) { renderCompanyMaster(); return; } // renders the input back to its saved value
+
   const period = gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
+
+  // Remember the previous value so we can roll back the local cache if the
+  // Firestore write fails below.
+  const prevValue = (groupTargetsData[gKey] && groupTargetsData[gKey].forecasts)
+    ? groupTargetsData[gKey].forecasts[period]
+    : undefined;
+
+  // Update the LOCAL cache immediately (optimistic update) — BEFORE the
+  // Firestore write. This matters because a click on the same table row
+  // (e.g. to expand/collapse the group) fires synchronously right after
+  // this function starts, and that click triggers renderCompanyMaster()
+  // while the Firestore write below is still in flight (network round
+  // trip). Without this, that re-render was reading the OLD value from
+  // groupTargetsData and visually reverting the input to blank/0 before
+  // the save had even finished, making it look like the save failed.
+  if (!groupTargetsData[gKey]) groupTargetsData[gKey] = { forecasts: {} };
+  groupTargetsData[gKey].forecasts = groupTargetsData[gKey].forecasts || {};
+  groupTargetsData[gKey].forecasts[period] = value;
+  renderCompanyMaster();
+
   try {
     await db.collection('groupTargets').doc(gKey).set({
       ['forecasts.' + period]: value,
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    if (!groupTargetsData[gKey]) groupTargetsData[gKey] = { forecasts: {} };
-    groupTargetsData[gKey].forecasts = groupTargetsData[gKey].forecasts || {};
-    groupTargetsData[gKey].forecasts[period] = value;
-    renderCompanyMaster();
     showToast('✅ Group target saved');
   } catch (e) {
     console.error('[Group Target Save Error]', e);
+    // Roll back the optimistic local update since the write didn't persist.
+    groupTargetsData[gKey].forecasts[period] = prevValue;
+    renderCompanyMaster();
     showToast('❌ Group target save failed: ' + e.message, true);
   }
 }
@@ -2977,6 +3015,7 @@ async function saveGroupForecast(gKey, rawValue) {
 // the 30-day recycle bin. Nothing is permanently gone until gmPurgeExpiredDeleted
 // clears it out, or it's purged automatically after 30 days.
 async function deleteGroupMasterGroup(gKey, groupName) {
+  if (blockIfNotAdmin()) return;
   const toDelete = companyMasterData.filter(r => canonGroupKey(r.group || r.company || '') === gKey);
   if (!confirm(`Move group "${groupName}" and all ${toDelete.length} companies under it to Recently Deleted?\n\nYou can restore it for 30 days before it's permanently removed.`)) return;
   try {
@@ -3008,6 +3047,7 @@ async function deleteGroupMasterGroup(gKey, groupName) {
 
 // Restores every soft-deleted company under one group back to active.
 async function restoreGroupMasterGroup(gKey, groupName) {
+  if (blockIfNotAdmin()) return;
   const toRestore = gmDeletedData.filter(r => canonGroupKey(r.group || r.company || '') === gKey);
   if (toRestore.length === 0) return;
   try {
@@ -3077,7 +3117,7 @@ function renderRecycleBin() {
         <span style="color:var(--muted)"> — ${g.count} compan${g.count === 1 ? 'y' : 'ies'}, deleted ${dateStr}</span>
         <span style="color:var(--wire);font-size:11px"> · ${daysLeft} day${daysLeft === 1 ? '' : 's'} left</span>
       </div>
-      <button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="restoreGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">↩ Restore</button>
+      ${isSuperAdmin ? `<button class="btn btn-success" style="padding:3px 10px;font-size:11px" onclick="restoreGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">↩ Restore</button>` : ''}
     </div>`;
   }).join('');
 }
@@ -3135,6 +3175,7 @@ function gmGetProductCategories() {
 }
 
 async function saveCompanyMasterRow(row) {
+  if (blockIfNotAdmin()) return;
   const key = companyMasterKey(row.company);
   if (!key) { showToast('❌ Company name required', true); return; }
   try {
@@ -3165,6 +3206,7 @@ async function saveCompanyMasterRow(row) {
 }
 
 async function deleteCompanyMasterRow(id) {
+  if (blockIfNotAdmin()) return;
   const row = companyMasterData.find(r => r.id === id);
   if (!confirm(`Move "${row ? row.company : id}" to Recently Deleted?\n\nYou can restore it for 30 days before it's permanently removed.`)) return;
   try {
@@ -3186,6 +3228,7 @@ async function deleteCompanyMasterRow(id) {
 
 // Restores a single soft-deleted company back to active.
 async function restoreCompanyMasterRow(id) {
+  if (blockIfNotAdmin()) return;
   const row = gmDeletedData.find(r => r.id === id);
   if (!row) return;
   try {
@@ -3220,7 +3263,7 @@ function addCompanyMasterRow() {
   if (document.getElementById('gmNewSp')) document.getElementById('gmNewSp').value = '';
 }
 
-function editCompanyMasterRow(id) { gmEditingId = id; renderCompanyMaster(); }
+function editCompanyMasterRow(id) { if (blockIfNotAdmin()) return; gmEditingId = id; renderCompanyMaster(); }
 function cancelEditCompanyMasterRow() { gmEditingId = null; renderCompanyMaster(); }
 
 async function saveEditCompanyMasterRow(id) {
@@ -3249,6 +3292,7 @@ function getCompanyForecast(row) {
 }
 
 async function saveCompanyForecast(id, rawValue) {
+  if (blockIfNotAdmin()) return;
   const period = gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
@@ -3433,13 +3477,13 @@ function renderCompanyMaster() {
       <td class="td-num"><strong>${g.m2.toFixed(2)}</strong></td>
       <td class="td-num"><strong>${g.m1.toFixed(2)}</strong></td>
       <td class="td-num">
-        <input type="number" step="0.1" value="${gTargetVal}" placeholder="Set target" style="width:80px;text-align:right;font-weight:700"
+        <input type="number" step="0.1" value="${gTargetVal}" placeholder="Set target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
           onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value)" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
       </td>
       <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
       <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
       <td>${escapeHtml(g.sp)}</td>
-      <td><button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();deleteGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">🗑️ Delete Group</button></td>
+      <td>${isSuperAdmin ? `<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();deleteGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">🗑️ Delete Group</button>` : ''}</td>
     </tr>`;
 
     if (!expanded) return;
@@ -3478,8 +3522,8 @@ function renderCompanyMaster() {
           <td class="td-num">—</td>
           <td>—</td>
           <td>
-            <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="editCompanyMasterRow('${r.id}')">✏️</button>
-            <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="deleteCompanyMasterRow('${r.id}')">✕</button>
+            ${isSuperAdmin ? `<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="editCompanyMasterRow('${r.id}')">✏️</button>
+            <button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="deleteCompanyMasterRow('${r.id}')">✕</button>` : ''}
           </td>
         </tr>`;
       }
@@ -3498,6 +3542,7 @@ function renderCompanyMaster() {
 function handleCompanyMasterFileUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
+  if (blockIfNotAdmin()) { event.target.value = ''; return; }
   const status = document.getElementById('gmCloudStatus');
   if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Reading Excel file...</span>';
 
@@ -6339,9 +6384,22 @@ async function applyPermissions(email, displayName) {
   }
   applyPageAccessUI();
   startPresenceHeartbeat();
+  applyGroupMasterEditUI();
 
   const panel = document.getElementById('manageUsersPanel');
   if (panel) panel.style.display = isSuperAdmin ? '' : 'none';
+}
+
+// Hides the "+ Add Company" form and "Import Excel" button for anyone
+// except the super-admin — matches the write guards on saveCompanyMasterRow /
+// handleCompanyMasterFileUpload etc. above, so non-admins can view + export
+// the Group/Company Master but can't add, edit, delete, or bulk-import.
+function applyGroupMasterEditUI() {
+  const addForm = document.getElementById('gmAddCompanyForm');
+  if (addForm) addForm.style.display = isSuperAdmin ? '' : 'none';
+  const importBtn = document.getElementById('gmImportExcelBtn');
+  if (importBtn) importBtn.style.display = isSuperAdmin ? '' : 'none';
+  if (typeof renderCompanyMaster === 'function') renderCompanyMaster();
 }
 
 // ── Manage Users panel (Setup page, Super Admin only) ──
