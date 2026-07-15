@@ -1562,7 +1562,8 @@
                 <option value="asc">↑ Ascending</option>
               </select>
             </div>
-            <button class="btn btn-primary" onclick="downloadGAReport()" style="margin-top:18px">⬇ Download Excel</button>
+            <button class="btn btn-primary" onclick="downloadGAReport()" style="margin-top:18px">⬇ Group-wise Excel</button>
+            <button class="btn btn-primary" onclick="downloadGAReportCompanyWise()" style="margin-top:18px">⬇ Company-wise Excel</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -3952,6 +3953,88 @@ function downloadGAReport() {
   const link = document.createElement('a');
   link.href = URL.createObjectURL(blob);
   link.download = 'Demand_Forecast_' + period + '.xls';
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(link.href);
+  showToast('✅ Excel downloaded');
+}
+
+function downloadGAReportCompanyWise() {
+  if (!gaGroupData.length) { showToast('❌ No data to download', true); return; }
+  const period = document.getElementById('gaPeriod').value;
+  const sp = document.getElementById('gaSpFilter').value;
+  const prod = document.getElementById('gaProductFilter').value;
+  const sortDir = document.getElementById('gaSortDir').value;
+  const sortLabel = document.getElementById('gaSortCol').selectedOptions[0].textContent
+    + ' (' + (sortDir === 'asc' ? 'Ascending' : 'Descending') + ')';
+  const sortedData = getSortedGAGroupData(); // same group order as on-screen table
+
+  // Same thresholds as the on-screen achColor(): >=100% green, >=75% yellow, else red
+  const achBg = (ach) => {
+    if (ach === null) return '#f1f1f1';
+    if (ach >= 100) return '#c6f6d5';
+    if (ach >= 75) return '#fef3c7';
+    return '#fed7d7';
+  };
+
+  const fcLabel = forecastMonthLabel(period);
+  let html = '<table border="1" cellpadding="4" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:12px">';
+  html += '<tr><td colspan="7" style="font-size:16px;font-weight:bold">BAJRANG WIRE PRODUCTS (INDIA) PVT. LTD.</td></tr>';
+  html += '<tr><td colspan="7" style="font-weight:bold">Demand Forecast — Company-wise</td></tr>';
+  html += '<tr><td colspan="7">Period: ' + (period === 'all' ? 'All Time' : period)
+    + ' | Sales Person: ' + (sp || 'All')
+    + ' | Product: ' + (prod || 'All')
+    + ' | Sorted by: ' + sortLabel + '</td></tr>';
+  html += '<tr></tr>';
+  html += '<tr style="background:#1f2937;color:#ffffff;font-weight:bold">'
+    + '<td>Group Name</td><td>Company Name</td><td>SP</td><td>Group ' + fcLabel + ' Forecast (MT)</td>'
+    + '<td>Company Actual Qty (MT)</td><td>Company Actual Value (Rs.)</td><td>Group Achievement %</td></tr>';
+
+  sortedData.forEach(g => {
+    const bg = achBg(g.achievement);
+    const fcText = g.forecastQty > 0 ? g.forecastQty.toFixed(2) : '—';
+    const achText = g.achievement !== null ? g.achievement.toFixed(1) + '%' : '—';
+    if (!g.companies.length) {
+      // No company-level dispatch rows for this group — still list the group once
+      html += '<tr style="background:' + bg + '">'
+        + '<td>' + g.group + '</td>'
+        + '<td>—</td>'
+        + '<td>' + (g.sp || '—') + '</td>'
+        + '<td align="right">' + fcText + '</td>'
+        + '<td align="right">0.00</td>'
+        + '<td align="right">0.00</td>'
+        + '<td align="right"><b>' + achText + '</b></td></tr>';
+      return;
+    }
+    g.companies.forEach(c => {
+      html += '<tr style="background:' + bg + '">'
+        + '<td>' + g.group + '</td>'
+        + '<td>' + c.name + '</td>'
+        + '<td>' + (g.sp || '—') + '</td>'
+        + '<td align="right">' + fcText + '</td>'
+        + '<td align="right">' + c.qty.toFixed(2) + '</td>'
+        + '<td align="right">' + c.value.toFixed(2) + '</td>'
+        + '<td align="right"><b>' + achText + '</b></td></tr>';
+    });
+  });
+
+  const totQty = sortedData.reduce((s,g)=>s+g.qty,0);
+  const totVal = sortedData.reduce((s,g)=>s + g.companies.reduce((cs,c)=>cs+c.value,0), 0);
+  const totFc = sortedData.reduce((s,g)=>s+g.forecastQty,0);
+  const totAch = totFc > 0 ? (totQty/totFc*100) : null;
+  html += '<tr style="background:#374151;color:#ffffff;font-weight:bold">'
+    + '<td>TOTAL</td><td></td><td></td>'
+    + '<td align="right">' + totFc.toFixed(2) + '</td>'
+    + '<td align="right">' + totQty.toFixed(2) + '</td>'
+    + '<td align="right">' + totVal.toFixed(2) + '</td>'
+    + '<td align="right">' + (totAch !== null ? totAch.toFixed(1)+'%' : '—') + '</td></tr>';
+  html += '</table>';
+
+  const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'Demand_Forecast_CompanyWise_' + period + '.xls';
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
