@@ -2262,6 +2262,7 @@
           <div class="form-group" style="min-width:150px">
             <label>Sort by</label>
             <select id="gmSortBy" onchange="gmSortBy=this.value; renderCompanyMaster()">
+              <option value="last3" selected>Last 3 Months Total (MT)</option>
               <option value="group">Group Name (A-Z)</option>
               <option value="sp">Sales Person</option>
               <option value="actual">Actual (MT)</option>
@@ -2273,7 +2274,7 @@
             <label>Order</label>
             <select id="gmSortDir" onchange="gmSortDir=this.value; renderCompanyMaster()">
               <option value="asc">↑ Ascending</option>
-              <option value="desc">↓ Descending</option>
+              <option value="desc" selected>↓ Descending</option>
             </select>
           </div>
           <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmExpandAll()">▾ Expand All</button>
@@ -2453,8 +2454,8 @@ let gmEditingId = null;
 let gmExpandedGroups = new Set(); // canonGroupKey()s currently expanded (dropdown open)
 let gmSpFilter = '';              // Sales Person filter for the Group/Company Master table
 let gmProductFilter = '';         // Product Category filter (PC Wire / ACSR Core Wire / etc.) — derived from POS dispatch data
-let gmSortBy = 'group';           // Sort field: group | sp | actual | target | achievement
-let gmSortDir = 'asc';            // Sort direction: asc | desc
+let gmSortBy = 'last3';           // Sort field: last3 | group | sp | actual | target | achievement
+let gmSortDir = 'desc';           // Sort direction: asc | desc
 let groupTargetsData = {};        // { canonGroupKey: { forecasts: { 'MM-YYYY': number } } } — cloud-synced group-level manual targets
 let gmLoaded = false;
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
@@ -3453,6 +3454,8 @@ function renderCompanyMaster() {
   groupList.sort((a, b) => {
     const g1 = a[1], g2 = b[1];
     switch (gmSortBy) {
+      case 'last3':
+        return dir * ((g1.m3 + g1.m2 + g1.m1) - (g2.m3 + g2.m2 + g2.m1));
       case 'sp':
         return dir * String(g1.sp || '').localeCompare(String(g2.sp || ''));
       case 'actual':
@@ -3639,35 +3642,70 @@ function handleCompanyMasterFileUpload(event) {
   reader.readAsArrayBuffer(file);
 }
 
+// Exports the Group/Company Master grouped by Group (every company under
+// its group, back-to-back — never interleaved with another group), with
+// a bold group-subtotal row above each group's companies. Groups are
+// ordered by their trailing-3-month total (m3+m2+m1), descending —
+// i.e. the busiest groups over the last 3 months come first — matching
+// the table's default "Last 3 Months Total ↓ Descending" sort.
 function exportCompanyMasterExcel() {
   if (companyMasterData.length === 0) { showToast('❌ No companies to export yet', true); return; }
   const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
   const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
   const header = ['Group Name', 'Company Name', 'State', 'Location', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} Target (MT) — Group Level`, `${l0} Actual (MT)`, `${l0} Achievement % — Group Level`, 'Sales Person'];
+
+  // Bucket every company row by its group (canonical key, same as the on-screen table).
+  const groups = {};
+  companyMasterData.forEach(r => {
+    const gName = (r.group || r.company || '').trim();
+    const gKey = canonGroupKey(gName);
+    if (!groups[gKey]) groups[gKey] = { name: gName, rows: [], m3: 0, m2: 0, m1: 0, actual: 0 };
+    const c3 = computeCompanyQtyForMonth(r.company, m3);
+    const c2 = computeCompanyQtyForMonth(r.company, m2);
+    const c1 = computeCompanyQtyForMonth(r.company, m1);
+    const cActual = computeCompanyQtyForMonth(r.company, m0);
+    groups[gKey].rows.push({ row: r, c3, c2, c1, cActual });
+    groups[gKey].m3 += c3; groups[gKey].m2 += c2; groups[gKey].m1 += c1; groups[gKey].actual += cActual;
+  });
+
+  // Order groups by trailing-3-month total, descending (busiest first).
+  const groupList = Object.entries(groups).sort((a, b) => {
+    const t1 = a[1].m3 + a[1].m2 + a[1].m1;
+    const t2 = b[1].m3 + b[1].m2 + b[1].m1;
+    return t2 - t1;
+  });
+
   const rows = [header];
-  companyMasterData.slice()
-    .sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.company || '').localeCompare(b.company || ''))
-    .forEach(r => {
-      const gKey = canonGroupKey(r.group || r.company || '');
-      const target = getGroupForecast(gKey);
-      const sp = groupSpMap[gKey] || r.sp || '';
-      const actual = computeCompanyQtyForMonth(r.company, m0);
-      // Achievement % is a group-level figure (target is set per-group, not per-company),
-      // so it's only meaningful once per group — repeated here for spreadsheet readability.
-      const groupActualTotal = companyMasterData
-        .filter(x => canonGroupKey(x.group || x.company || '') === gKey)
-        .reduce((s, x) => s + computeCompanyQtyForMonth(x.company, m0), 0);
-      const ach = target > 0 ? Math.round((groupActualTotal / target) * 1000) / 10 : '';
-      rows.push([
-        r.group || '', r.company || '', r.state || '', r.location || '',
-        computeCompanyQtyForMonth(r.company, m3), computeCompanyQtyForMonth(r.company, m2), computeCompanyQtyForMonth(r.company, m1),
-        target || '', actual, ach, sp
-      ]);
-    });
+  groupList.forEach(([gKey, g]) => {
+    const target = getGroupForecast(gKey);
+    const ach = target > 0 ? Math.round((g.actual / target) * 1000) / 10 : '';
+    const spVotes = {};
+    g.rows.forEach(({ row }) => { if (row.sp) spVotes[row.sp] = (spVotes[row.sp] || 0) + 1; });
+    const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
+    const groupSp = groupSpMap[gKey] || importedSp || '';
+
+    // Group subtotal row — bold in most spreadsheet apps via the "Σ" marker; totals for
+    // the trailing 3 months + current-month target/actual/achievement, once per group.
+    rows.push([
+      `Σ ${g.name || '—'} (${g.rows.length} companies)`, '', '', '',
+      g.m3, g.m2, g.m1, target || '', g.actual, ach, groupSp
+    ]);
+
+    g.rows
+      .sort((a, b) => (a.row.company || '').localeCompare(b.row.company || ''))
+      .forEach(({ row: r, c3, c2, c1, cActual }) => {
+        rows.push([
+          r.group || '', r.company || '', r.state || '', r.location || '',
+          c3, c2, c1, '', cActual, '', r.sp || ''
+        ]);
+      });
+  });
+
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 24 }, { wch: 24 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Company Master');
-  XLSX.writeFile(wb, 'BWPL_Company_Master_' + toInputDate(today) + '.xlsx');
+  XLSX.writeFile(wb, 'BWPL_Company_Master_GroupWise_' + toInputDate(today) + '.xlsx');
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
