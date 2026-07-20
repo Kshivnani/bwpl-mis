@@ -2456,6 +2456,7 @@ let gmSpFilter = '';              // Sales Person filter for the Group/Company M
 let gmProductFilter = '';         // Product Category filter (PC Wire / ACSR Core Wire / etc.) — derived from POS dispatch data
 let gmSortBy = 'last3';           // Sort field: last3 | group | sp | actual | target | achievement
 let gmSortDir = 'desc';           // Sort direction: asc | desc
+let gmLastGroupList = [];         // Cache of the last filtered+sorted groupList from renderCompanyMaster(), reused by exportCompanyMasterExcel() so downloads match what's on screen
 let groupTargetsData = {};        // { canonGroupKey: { forecasts: { 'MM-YYYY': number } } } — cloud-synced group-level manual targets
 let gmLoaded = false;
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
@@ -3472,6 +3473,10 @@ function renderCompanyMaster() {
     }
   });
 
+  // Cache this exact filtered + sorted group list so "Export Excel" downloads
+  // precisely what's currently on screen (same search/SP/product filters, same sort).
+  gmLastGroupList = groupList;
+
   // Grand total — top row.
   const grand = groupList.reduce((acc, [, g]) => {
     acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1; acc.target += g.target; acc.actual += g.actual;
@@ -3644,50 +3649,28 @@ function handleCompanyMasterFileUpload(event) {
 
 // Exports the Group/Company Master as ONE ROW PER GROUP (no company-level
 // breakdown) — Group Name, trailing-3-month totals, current-month target/
-// actual/achievement, and Sales Person. Ordered by trailing-3-month total
-// (m3+m2+m1), descending — busiest groups first — matching the table's
-// default "Last 3 Months Total ↓ Descending" sort.
+// actual/achievement, and Sales Person. Uses gmLastGroupList — the exact
+// same filtered (search / Sales Person / Product Category) + sorted list
+// currently shown on screen — so the download always matches whatever
+// filter/sort is selected in the UI.
 function exportCompanyMasterExcel() {
-  if (companyMasterData.length === 0) { showToast('❌ No companies to export yet', true); return; }
-  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
+  renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
+  if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
   const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
   const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
 
-  // Bucket every company row by its group (canonical key, same as the on-screen table).
-  const groups = {};
-  companyMasterData.forEach(r => {
-    const gName = (r.group || r.company || '').trim();
-    const gKey = canonGroupKey(gName);
-    if (!groups[gKey]) groups[gKey] = { name: gName, count: 0, m3: 0, m2: 0, m1: 0, actual: 0, spVotes: {} };
-    groups[gKey].count++;
-    groups[gKey].m3 += computeCompanyQtyForMonth(r.company, m3);
-    groups[gKey].m2 += computeCompanyQtyForMonth(r.company, m2);
-    groups[gKey].m1 += computeCompanyQtyForMonth(r.company, m1);
-    groups[gKey].actual += computeCompanyQtyForMonth(r.company, m0);
-    if (r.sp) groups[gKey].spVotes[r.sp] = (groups[gKey].spVotes[r.sp] || 0) + 1;
-  });
-
-  // Order groups by trailing-3-month total, descending (busiest first).
-  const groupList = Object.entries(groups).sort((a, b) => {
-    const t1 = a[1].m3 + a[1].m2 + a[1].m1;
-    const t2 = b[1].m3 + b[1].m2 + b[1].m1;
-    return t2 - t1;
-  });
-
   const rows = [header];
-  groupList.forEach(([gKey, g]) => {
-    const target = getGroupForecast(gKey);
-    const ach = target > 0 ? Math.round((g.actual / target) * 1000) / 10 : '';
-    const importedSp = Object.keys(g.spVotes).sort((a, b) => g.spVotes[b] - g.spVotes[a])[0] || '';
-    const groupSp = groupSpMap[gKey] || importedSp || '';
-    rows.push([g.name || '—', g.count, g.m3, g.m2, g.m1, target || '', g.actual, ach, groupSp]);
+  gmLastGroupList.forEach(([, g]) => {
+    const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
+    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.target || '', g.actual, ach, g.sp || '']);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Group Master');
-  XLSX.writeFile(wb, 'BWPL_Group_Master_' + toInputDate(today) + '.xlsx');
+  const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
+  XLSX.writeFile(wb, 'BWPL_Group_Master_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
