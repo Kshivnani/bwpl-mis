@@ -3417,13 +3417,17 @@ function renderCompanyMaster() {
   });
 
   // Sales Person + manual group Target come from the group itself, not summed from companies.
-  // Priority: groupSpMap (synced from the POS/EMS Master sheet) first, then the SP
-  // imported directly on the group's companies via the Group Master Excel upload.
+  // Priority: the SP manually assigned in Company Master (or bulk-imported via the Group
+  // Master Excel upload) wins FIRST — this is what you deliberately typed/edited here, so
+  // it must never be silently overwritten. groupSpMap (auto-synced from the POS/EMS Master
+  // Google Sheet, a separate automation) is only used as a FALLBACK when no company in the
+  // group has an SP assigned in Company Master at all — e.g. it fills "ml" only until you
+  // assign "ML" yourself, and after that your "ML" sticks.
   Object.keys(groups).forEach(gKey => {
     const spVotes = {};
     groups[gKey].companies.forEach(c => { if (c.sp) spVotes[c.sp] = (spVotes[c.sp] || 0) + 1; });
     const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
-    groups[gKey].sp = groupSpMap[gKey] || importedSp || '—';
+    groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
     groups[gKey].target = getGroupForecast(gKey);
   });
 
