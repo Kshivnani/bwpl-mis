@@ -2557,8 +2557,29 @@ function formatDateDDMMYYYY(val) {
     const yyyy = d.getUTCFullYear();
     return `${dd}-${mm}-${yyyy}`;
   }
-  // Already a string
-  return String(val).trim();
+  // String date — Google Sheets API (live sync) sends dates as formatted text
+  // like "22/07/2026", NOT as a Date object or serial number. Passing it
+  // through unchanged (old behaviour) meant it never matched the "dd-mm-yyyy"
+  // strings used everywhere for filtering, so date-based views silently
+  // showed zero rows whenever data came from a live sheet sync.
+  let s = String(val).trim();
+  if (!s) return '';
+  s = s.split(' ')[0]; // drop any time portion
+  const parts = s.split(/[\/\-.]/);
+  if (parts.length === 3) {
+    let dd, mm, yyyy;
+    if (parts[0].length === 4) {
+      // yyyy-mm-dd / yyyy/mm/dd
+      [yyyy, mm, dd] = parts;
+    } else if (parts[2].length === 4) {
+      // dd-mm-yyyy / dd/mm/yyyy (sheet's locale format)
+      [dd, mm, yyyy] = parts;
+    } else {
+      return s; // unrecognized format — leave as-is rather than guess wrong
+    }
+    return `${dd.padStart(2,'0')}-${mm.padStart(2,'0')}-${yyyy}`;
+  }
+  return s;
 }
 function toInputDate(d) {
   return d.toISOString().split('T')[0];
@@ -2705,7 +2726,7 @@ function parseDispatchRows(rows) {
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v6-srno-truckout-fix');
+  localStorage.setItem('bwplDataVersion', 'v7-datefmt-fix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
