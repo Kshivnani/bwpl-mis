@@ -1317,11 +1317,11 @@
             <thead>
               <tr>
                 <th>#</th><th>Party Name</th><th>Product</th><th>Size</th>
-                <th>Qty (MT)</th><th>Unit</th><th>Bill Amount</th><th>Sales Person</th><th>Status</th>
+                <th>Qty (MT)</th><th>Unit</th><th>Bill Amount</th><th>Sales Person</th><th>Truck Out</th><th>Status</th>
               </tr>
             </thead>
             <tbody id="dashBody">
-              <tr><td colspan="9" class="empty-state"><div class="icon">📊</div>Upload POS Excel or Sync Google Sheet to load dispatch data</td></tr>
+              <tr><td colspan="10" class="empty-state"><div class="icon">📊</div>Upload POS Excel or Sync Google Sheet to load dispatch data</td></tr>
             </tbody>
           </table>
         </div>
@@ -4426,9 +4426,14 @@ function refreshDashboard() {
 
   const tbody = document.getElementById('dashBody');
   if (todayRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No dispatches found for ' + t + '. Check file or date.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No dispatches found for ' + t + '. Check file or date.</td></tr>';
   } else {
-    tbody.innerHTML = todayRows.map((r,i) => `
+    tbody.innerHTML = todayRows.map((r,i) => {
+      const toutRaw = String(r.truckOutTime || '').trim();
+      const toutDisplay = (toutRaw === '' || toutRaw.toUpperCase() === 'NA')
+        ? '<span style="color:var(--muted)">NA</span>'
+        : toutRaw;
+      return `
     <tr>
       <td>${i+1}</td>
       <td><strong>${r.party}</strong></td>
@@ -4438,8 +4443,10 @@ function refreshDashboard() {
       <td><span style="font-size:11px;padding:2px 6px;border-radius:3px;background:rgba(232,160,32,0.15);color:var(--wire)">${r.unit}</span></td>
       <td class="td-num">${r.billAmount ? '₹'+fmtN(r.billAmount) : '—'}</td>
       <td>${r.salesPerson || '—'}</td>
+      <td style="font-size:11px">${toutDisplay}</td>
       <td><span style="color:var(--success);font-size:11px;font-weight:700">${r.status || 'OK'}</span></td>
-    </tr>`).join('');
+    </tr>`;
+    }).join('');
   }
 
   loadDashboardCharts(todayRows, mtdRows, monthPrefix);
