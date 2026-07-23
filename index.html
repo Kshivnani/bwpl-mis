@@ -3291,11 +3291,21 @@ async function gmPushProductToSheet(token, productKey) {
   await gmSheetsWrite(token, `${tabName}!C3:E3`,
     [[gmMonthLabel(3) + ' (MT)', gmMonthLabel(2) + ' (MT)', gmMonthLabel(1) + ' (MT)']]);
 
-  // Clear old rows first — in case a group was deleted, its stale row must
-  // not linger below the fresh data.
-  await gmSheetsClear(token, `${tabName}!A4:H2000`);
+  // Row 4 is the "Total" row (added on the sheet directly, above the group
+  // data). Keep it alive as live SUM formulas over the data range below —
+  // recalculates automatically no matter how many groups are pushed.
+  await gmSheetsWrite(token, `${tabName}!A4:H4`, [[
+    'Total', '',
+    '=SUM(C5:C2000)', '=SUM(D5:D2000)', '=SUM(E5:E2000)',
+    '=SUM(F5:F2000)', '=SUM(G5:G2000)', '=IFERROR(G4/F4,"")'
+  ]]);
 
-  if (values.length) await gmSheetsWrite(token, `${tabName}!A4`, values);
+  // Clear old data rows first (from row 5 down — row 4 stays put) — in
+  // case a group was deleted, its stale row must not linger below the
+  // fresh data.
+  await gmSheetsClear(token, `${tabName}!A5:H2000`);
+
+  if (values.length) await gmSheetsWrite(token, `${tabName}!A5`, values);
 }
 
 // Pushes BOTH product tabs. Called manually via the "☁ Sync to Google
