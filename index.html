@@ -2672,9 +2672,12 @@ function parseDispatchRows(rows) {
   dispatchData = [];
   for (let i = 6; i < rows.length; i++) {
     const r = rows[i];
-    if (!r[1]) continue; // Skip if no Sr No
+    // Skip only truly empty rows. Sr No is sometimes auto-filled late (after "Task Done"
+    // flag is set upstream), so a blank Sr No alone should NOT drop a valid order —
+    // fall back to SO No / Party Name so today's pending orders don't silently vanish.
+    if (!r[1] && !r[2] && !(r[3] || '').trim()) continue;
     dispatchData.push({
-      srNo: r[1],
+      srNo: r[1] || r[2] || ('TEMP-' + i), // fallback when Sr No hasn't been auto-filled yet
       soNo: r[2],
       party: (r[3] || '').trim(),
       location: r[4],
@@ -2702,7 +2705,7 @@ function parseDispatchRows(rows) {
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
+  localStorage.setItem('bwplDataVersion', 'v6-srno-truckout-fix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
@@ -4395,10 +4398,13 @@ function refreshDashboard() {
   document.getElementById('dashDateMeta').textContent = 'Date: ' + t + ' | ' + todayRows.length + ' dispatches today';
   document.getElementById('dashBannerDate').textContent = '📅 ' + t + '  •  ' + dispatchData.length + ' total dispatch records loaded';
 
-  // Pending orders for today (provisional date = today, truck out time = NA, not yet dispatched)
-  const pendingToday = dispatchData.filter(r =>
-    !r.dispatchDate && String(r.truckOutTime).toUpperCase() === 'NA' && r.provisionalDate === t
-  );
+  // Pending orders for today (provisional date = today, truck not out yet, not yet dispatched)
+  // Treat blank/empty Truck Out Time the same as literal "NA" — a truly empty cell
+  // means the truck hasn't gone out, same as an explicit "NA" entry.
+  const pendingToday = dispatchData.filter(r => {
+    const tout = String(r.truckOutTime || '').trim().toUpperCase();
+    return !r.dispatchDate && (tout === '' || tout === 'NA') && r.provisionalDate === t;
+  });
   const pendingQty = pendingToday.reduce((s,r) => s + (r.plannedQty || 0), 0);
   document.getElementById('pendingQty').textContent = pendingQty.toFixed(1);
   document.getElementById('pendingSub').textContent = pendingToday.length + ' orders — provisional, truck not out';
@@ -5162,7 +5168,8 @@ function loadDayWiseReport() {
   if (ddmmyyyyFilter) {
     pendingRows = dispatchData.filter(r => {
       if (r.dispatchDate) return false; // already dispatched
-      if (String(r.truckOutTime).toUpperCase() !== 'NA') return false;
+      const tout = String(r.truckOutTime || '').trim().toUpperCase();
+      if (tout !== '' && tout !== 'NA') return false; // truck already out with a real time
       if (!r.provisionalDate) return false;
       // Normalize both to dd-mm-yyyy before comparing
       const prov = String(r.provisionalDate).trim();
