@@ -2296,7 +2296,8 @@
                 <th class="td-num" id="gmColM3">Apr (MT)</th>
                 <th class="td-num" id="gmColM2">May (MT)</th>
                 <th class="td-num" id="gmColM1">Jun (MT)</th>
-                <th class="td-num" id="gmColTarget">Jul Target (MT)</th>
+                <th class="td-num" id="gmColTargetPC">Jul PC Target (MT)</th>
+                <th class="td-num" id="gmColTargetACSR">Jul ACSR Target (MT)</th>
                 <th class="td-num" id="gmColActual">Jul Actual (MT)</th>
                 <th class="td-num">Achievement %</th>
                 <th>Sales Person</th>
@@ -2304,7 +2305,7 @@
               </tr>
             </thead>
             <tbody id="gmBody">
-              <tr><td colspan="9" class="empty-state">Loading...</td></tr>
+              <tr><td colspan="10" class="empty-state">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -2965,34 +2966,45 @@ async function gmPurgeExpiredDeleted() {
 // collection), keyed by canonGroupKey(group name), one number per month
 // so past months' targets are preserved (same pattern as company forecasts).
 //
-// IMPORTANT: older saves wrote the field as a literal flat key
-// "forecasts.MM-YYYY" (Firestore's JS SDK does NOT expand a dotted string
-// key inside a plain object passed to set()/merge — that only happens for
-// FieldPath-based updates), instead of a real nested "forecasts": {"MM-YYYY": n}
-// map. saveGroupForecast now writes the nested shape correctly, but this
-// getter still checks the old flat shape too so previously-saved targets
-// (e.g. anything saved before this fix) keep showing up instead of silently
-// reading as 0.
-function getGroupForecast(gKey) {
+// PC Wire and ACSR are tracked as SEPARATE targets, each in its own map:
+//   forecastsPC:   { 'MM-YYYY': number }
+//   forecastsACSR: { 'MM-YYYY': number }
+// `product` below must be 'pc' or 'acsr'.
+//
+// IMPORTANT: older saves (before the PC/ACSR split) wrote a single combined
+// field, either as "forecasts": {"MM-YYYY": n} or — even older — as a
+// literal flat key "forecasts.MM-YYYY" (Firestore's JS SDK does NOT expand
+// a dotted string key inside a plain object passed to set()/merge — that
+// only happens for FieldPath-based updates). Those combined legacy values
+// are shown as the PC target (folded into the new forecastsPC map) so
+// nothing already saved appears to silently reset to 0; re-enter the ACSR
+// side separately going forward.
+function getGroupForecast(gKey, product) {
   const period = gmCurrentMonthSuffix();
   const g = groupTargetsData[gKey];
   if (!g) return 0;
-  if (g.forecasts && g.forecasts[period] !== undefined) return g.forecasts[period];
-  if (g['forecasts.' + period] !== undefined) return g['forecasts.' + period]; // legacy flat-key format
+  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
+  if (g[field] && g[field][period] !== undefined) return g[field][period];
+  if (product !== 'acsr') {
+    // Legacy combined value (pre PC/ACSR split) — treated as the PC target.
+    if (g.forecasts && g.forecasts[period] !== undefined) return g.forecasts[period];
+    if (g['forecasts.' + period] !== undefined) return g['forecasts.' + period]; // legacy flat-key format
+  }
   return 0;
 }
 
-async function saveGroupForecast(gKey, rawValue) {
+async function saveGroupForecast(gKey, rawValue, product) {
   if (blockIfNotAdmin()) { renderCompanyMaster(); return; } // renders the input back to its saved value
 
   const period = gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
+  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
 
   // Remember the previous value so we can roll back the local cache if the
   // Firestore write fails below.
-  const prevValue = (groupTargetsData[gKey] && groupTargetsData[gKey].forecasts)
-    ? groupTargetsData[gKey].forecasts[period]
+  const prevValue = (groupTargetsData[gKey] && groupTargetsData[gKey][field])
+    ? groupTargetsData[gKey][field][period]
     : undefined;
 
   // Update the LOCAL cache immediately (optimistic update) — BEFORE the
@@ -3003,28 +3015,28 @@ async function saveGroupForecast(gKey, rawValue) {
   // trip). Without this, that re-render was reading the OLD value from
   // groupTargetsData and visually reverting the input to blank/0 before
   // the save had even finished, making it look like the save failed.
-  if (!groupTargetsData[gKey]) groupTargetsData[gKey] = { forecasts: {} };
-  groupTargetsData[gKey].forecasts = groupTargetsData[gKey].forecasts || {};
-  groupTargetsData[gKey].forecasts[period] = value;
+  if (!groupTargetsData[gKey]) groupTargetsData[gKey] = {};
+  groupTargetsData[gKey][field] = groupTargetsData[gKey][field] || {};
+  groupTargetsData[gKey][field][period] = value;
   renderCompanyMaster();
 
   try {
-    // Write a REAL nested object (not a "forecasts.MM-YYYY" string key) —
+    // Write a REAL nested object (not a "forecastsPC.MM-YYYY" string key) —
     // with {merge:true}, Firestore correctly deep-merges this into the
-    // existing "forecasts" map without wiping other months. A dotted
+    // existing field's map without wiping other months. A dotted
     // string key here does NOT get expanded into a nested path by the
-    // Firestore JS SDK; it was creating a literal flat field named
-    // "forecasts.MM-YYYY" instead, which the reader above never found.
+    // Firestore JS SDK; it would create a literal flat field instead,
+    // which the reader above would never find.
     await db.collection('groupTargets').doc(gKey).set({
-      forecasts: { [period]: value },
+      [field]: { [period]: value },
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    showToast('✅ Group target saved');
+    showToast(`✅ Group ${product === 'acsr' ? 'ACSR' : 'PC'} target saved`);
   } catch (e) {
     console.error('[Group Target Save Error]', e);
     // Roll back the optimistic local update since the write didn't persist.
-    groupTargetsData[gKey].forecasts[period] = prevValue;
+    groupTargetsData[gKey][field][period] = prevValue;
     renderCompanyMaster();
     showToast('❌ Group target save failed: ' + e.message, true);
   }
@@ -3304,37 +3316,44 @@ function gmCurrentMonthSuffix() {
 }
 
 // Current month's forecast (MT) for one company, stored as
-// companyMaster/{id}.forecasts["MM-YYYY"] — one number per month, so
-// each month's target can be re-entered without losing past history.
-// Also checks the legacy flat "forecasts.MM-YYYY" key for backward
-// compatibility — see the note above getGroupForecast().
-function getCompanyForecast(row) {
+// companyMaster/{id}.forecastsPC["MM-YYYY"] / .forecastsACSR["MM-YYYY"] —
+// one number per month per product, so each month's target can be
+// re-entered without losing past history. `product` must be 'pc' or 'acsr'.
+// Also checks the legacy combined "forecasts"/"forecasts.MM-YYYY" keys
+// (pre PC/ACSR split) as a PC-target fallback — see the note above
+// getGroupForecast().
+function getCompanyForecast(row, product) {
   const period = gmCurrentMonthSuffix();
-  if (row.forecasts && row.forecasts[period] !== undefined) return row.forecasts[period];
-  if (row['forecasts.' + period] !== undefined) return row['forecasts.' + period]; // legacy flat-key format
+  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
+  if (row[field] && row[field][period] !== undefined) return row[field][period];
+  if (product !== 'acsr') {
+    if (row.forecasts && row.forecasts[period] !== undefined) return row.forecasts[period];
+    if (row['forecasts.' + period] !== undefined) return row['forecasts.' + period]; // legacy flat-key format
+  }
   return 0;
 }
 
-async function saveCompanyForecast(id, rawValue) {
+async function saveCompanyForecast(id, rawValue, product) {
   if (blockIfNotAdmin()) return;
   const period = gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
+  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
   try {
-    // Nested object, not a "forecasts.MM-YYYY" string key — see the note
+    // Nested object, not a "forecastsPC.MM-YYYY" string key — see the note
     // in saveGroupForecast() for why the dotted-key form doesn't work.
     await db.collection('companyMaster').doc(id).set({
-      forecasts: { [period]: value },
+      [field]: { [period]: value },
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     const row = companyMasterData.find(r => r.id === id);
     if (row) {
-      row.forecasts = row.forecasts || {};
-      row.forecasts[period] = value;
+      row[field] = row[field] || {};
+      row[field][period] = value;
     }
     renderCompanyMaster();
-    showToast('✅ Forecast saved');
+    showToast(`✅ ${product === 'acsr' ? 'ACSR' : 'PC'} forecast saved`);
   } catch (e) {
     console.error('[Company Forecast Save Error]', e);
     showToast('❌ Forecast save failed: ' + e.message, true);
@@ -3370,7 +3389,8 @@ function renderCompanyMaster() {
   setHdr('gmColM3', gmMonthLabel(3) + ' (MT)');
   setHdr('gmColM2', gmMonthLabel(2) + ' (MT)');
   setHdr('gmColM1', gmMonthLabel(1) + ' (MT)');
-  setHdr('gmColTarget', gmMonthLabel(0) + ' Target (MT)');
+  setHdr('gmColTargetPC', gmMonthLabel(0) + ' PC Target (MT)');
+  setHdr('gmColTargetACSR', gmMonthLabel(0) + ' ACSR Target (MT)');
   setHdr('gmColActual', gmMonthLabel(0) + ' Actual (MT)');
 
   let rows = companyMasterData.slice();
@@ -3384,7 +3404,7 @@ function renderCompanyMaster() {
   }
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
@@ -3428,7 +3448,9 @@ function renderCompanyMaster() {
     groups[gKey].companies.forEach(c => { if (c.sp) spVotes[c.sp] = (spVotes[c.sp] || 0) + 1; });
     const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
     groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
-    groups[gKey].target = getGroupForecast(gKey);
+    groups[gKey].targetPC = getGroupForecast(gKey, 'pc');
+    groups[gKey].targetACSR = getGroupForecast(gKey, 'acsr');
+    groups[gKey].target = groups[gKey].targetPC + groups[gKey].targetACSR; // combined, used for overall achievement %
   });
 
   // Populate the Sales Person filter (preserving current selection).
@@ -3483,9 +3505,11 @@ function renderCompanyMaster() {
 
   // Grand total — top row.
   const grand = groupList.reduce((acc, [, g]) => {
-    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1; acc.target += g.target; acc.actual += g.actual;
+    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1;
+    acc.targetPC += g.targetPC; acc.targetACSR += g.targetACSR; acc.target += g.target;
+    acc.actual += g.actual;
     return acc;
-  }, { m3: 0, m2: 0, m1: 0, target: 0, actual: 0 });
+  }, { m3: 0, m2: 0, m1: 0, targetPC: 0, targetACSR: 0, target: 0, actual: 0 });
   const grandAch = grand.target > 0 ? (grand.actual / grand.target) * 100 : null;
 
   let html = `<tr style="background:rgba(232,160,32,0.18)">
@@ -3493,7 +3517,8 @@ function renderCompanyMaster() {
     <td class="td-num"><strong>${grand.m3.toFixed(2)}</strong></td>
     <td class="td-num"><strong>${grand.m2.toFixed(2)}</strong></td>
     <td class="td-num"><strong>${grand.m1.toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${grand.target > 0 ? grand.target.toFixed(2) : '—'}</strong></td>
+    <td class="td-num"><strong>${grand.targetPC > 0 ? grand.targetPC.toFixed(2) : '—'}</strong></td>
+    <td class="td-num"><strong>${grand.targetACSR > 0 ? grand.targetACSR.toFixed(2) : '—'}</strong></td>
     <td class="td-num"><strong>${grand.actual.toFixed(2)}</strong></td>
     <td class="td-num" style="${achColor(grandAch)}"><strong>${grandAch !== null ? grandAch.toFixed(1) + '%' : '—'}</strong></td>
     <td></td><td></td>
@@ -3502,7 +3527,8 @@ function renderCompanyMaster() {
   groupList.forEach(([gKey, g]) => {
     const expanded = gmExpandedGroups.has(gKey) || q.length > 0; // auto-expand while searching
     const gAch = g.target > 0 ? (g.actual / g.target) * 100 : null;
-    const gTargetVal = g.target > 0 ? g.target : '';
+    const gTargetPCVal = g.targetPC > 0 ? g.targetPC : '';
+    const gTargetACSRVal = g.targetACSR > 0 ? g.targetACSR : '';
 
     html += `<tr class="gm-group-row" data-gkey="${escapeHtml(gKey)}" style="background:rgba(232,160,32,0.08)">
       <td style="cursor:pointer" onclick="gmToggleGroup('${gKey.replace(/'/g, "\\'")}')">
@@ -3513,8 +3539,12 @@ function renderCompanyMaster() {
       <td class="td-num"><strong>${g.m2.toFixed(2)}</strong></td>
       <td class="td-num"><strong>${g.m1.toFixed(2)}</strong></td>
       <td class="td-num">
-        <input type="number" step="0.1" value="${gTargetVal}" placeholder="Set target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
-          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value)" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+        <input type="number" step="0.1" value="${gTargetPCVal}" placeholder="PC target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'pc')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+      </td>
+      <td class="td-num">
+        <input type="number" step="0.1" value="${gTargetACSRVal}" placeholder="ACSR target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'acsr')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
       </td>
       <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
       <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
@@ -3539,6 +3569,7 @@ function renderCompanyMaster() {
           <td class="td-num">${c.m2.toFixed(2)}</td>
           <td class="td-num">${c.m1.toFixed(2)}</td>
           <td class="td-num">—</td>
+          <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
           <td>—</td>
@@ -3553,6 +3584,7 @@ function renderCompanyMaster() {
           <td class="td-num">${c.m3.toFixed(2)}</td>
           <td class="td-num">${c.m2.toFixed(2)}</td>
           <td class="td-num">${c.m1.toFixed(2)}</td>
+          <td class="td-num">—</td>
           <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
@@ -3661,17 +3693,17 @@ function exportCompanyMasterExcel() {
   renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
   if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
   const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
-  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
+  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} ACSR Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
 
   const rows = [header];
   gmLastGroupList.forEach(([, g]) => {
     const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
-    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.target || '', g.actual, ach, g.sp || '']);
+    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.targetPC || '', g.targetACSR || '', g.actual, ach, g.sp || '']);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Group Master');
   const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
   XLSX.writeFile(wb, 'BWPL_Group_Master_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
