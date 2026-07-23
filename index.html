@@ -3219,6 +3219,9 @@ function gmGetProductCategories() {
 const GM_SYNC_SHEET_ID = '1kFigDRzBL90hJFVHH1qRmFnJsfbtjYZyUP7OnGiNREw';
 const GM_SYNC_TABS = { pc: 'PC Forecast', acsr: 'ACSR Forecast' };
 const GM_SYNC_PRODUCT_LABEL = { pc: 'PC Wire', acsr: 'ACSR Core Wire' };
+// Numeric sheet IDs (the "gid" in the tab's URL) — needed for the freeze-row
+// batchUpdate call below, which addresses sheets by numeric ID, not title.
+const GM_SYNC_GIDS = { pc: 313171074, acsr: 1654168561 };
 
 // Builds one row per group (name, sp, last-3-months, target, actual) for a
 // SINGLE product — computed fresh from companyMasterData + dispatchData +
@@ -3281,10 +3284,34 @@ async function gmSheetsClear(token, range) {
   if (!res.ok) throw new Error((await res.text()).slice(0, 200));
 }
 
+// Freezes the top `frozenRowCount` rows (title banner + header + Total row)
+// so they stay visible while scrolling through the group list below.
+// Idempotent — safe to call on every sync.
+async function gmSheetsFreezeTop(token, gid, frozenRowCount) {
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requests: [{
+        updateSheetProperties: {
+          properties: { sheetId: gid, gridProperties: { frozenRowCount } },
+          fields: 'gridProperties.frozenRowCount'
+        }
+      }]
+    })
+  });
+  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+}
+
 async function gmPushProductToSheet(token, productKey) {
   const tabName = GM_SYNC_TABS[productKey];
   const groups = gmBuildSyncGroups(productKey);
   const values = gmSyncRowsToValues(groups);
+
+  // Freeze rows 1-4 (title, spacer, header, Total) so they stay visible
+  // while scrolling — not fatal if it fails (e.g. gid mismatch), the data
+  // sync below still matters more.
+  try { await gmSheetsFreezeTop(token, GM_SYNC_GIDS[productKey], 4); } catch (e) { console.warn('[GM Sheet Freeze Rows]', e); }
 
   // Refresh the rolling month headers (row 3, cols C:E) so they always
   // show the correct trailing months.
@@ -3292,12 +3319,14 @@ async function gmPushProductToSheet(token, productKey) {
     [[gmMonthLabel(3) + ' (MT)', gmMonthLabel(2) + ' (MT)', gmMonthLabel(1) + ' (MT)']]);
 
   // Row 4 is the "Total" row (added on the sheet directly, above the group
-  // data). Keep it alive as live SUM formulas over the data range below —
-  // recalculates automatically no matter how many groups are pushed.
+  // data). Keep it alive as live SUBTOTAL formulas over the data range
+  // below — SUBTOTAL (unlike plain SUM) automatically re-totals only the
+  // VISIBLE rows whenever a Sheets filter (e.g. Sales Person) is applied,
+  // and recalculates no matter how many groups are pushed.
   await gmSheetsWrite(token, `${tabName}!A4:H4`, [[
     'Total', '',
-    '=SUM(C5:C2000)', '=SUM(D5:D2000)', '=SUM(E5:E2000)',
-    '=SUM(F5:F2000)', '=SUM(G5:G2000)', '=IFERROR(G4/F4,"")'
+    '=SUBTOTAL(9,C5:C2000)', '=SUBTOTAL(9,D5:D2000)', '=SUBTOTAL(9,E5:E2000)',
+    '=SUBTOTAL(9,F5:F2000)', '=SUBTOTAL(9,G5:G2000)', '=IFERROR(G4/F4,"")'
   ]]);
 
   // Clear old data rows first (from row 5 down — row 4 stays put) — in
