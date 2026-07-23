@@ -2213,10 +2213,12 @@
             <button id="gmImportExcelBtn" class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
             <input type="file" id="gmExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleCompanyMasterFileUpload(event)">
             <button class="btn btn-secondary" onclick="exportCompanyMasterExcel()">⬇ Export Excel</button>
+            <button class="btn btn-secondary" onclick="pushGroupMasterToSheet()">☁ Sync to Google Sheet</button>
             <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
           </div>
         </div>
         <div id="gmCloudStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
+        <div id="gmSyncStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
 
         <div class="section-pad" id="gmAddCompanyForm" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
           <div class="form-group" style="min-width:160px">
@@ -3033,6 +3035,7 @@ async function saveGroupForecast(gKey, rawValue, product) {
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     showToast(`✅ Group ${product === 'acsr' ? 'ACSR' : 'PC'} target saved`);
+    pushGroupMasterToSheet(); // fire-and-forget — keeps the Google Sheet "live"
   } catch (e) {
     console.error('[Group Target Save Error]', e);
     // Roll back the optimistic local update since the write didn't persist.
@@ -3204,6 +3207,124 @@ function gmGetProductCategories() {
   const priority = ['PC Wire', 'ACSR Core Wire'];
   const rest = [...set].filter(p => !priority.includes(p)).sort();
   return priority.filter(p => set.has(p)).concat(rest);
+}
+
+// ── LIVE SYNC — Group/Company Master → "Demand Forecast Sheet — 26-27" ──
+// Pushes the group-level PC and ACSR forecast/actual data into two separate
+// tabs of one Google Sheet, so the group's numbers are always visible
+// outside the app. Same spreadsheet, one tab per product:
+//   "PC Forecast"   — PC Wire targets/actuals
+//   "ACSR Forecast" — ACSR Core Wire targets/actuals
+// Each tab: row 1 = title banner, row 3 = headers, data from row 4.
+const GM_SYNC_SHEET_ID = '1kFigDRzBL90hJFVHH1qRmFnJsfbtjYZyUP7OnGiNREw';
+const GM_SYNC_TABS = { pc: 'PC Forecast', acsr: 'ACSR Forecast' };
+const GM_SYNC_PRODUCT_LABEL = { pc: 'PC Wire', acsr: 'ACSR Core Wire' };
+
+// Builds one row per group (name, sp, last-3-months, target, actual) for a
+// SINGLE product — computed fresh from companyMasterData + dispatchData +
+// groupTargetsData, independent of whatever search/SP/product filter is
+// currently applied on-screen, so the sheet always reflects ALL groups.
+function gmBuildSyncGroups(productKey) {
+  const productLabel = GM_SYNC_PRODUCT_LABEL[productKey];
+  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
+  const groups = {};
+  companyMasterData.forEach(r => {
+    const gName = (r.group || r.company || '').trim();
+    const gKey = canonGroupKey(gName);
+    if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], m3: 0, m2: 0, m1: 0, actual: 0 };
+    groups[gKey].m3 += computeCompanyQtyForMonth(r.company, m3, productLabel);
+    groups[gKey].m2 += computeCompanyQtyForMonth(r.company, m2, productLabel);
+    groups[gKey].m1 += computeCompanyQtyForMonth(r.company, m1, productLabel);
+    groups[gKey].actual += computeCompanyQtyForMonth(r.company, m0, productLabel);
+    groups[gKey].companies.push(r);
+  });
+  Object.keys(groups).forEach(gKey => {
+    const spVotes = {};
+    groups[gKey].companies.forEach(r => { const sp = (r.sp || '').trim(); if (sp) spVotes[sp] = (spVotes[sp] || 0) + 1; });
+    const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
+    groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
+    groups[gKey].target = getGroupForecast(gKey, productKey);
+  });
+  return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// Row shape must match the sheet's columns exactly:
+// Group Name | Sales Person | Month-3 | Month-2 | Month-1 | Target | Actual | Achievement %
+function gmSyncRowsToValues(groups) {
+  return groups.map(g => [
+    g.name || '—',
+    g.sp === '—' ? '' : g.sp,
+    Number(g.m3.toFixed(2)),
+    Number(g.m2.toFixed(2)),
+    Number(g.m1.toFixed(2)),
+    g.target || 0,
+    Number(g.actual.toFixed(2)),
+    g.target > 0 ? Math.round((g.actual / g.target) * 10000) / 10000 : ''
+  ]);
+}
+
+async function gmSheetsWrite(token, range, values) {
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
+    method: 'PUT',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values })
+  });
+  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+  return res.json();
+}
+
+async function gmSheetsClear(token, range) {
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}/values/${encodeURIComponent(range)}:clear`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+}
+
+async function gmPushProductToSheet(token, productKey) {
+  const tabName = GM_SYNC_TABS[productKey];
+  const groups = gmBuildSyncGroups(productKey);
+  const values = gmSyncRowsToValues(groups);
+
+  // Refresh the rolling month headers (row 3, cols C:E) so they always
+  // show the correct trailing months.
+  await gmSheetsWrite(token, `${tabName}!C3:E3`,
+    [[gmMonthLabel(3) + ' (MT)', gmMonthLabel(2) + ' (MT)', gmMonthLabel(1) + ' (MT)']]);
+
+  // Clear old rows first — in case a group was deleted, its stale row must
+  // not linger below the fresh data.
+  await gmSheetsClear(token, `${tabName}!A4:H2000`);
+
+  if (values.length) await gmSheetsWrite(token, `${tabName}!A4`, values);
+}
+
+// Pushes BOTH product tabs. Called manually via the "☁ Sync to Google
+// Sheet" button, and automatically (fire-and-forget) right after every
+// successful group target save — see saveGroupForecast() — so the sheet
+// stays "live" without needing a manual click every time.
+async function pushGroupMasterToSheet() {
+  const status = document.getElementById('gmSyncStatus');
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Syncing to Google Sheet...</span>';
+
+  let token = window._gToken || googleAccessToken;
+  if (!token) {
+    try {
+      token = await getSheetsAccessToken();
+      window._gToken = token; googleAccessToken = token;
+    } catch (e) {
+      if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+      return;
+    }
+  }
+
+  try {
+    await gmPushProductToSheet(token, 'pc');
+    await gmPushProductToSheet(token, 'acsr');
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Synced to Google Sheet — ${new Date().toLocaleTimeString()}</span>`;
+  } catch (e) {
+    console.error('[GM Sheet Sync Error]', e);
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ Sync failed: ${e.message}</span>`;
+  }
 }
 
 async function saveCompanyMasterRow(row) {
@@ -6583,7 +6704,10 @@ const provider = new firebase.auth.GoogleAuthProvider();
 provider.setCustomParameters({ hd: 'bajranggroup.com' });
 
 // ── Google Sheets API scope add karo ──
-provider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
+// Full read/write scope — needed so the Group/Company Master tab can push
+// PC/ACSR forecast data live into the Demand Forecast Google Sheet, not
+// just read from it.
+provider.addScope('https://www.googleapis.com/auth/spreadsheets');
 
 // Google OAuth access token store karne ke liye
 let googleAccessToken = null;
