@@ -1317,11 +1317,11 @@
             <thead>
               <tr>
                 <th>#</th><th>Party Name</th><th>Product</th><th>Size</th>
-                <th>Qty (MT)</th><th>Unit</th><th>Bill Amount</th><th>Sales Person</th><th>Truck Out</th><th>Status</th>
+                <th>Qty (MT)</th><th>Unit</th><th>Bill Amount</th><th>Sales Person</th><th>Status</th>
               </tr>
             </thead>
             <tbody id="dashBody">
-              <tr><td colspan="10" class="empty-state"><div class="icon">📊</div>Upload POS Excel or Sync Google Sheet to load dispatch data</td></tr>
+              <tr><td colspan="9" class="empty-state"><div class="icon">📊</div>Upload POS Excel or Sync Google Sheet to load dispatch data</td></tr>
             </tbody>
           </table>
         </div>
@@ -2213,12 +2213,10 @@
             <button id="gmImportExcelBtn" class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
             <input type="file" id="gmExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleCompanyMasterFileUpload(event)">
             <button class="btn btn-secondary" onclick="exportCompanyMasterExcel()">⬇ Export Excel</button>
-            <button class="btn btn-secondary" onclick="pushGroupMasterToSheet()">☁ Sync to Google Sheet</button>
             <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
           </div>
         </div>
         <div id="gmCloudStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
-        <div id="gmSyncStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
 
         <div class="section-pad" id="gmAddCompanyForm" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
           <div class="form-group" style="min-width:160px">
@@ -2264,7 +2262,6 @@
           <div class="form-group" style="min-width:150px">
             <label>Sort by</label>
             <select id="gmSortBy" onchange="gmSortBy=this.value; renderCompanyMaster()">
-              <option value="last3" selected>Last 3 Months Total (MT)</option>
               <option value="group">Group Name (A-Z)</option>
               <option value="sp">Sales Person</option>
               <option value="actual">Actual (MT)</option>
@@ -2276,7 +2273,7 @@
             <label>Order</label>
             <select id="gmSortDir" onchange="gmSortDir=this.value; renderCompanyMaster()">
               <option value="asc">↑ Ascending</option>
-              <option value="desc" selected>↓ Descending</option>
+              <option value="desc">↓ Descending</option>
             </select>
           </div>
           <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmExpandAll()">▾ Expand All</button>
@@ -2298,8 +2295,7 @@
                 <th class="td-num" id="gmColM3">Apr (MT)</th>
                 <th class="td-num" id="gmColM2">May (MT)</th>
                 <th class="td-num" id="gmColM1">Jun (MT)</th>
-                <th class="td-num" id="gmColTargetPC">Jul PC Target (MT)</th>
-                <th class="td-num" id="gmColTargetACSR">Jul ACSR Target (MT)</th>
+                <th class="td-num" id="gmColTarget">Jul Target (MT)</th>
                 <th class="td-num" id="gmColActual">Jul Actual (MT)</th>
                 <th class="td-num">Achievement %</th>
                 <th>Sales Person</th>
@@ -2307,7 +2303,7 @@
               </tr>
             </thead>
             <tbody id="gmBody">
-              <tr><td colspan="10" class="empty-state">Loading...</td></tr>
+              <tr><td colspan="9" class="empty-state">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -2457,9 +2453,8 @@ let gmEditingId = null;
 let gmExpandedGroups = new Set(); // canonGroupKey()s currently expanded (dropdown open)
 let gmSpFilter = '';              // Sales Person filter for the Group/Company Master table
 let gmProductFilter = '';         // Product Category filter (PC Wire / ACSR Core Wire / etc.) — derived from POS dispatch data
-let gmSortBy = 'last3';           // Sort field: last3 | group | sp | actual | target | achievement
-let gmSortDir = 'desc';           // Sort direction: asc | desc
-let gmLastGroupList = [];         // Cache of the last filtered+sorted groupList from renderCompanyMaster(), reused by exportCompanyMasterExcel() so downloads match what's on screen
+let gmSortBy = 'group';           // Sort field: group | sp | actual | target | achievement
+let gmSortDir = 'asc';            // Sort direction: asc | desc
 let groupTargetsData = {};        // { canonGroupKey: { forecasts: { 'MM-YYYY': number } } } — cloud-synced group-level manual targets
 let gmLoaded = false;
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
@@ -2557,29 +2552,8 @@ function formatDateDDMMYYYY(val) {
     const yyyy = d.getUTCFullYear();
     return `${dd}-${mm}-${yyyy}`;
   }
-  // String date — Google Sheets API (live sync) sends dates as formatted text
-  // like "22/07/2026", NOT as a Date object or serial number. Passing it
-  // through unchanged (old behaviour) meant it never matched the "dd-mm-yyyy"
-  // strings used everywhere for filtering, so date-based views silently
-  // showed zero rows whenever data came from a live sheet sync.
-  let s = String(val).trim();
-  if (!s) return '';
-  s = s.split(' ')[0]; // drop any time portion
-  const parts = s.split(/[\/\-.]/);
-  if (parts.length === 3) {
-    let dd, mm, yyyy;
-    if (parts[0].length === 4) {
-      // yyyy-mm-dd / yyyy/mm/dd
-      [yyyy, mm, dd] = parts;
-    } else if (parts[2].length === 4) {
-      // dd-mm-yyyy / dd/mm/yyyy (sheet's locale format)
-      [dd, mm, yyyy] = parts;
-    } else {
-      return s; // unrecognized format — leave as-is rather than guess wrong
-    }
-    return `${dd.padStart(2,'0')}-${mm.padStart(2,'0')}-${yyyy}`;
-  }
-  return s;
+  // Already a string
+  return String(val).trim();
 }
 function toInputDate(d) {
   return d.toISOString().split('T')[0];
@@ -2693,12 +2667,9 @@ function parseDispatchRows(rows) {
   dispatchData = [];
   for (let i = 6; i < rows.length; i++) {
     const r = rows[i];
-    // Skip only truly empty rows. Sr No is sometimes auto-filled late (after "Task Done"
-    // flag is set upstream), so a blank Sr No alone should NOT drop a valid order —
-    // fall back to SO No / Party Name so today's pending orders don't silently vanish.
-    if (!r[1] && !r[2] && !(r[3] || '').trim()) continue;
+    if (!r[1]) continue; // Skip if no Sr No
     dispatchData.push({
-      srNo: r[1] || r[2] || ('TEMP-' + i), // fallback when Sr No hasn't been auto-filled yet
+      srNo: r[1],
       soNo: r[2],
       party: (r[3] || '').trim(),
       location: r[4],
@@ -2726,7 +2697,7 @@ function parseDispatchRows(rows) {
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
-  localStorage.setItem('bwplDataVersion', 'v7-datefmt-fix');
+  localStorage.setItem('bwplDataVersion', 'v5-pendingfix');
   refreshDashboard();
   document.getElementById('dataStatus').innerHTML = `<span style="color:var(--success)">✅ ${dispatchData.length} rows loaded. Last dispatch: ${dispatchData[dispatchData.length-1]?.dispatchDate || 'N/A'}</span>`;
 }
@@ -2992,45 +2963,34 @@ async function gmPurgeExpiredDeleted() {
 // collection), keyed by canonGroupKey(group name), one number per month
 // so past months' targets are preserved (same pattern as company forecasts).
 //
-// PC Wire and ACSR are tracked as SEPARATE targets, each in its own map:
-//   forecastsPC:   { 'MM-YYYY': number }
-//   forecastsACSR: { 'MM-YYYY': number }
-// `product` below must be 'pc' or 'acsr'.
-//
-// IMPORTANT: older saves (before the PC/ACSR split) wrote a single combined
-// field, either as "forecasts": {"MM-YYYY": n} or — even older — as a
-// literal flat key "forecasts.MM-YYYY" (Firestore's JS SDK does NOT expand
-// a dotted string key inside a plain object passed to set()/merge — that
-// only happens for FieldPath-based updates). Those combined legacy values
-// are shown as the PC target (folded into the new forecastsPC map) so
-// nothing already saved appears to silently reset to 0; re-enter the ACSR
-// side separately going forward.
-function getGroupForecast(gKey, product) {
+// IMPORTANT: older saves wrote the field as a literal flat key
+// "forecasts.MM-YYYY" (Firestore's JS SDK does NOT expand a dotted string
+// key inside a plain object passed to set()/merge — that only happens for
+// FieldPath-based updates), instead of a real nested "forecasts": {"MM-YYYY": n}
+// map. saveGroupForecast now writes the nested shape correctly, but this
+// getter still checks the old flat shape too so previously-saved targets
+// (e.g. anything saved before this fix) keep showing up instead of silently
+// reading as 0.
+function getGroupForecast(gKey) {
   const period = gmCurrentMonthSuffix();
   const g = groupTargetsData[gKey];
   if (!g) return 0;
-  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
-  if (g[field] && g[field][period] !== undefined) return g[field][period];
-  if (product !== 'acsr') {
-    // Legacy combined value (pre PC/ACSR split) — treated as the PC target.
-    if (g.forecasts && g.forecasts[period] !== undefined) return g.forecasts[period];
-    if (g['forecasts.' + period] !== undefined) return g['forecasts.' + period]; // legacy flat-key format
-  }
+  if (g.forecasts && g.forecasts[period] !== undefined) return g.forecasts[period];
+  if (g['forecasts.' + period] !== undefined) return g['forecasts.' + period]; // legacy flat-key format
   return 0;
 }
 
-async function saveGroupForecast(gKey, rawValue, product) {
+async function saveGroupForecast(gKey, rawValue) {
   if (blockIfNotAdmin()) { renderCompanyMaster(); return; } // renders the input back to its saved value
 
   const period = gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
-  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
 
   // Remember the previous value so we can roll back the local cache if the
   // Firestore write fails below.
-  const prevValue = (groupTargetsData[gKey] && groupTargetsData[gKey][field])
-    ? groupTargetsData[gKey][field][period]
+  const prevValue = (groupTargetsData[gKey] && groupTargetsData[gKey].forecasts)
+    ? groupTargetsData[gKey].forecasts[period]
     : undefined;
 
   // Update the LOCAL cache immediately (optimistic update) — BEFORE the
@@ -3041,29 +3001,28 @@ async function saveGroupForecast(gKey, rawValue, product) {
   // trip). Without this, that re-render was reading the OLD value from
   // groupTargetsData and visually reverting the input to blank/0 before
   // the save had even finished, making it look like the save failed.
-  if (!groupTargetsData[gKey]) groupTargetsData[gKey] = {};
-  groupTargetsData[gKey][field] = groupTargetsData[gKey][field] || {};
-  groupTargetsData[gKey][field][period] = value;
+  if (!groupTargetsData[gKey]) groupTargetsData[gKey] = { forecasts: {} };
+  groupTargetsData[gKey].forecasts = groupTargetsData[gKey].forecasts || {};
+  groupTargetsData[gKey].forecasts[period] = value;
   renderCompanyMaster();
 
   try {
-    // Write a REAL nested object (not a "forecastsPC.MM-YYYY" string key) —
+    // Write a REAL nested object (not a "forecasts.MM-YYYY" string key) —
     // with {merge:true}, Firestore correctly deep-merges this into the
-    // existing field's map without wiping other months. A dotted
+    // existing "forecasts" map without wiping other months. A dotted
     // string key here does NOT get expanded into a nested path by the
-    // Firestore JS SDK; it would create a literal flat field instead,
-    // which the reader above would never find.
+    // Firestore JS SDK; it was creating a literal flat field named
+    // "forecasts.MM-YYYY" instead, which the reader above never found.
     await db.collection('groupTargets').doc(gKey).set({
-      [field]: { [period]: value },
+      forecasts: { [period]: value },
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
-    showToast(`✅ Group ${product === 'acsr' ? 'ACSR' : 'PC'} target saved`);
-    pushGroupMasterToSheet(); // fire-and-forget — keeps the Google Sheet "live"
+    showToast('✅ Group target saved');
   } catch (e) {
     console.error('[Group Target Save Error]', e);
     // Roll back the optimistic local update since the write didn't persist.
-    groupTargetsData[gKey][field][period] = prevValue;
+    groupTargetsData[gKey].forecasts[period] = prevValue;
     renderCompanyMaster();
     showToast('❌ Group target save failed: ' + e.message, true);
   }
@@ -3233,163 +3192,6 @@ function gmGetProductCategories() {
   return priority.filter(p => set.has(p)).concat(rest);
 }
 
-// ── LIVE SYNC — Group/Company Master → "Demand Forecast Sheet — 26-27" ──
-// Pushes the group-level PC and ACSR forecast/actual data into two separate
-// tabs of one Google Sheet, so the group's numbers are always visible
-// outside the app. Same spreadsheet, one tab per product:
-//   "PC Forecast"   — PC Wire targets/actuals
-//   "ACSR Forecast" — ACSR Core Wire targets/actuals
-// Each tab: row 1 = title banner, row 3 = headers, data from row 4.
-const GM_SYNC_SHEET_ID = '1kFigDRzBL90hJFVHH1qRmFnJsfbtjYZyUP7OnGiNREw';
-const GM_SYNC_TABS = { pc: 'PC Forecast', acsr: 'ACSR Forecast' };
-const GM_SYNC_PRODUCT_LABEL = { pc: 'PC Wire', acsr: 'ACSR Core Wire' };
-// Numeric sheet IDs (the "gid" in the tab's URL) — needed for the freeze-row
-// batchUpdate call below, which addresses sheets by numeric ID, not title.
-const GM_SYNC_GIDS = { pc: 313171074, acsr: 1654168561 };
-
-// Builds one row per group (name, sp, last-3-months, target, actual) for a
-// SINGLE product — computed fresh from companyMasterData + dispatchData +
-// groupTargetsData, independent of whatever search/SP/product filter is
-// currently applied on-screen, so the sheet always reflects ALL groups.
-function gmBuildSyncGroups(productKey) {
-  const productLabel = GM_SYNC_PRODUCT_LABEL[productKey];
-  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
-  const groups = {};
-  companyMasterData.forEach(r => {
-    const gName = (r.group || r.company || '').trim();
-    const gKey = canonGroupKey(gName);
-    if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], m3: 0, m2: 0, m1: 0, actual: 0 };
-    groups[gKey].m3 += computeCompanyQtyForMonth(r.company, m3, productLabel);
-    groups[gKey].m2 += computeCompanyQtyForMonth(r.company, m2, productLabel);
-    groups[gKey].m1 += computeCompanyQtyForMonth(r.company, m1, productLabel);
-    groups[gKey].actual += computeCompanyQtyForMonth(r.company, m0, productLabel);
-    groups[gKey].companies.push(r);
-  });
-  Object.keys(groups).forEach(gKey => {
-    const spVotes = {};
-    groups[gKey].companies.forEach(r => { const sp = (r.sp || '').trim(); if (sp) spVotes[sp] = (spVotes[sp] || 0) + 1; });
-    const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
-    groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
-    groups[gKey].target = getGroupForecast(gKey, productKey);
-  });
-  return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
-}
-
-// Row shape must match the sheet's columns exactly:
-// Group Name | Sales Person | Month-3 | Month-2 | Month-1 | Target | Actual | Achievement %
-function gmSyncRowsToValues(groups) {
-  return groups.map(g => [
-    g.name || '—',
-    g.sp === '—' ? '' : g.sp,
-    Number(g.m3.toFixed(2)),
-    Number(g.m2.toFixed(2)),
-    Number(g.m1.toFixed(2)),
-    g.target || 0,
-    Number(g.actual.toFixed(2)),
-    g.target > 0 ? Math.round((g.actual / g.target) * 10000) / 10000 : ''
-  ]);
-}
-
-async function gmSheetsWrite(token, range, values) {
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`, {
-    method: 'PUT',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values })
-  });
-  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
-  return res.json();
-}
-
-async function gmSheetsClear(token, range) {
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}/values/${encodeURIComponent(range)}:clear`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token }
-  });
-  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
-}
-
-// Freezes the top `frozenRowCount` rows (title banner + header + Total row)
-// so they stay visible while scrolling through the group list below.
-// Idempotent — safe to call on every sync.
-async function gmSheetsFreezeTop(token, gid, frozenRowCount) {
-  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}:batchUpdate`, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      requests: [{
-        updateSheetProperties: {
-          properties: { sheetId: gid, gridProperties: { frozenRowCount } },
-          fields: 'gridProperties.frozenRowCount'
-        }
-      }]
-    })
-  });
-  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
-}
-
-async function gmPushProductToSheet(token, productKey) {
-  const tabName = GM_SYNC_TABS[productKey];
-  const groups = gmBuildSyncGroups(productKey);
-  const values = gmSyncRowsToValues(groups);
-
-  // Freeze rows 1-4 (title, spacer, header, Total) so they stay visible
-  // while scrolling — not fatal if it fails (e.g. gid mismatch), the data
-  // sync below still matters more.
-  try { await gmSheetsFreezeTop(token, GM_SYNC_GIDS[productKey], 4); } catch (e) { console.warn('[GM Sheet Freeze Rows]', e); }
-
-  // Refresh the rolling month headers (row 3, cols C:E) so they always
-  // show the correct trailing months.
-  await gmSheetsWrite(token, `${tabName}!C3:E3`,
-    [[gmMonthLabel(3) + ' (MT)', gmMonthLabel(2) + ' (MT)', gmMonthLabel(1) + ' (MT)']]);
-
-  // Row 4 is the "Total" row (added on the sheet directly, above the group
-  // data). Keep it alive as live SUBTOTAL formulas over the data range
-  // below — SUBTOTAL (unlike plain SUM) automatically re-totals only the
-  // VISIBLE rows whenever a Sheets filter (e.g. Sales Person) is applied,
-  // and recalculates no matter how many groups are pushed.
-  await gmSheetsWrite(token, `${tabName}!A4:H4`, [[
-    'Total', '',
-    '=SUBTOTAL(9,C5:C2000)', '=SUBTOTAL(9,D5:D2000)', '=SUBTOTAL(9,E5:E2000)',
-    '=SUBTOTAL(9,F5:F2000)', '=SUBTOTAL(9,G5:G2000)', '=IFERROR(G4/F4,"")'
-  ]]);
-
-  // Clear old data rows first (from row 5 down — row 4 stays put) — in
-  // case a group was deleted, its stale row must not linger below the
-  // fresh data.
-  await gmSheetsClear(token, `${tabName}!A5:H2000`);
-
-  if (values.length) await gmSheetsWrite(token, `${tabName}!A5`, values);
-}
-
-// Pushes BOTH product tabs. Called manually via the "☁ Sync to Google
-// Sheet" button, and automatically (fire-and-forget) right after every
-// successful group target save — see saveGroupForecast() — so the sheet
-// stays "live" without needing a manual click every time.
-async function pushGroupMasterToSheet() {
-  const status = document.getElementById('gmSyncStatus');
-  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Syncing to Google Sheet...</span>';
-
-  let token = window._gToken || googleAccessToken;
-  if (!token) {
-    try {
-      token = await getSheetsAccessToken();
-      window._gToken = token; googleAccessToken = token;
-    } catch (e) {
-      if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
-      return;
-    }
-  }
-
-  try {
-    await gmPushProductToSheet(token, 'pc');
-    await gmPushProductToSheet(token, 'acsr');
-    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Synced to Google Sheet — ${new Date().toLocaleTimeString()}</span>`;
-  } catch (e) {
-    console.error('[GM Sheet Sync Error]', e);
-    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ Sync failed: ${e.message}</span>`;
-  }
-}
-
 async function saveCompanyMasterRow(row) {
   if (blockIfNotAdmin()) return;
   const key = companyMasterKey(row.company);
@@ -3500,44 +3302,37 @@ function gmCurrentMonthSuffix() {
 }
 
 // Current month's forecast (MT) for one company, stored as
-// companyMaster/{id}.forecastsPC["MM-YYYY"] / .forecastsACSR["MM-YYYY"] —
-// one number per month per product, so each month's target can be
-// re-entered without losing past history. `product` must be 'pc' or 'acsr'.
-// Also checks the legacy combined "forecasts"/"forecasts.MM-YYYY" keys
-// (pre PC/ACSR split) as a PC-target fallback — see the note above
-// getGroupForecast().
-function getCompanyForecast(row, product) {
+// companyMaster/{id}.forecasts["MM-YYYY"] — one number per month, so
+// each month's target can be re-entered without losing past history.
+// Also checks the legacy flat "forecasts.MM-YYYY" key for backward
+// compatibility — see the note above getGroupForecast().
+function getCompanyForecast(row) {
   const period = gmCurrentMonthSuffix();
-  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
-  if (row[field] && row[field][period] !== undefined) return row[field][period];
-  if (product !== 'acsr') {
-    if (row.forecasts && row.forecasts[period] !== undefined) return row.forecasts[period];
-    if (row['forecasts.' + period] !== undefined) return row['forecasts.' + period]; // legacy flat-key format
-  }
+  if (row.forecasts && row.forecasts[period] !== undefined) return row.forecasts[period];
+  if (row['forecasts.' + period] !== undefined) return row['forecasts.' + period]; // legacy flat-key format
   return 0;
 }
 
-async function saveCompanyForecast(id, rawValue, product) {
+async function saveCompanyForecast(id, rawValue) {
   if (blockIfNotAdmin()) return;
   const period = gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
-  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
   try {
-    // Nested object, not a "forecastsPC.MM-YYYY" string key — see the note
+    // Nested object, not a "forecasts.MM-YYYY" string key — see the note
     // in saveGroupForecast() for why the dotted-key form doesn't work.
     await db.collection('companyMaster').doc(id).set({
-      [field]: { [period]: value },
+      forecasts: { [period]: value },
       updatedBy: currentUserEmail || 'unknown',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }, { merge: true });
     const row = companyMasterData.find(r => r.id === id);
     if (row) {
-      row[field] = row[field] || {};
-      row[field][period] = value;
+      row.forecasts = row.forecasts || {};
+      row.forecasts[period] = value;
     }
     renderCompanyMaster();
-    showToast(`✅ ${product === 'acsr' ? 'ACSR' : 'PC'} forecast saved`);
+    showToast('✅ Forecast saved');
   } catch (e) {
     console.error('[Company Forecast Save Error]', e);
     showToast('❌ Forecast save failed: ' + e.message, true);
@@ -3573,8 +3368,7 @@ function renderCompanyMaster() {
   setHdr('gmColM3', gmMonthLabel(3) + ' (MT)');
   setHdr('gmColM2', gmMonthLabel(2) + ' (MT)');
   setHdr('gmColM1', gmMonthLabel(1) + ' (MT)');
-  setHdr('gmColTargetPC', gmMonthLabel(0) + ' PC Target (MT)');
-  setHdr('gmColTargetACSR', gmMonthLabel(0) + ' ACSR Target (MT)');
+  setHdr('gmColTarget', gmMonthLabel(0) + ' Target (MT)');
   setHdr('gmColActual', gmMonthLabel(0) + ' Actual (MT)');
 
   let rows = companyMasterData.slice();
@@ -3588,7 +3382,7 @@ function renderCompanyMaster() {
   }
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
@@ -3621,20 +3415,14 @@ function renderCompanyMaster() {
   });
 
   // Sales Person + manual group Target come from the group itself, not summed from companies.
-  // Priority: the SP manually assigned in Company Master (or bulk-imported via the Group
-  // Master Excel upload) wins FIRST — this is what you deliberately typed/edited here, so
-  // it must never be silently overwritten. groupSpMap (auto-synced from the POS/EMS Master
-  // Google Sheet, a separate automation) is only used as a FALLBACK when no company in the
-  // group has an SP assigned in Company Master at all — e.g. it fills "ml" only until you
-  // assign "ML" yourself, and after that your "ML" sticks.
+  // Priority: groupSpMap (synced from the POS/EMS Master sheet) first, then the SP
+  // imported directly on the group's companies via the Group Master Excel upload.
   Object.keys(groups).forEach(gKey => {
     const spVotes = {};
     groups[gKey].companies.forEach(c => { if (c.sp) spVotes[c.sp] = (spVotes[c.sp] || 0) + 1; });
     const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
-    groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
-    groups[gKey].targetPC = getGroupForecast(gKey, 'pc');
-    groups[gKey].targetACSR = getGroupForecast(gKey, 'acsr');
-    groups[gKey].target = groups[gKey].targetPC + groups[gKey].targetACSR; // combined, used for overall achievement %
+    groups[gKey].sp = groupSpMap[gKey] || importedSp || '—';
+    groups[gKey].target = getGroupForecast(gKey);
   });
 
   // Populate the Sales Person filter (preserving current selection).
@@ -3665,8 +3453,6 @@ function renderCompanyMaster() {
   groupList.sort((a, b) => {
     const g1 = a[1], g2 = b[1];
     switch (gmSortBy) {
-      case 'last3':
-        return dir * ((g1.m3 + g1.m2 + g1.m1) - (g2.m3 + g2.m2 + g2.m1));
       case 'sp':
         return dir * String(g1.sp || '').localeCompare(String(g2.sp || ''));
       case 'actual':
@@ -3683,17 +3469,11 @@ function renderCompanyMaster() {
     }
   });
 
-  // Cache this exact filtered + sorted group list so "Export Excel" downloads
-  // precisely what's currently on screen (same search/SP/product filters, same sort).
-  gmLastGroupList = groupList;
-
   // Grand total — top row.
   const grand = groupList.reduce((acc, [, g]) => {
-    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1;
-    acc.targetPC += g.targetPC; acc.targetACSR += g.targetACSR; acc.target += g.target;
-    acc.actual += g.actual;
+    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1; acc.target += g.target; acc.actual += g.actual;
     return acc;
-  }, { m3: 0, m2: 0, m1: 0, targetPC: 0, targetACSR: 0, target: 0, actual: 0 });
+  }, { m3: 0, m2: 0, m1: 0, target: 0, actual: 0 });
   const grandAch = grand.target > 0 ? (grand.actual / grand.target) * 100 : null;
 
   let html = `<tr style="background:rgba(232,160,32,0.18)">
@@ -3701,8 +3481,7 @@ function renderCompanyMaster() {
     <td class="td-num"><strong>${grand.m3.toFixed(2)}</strong></td>
     <td class="td-num"><strong>${grand.m2.toFixed(2)}</strong></td>
     <td class="td-num"><strong>${grand.m1.toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${grand.targetPC > 0 ? grand.targetPC.toFixed(2) : '—'}</strong></td>
-    <td class="td-num"><strong>${grand.targetACSR > 0 ? grand.targetACSR.toFixed(2) : '—'}</strong></td>
+    <td class="td-num"><strong>${grand.target > 0 ? grand.target.toFixed(2) : '—'}</strong></td>
     <td class="td-num"><strong>${grand.actual.toFixed(2)}</strong></td>
     <td class="td-num" style="${achColor(grandAch)}"><strong>${grandAch !== null ? grandAch.toFixed(1) + '%' : '—'}</strong></td>
     <td></td><td></td>
@@ -3711,8 +3490,7 @@ function renderCompanyMaster() {
   groupList.forEach(([gKey, g]) => {
     const expanded = gmExpandedGroups.has(gKey) || q.length > 0; // auto-expand while searching
     const gAch = g.target > 0 ? (g.actual / g.target) * 100 : null;
-    const gTargetPCVal = g.targetPC > 0 ? g.targetPC : '';
-    const gTargetACSRVal = g.targetACSR > 0 ? g.targetACSR : '';
+    const gTargetVal = g.target > 0 ? g.target : '';
 
     html += `<tr class="gm-group-row" data-gkey="${escapeHtml(gKey)}" style="background:rgba(232,160,32,0.08)">
       <td style="cursor:pointer" onclick="gmToggleGroup('${gKey.replace(/'/g, "\\'")}')">
@@ -3723,12 +3501,8 @@ function renderCompanyMaster() {
       <td class="td-num"><strong>${g.m2.toFixed(2)}</strong></td>
       <td class="td-num"><strong>${g.m1.toFixed(2)}</strong></td>
       <td class="td-num">
-        <input type="number" step="0.1" value="${gTargetPCVal}" placeholder="PC target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
-          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'pc')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
-      </td>
-      <td class="td-num">
-        <input type="number" step="0.1" value="${gTargetACSRVal}" placeholder="ACSR target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
-          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'acsr')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+        <input type="number" step="0.1" value="${gTargetVal}" placeholder="Set target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value)" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
       </td>
       <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
       <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
@@ -3753,7 +3527,6 @@ function renderCompanyMaster() {
           <td class="td-num">${c.m2.toFixed(2)}</td>
           <td class="td-num">${c.m1.toFixed(2)}</td>
           <td class="td-num">—</td>
-          <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
           <td>—</td>
@@ -3768,7 +3541,6 @@ function renderCompanyMaster() {
           <td class="td-num">${c.m3.toFixed(2)}</td>
           <td class="td-num">${c.m2.toFixed(2)}</td>
           <td class="td-num">${c.m1.toFixed(2)}</td>
-          <td class="td-num">—</td>
           <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
@@ -3867,30 +3639,35 @@ function handleCompanyMasterFileUpload(event) {
   reader.readAsArrayBuffer(file);
 }
 
-// Exports the Group/Company Master as ONE ROW PER GROUP (no company-level
-// breakdown) — Group Name, trailing-3-month totals, current-month target/
-// actual/achievement, and Sales Person. Uses gmLastGroupList — the exact
-// same filtered (search / Sales Person / Product Category) + sorted list
-// currently shown on screen — so the download always matches whatever
-// filter/sort is selected in the UI.
 function exportCompanyMasterExcel() {
-  renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
-  if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
+  if (companyMasterData.length === 0) { showToast('❌ No companies to export yet', true); return; }
+  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
   const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
-  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} ACSR Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
-
+  const header = ['Group Name', 'Company Name', 'State', 'Location', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} Target (MT) — Group Level`, `${l0} Actual (MT)`, `${l0} Achievement % — Group Level`, 'Sales Person'];
   const rows = [header];
-  gmLastGroupList.forEach(([, g]) => {
-    const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
-    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.targetPC || '', g.targetACSR || '', g.actual, ach, g.sp || '']);
-  });
-
+  companyMasterData.slice()
+    .sort((a, b) => (a.group || '').localeCompare(b.group || '') || (a.company || '').localeCompare(b.company || ''))
+    .forEach(r => {
+      const gKey = canonGroupKey(r.group || r.company || '');
+      const target = getGroupForecast(gKey);
+      const sp = groupSpMap[gKey] || r.sp || '';
+      const actual = computeCompanyQtyForMonth(r.company, m0);
+      // Achievement % is a group-level figure (target is set per-group, not per-company),
+      // so it's only meaningful once per group — repeated here for spreadsheet readability.
+      const groupActualTotal = companyMasterData
+        .filter(x => canonGroupKey(x.group || x.company || '') === gKey)
+        .reduce((s, x) => s + computeCompanyQtyForMonth(x.company, m0), 0);
+      const ach = target > 0 ? Math.round((groupActualTotal / target) * 1000) / 10 : '';
+      rows.push([
+        r.group || '', r.company || '', r.state || '', r.location || '',
+        computeCompanyQtyForMonth(r.company, m3), computeCompanyQtyForMonth(r.company, m2), computeCompanyQtyForMonth(r.company, m1),
+        target || '', actual, ach, sp
+      ]);
+    });
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
-  XLSX.utils.book_append_sheet(wb, ws, 'Group Master');
-  const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
-  XLSX.writeFile(wb, 'BWPL_Group_Master_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'Company Master');
+  XLSX.writeFile(wb, 'BWPL_Company_Master_' + toInputDate(today) + '.xlsx');
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
@@ -4419,13 +4196,10 @@ function refreshDashboard() {
   document.getElementById('dashDateMeta').textContent = 'Date: ' + t + ' | ' + todayRows.length + ' dispatches today';
   document.getElementById('dashBannerDate').textContent = '📅 ' + t + '  •  ' + dispatchData.length + ' total dispatch records loaded';
 
-  // Pending orders for today (provisional date = today, truck not out yet, not yet dispatched)
-  // Treat blank/empty Truck Out Time the same as literal "NA" — a truly empty cell
-  // means the truck hasn't gone out, same as an explicit "NA" entry.
-  const pendingToday = dispatchData.filter(r => {
-    const tout = String(r.truckOutTime || '').trim().toUpperCase();
-    return !r.dispatchDate && (tout === '' || tout === 'NA') && r.provisionalDate === t;
-  });
+  // Pending orders for today (provisional date = today, truck out time = NA, not yet dispatched)
+  const pendingToday = dispatchData.filter(r =>
+    !r.dispatchDate && String(r.truckOutTime).toUpperCase() === 'NA' && r.provisionalDate === t
+  );
   const pendingQty = pendingToday.reduce((s,r) => s + (r.plannedQty || 0), 0);
   document.getElementById('pendingQty').textContent = pendingQty.toFixed(1);
   document.getElementById('pendingSub').textContent = pendingToday.length + ' orders — provisional, truck not out';
@@ -4447,32 +4221,20 @@ function refreshDashboard() {
 
   const tbody = document.getElementById('dashBody');
   if (todayRows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No dispatches found for ' + t + '. Check file or date.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No dispatches found for ' + t + '. Check file or date.</td></tr>';
   } else {
-    tbody.innerHTML = todayRows.map((r,i) => {
-      const toutRaw = String(r.truckOutTime || '').trim();
-      const toutDisplay = (toutRaw === '' || toutRaw.toUpperCase() === 'NA')
-        ? '<span style="color:var(--muted)">NA</span>'
-        : toutRaw;
-      // Flag rows where Quantity (AM column) is missing/blank in the sheet —
-      // otherwise a data-entry gap silently shows as 0 with no indication why.
-      const qtyDisplay = r.qty
-        ? r.qty
-        : '<span style="color:var(--danger)" title="Quantity blank in AM column">0 ⚠</span>';
-      return `
+    tbody.innerHTML = todayRows.map((r,i) => `
     <tr>
       <td>${i+1}</td>
       <td><strong>${r.party}</strong></td>
       <td>${r.product || '—'}</td>
       <td>${r.size || '—'}</td>
-      <td class="td-num">${qtyDisplay}</td>
+      <td class="td-num">${r.qty}</td>
       <td><span style="font-size:11px;padding:2px 6px;border-radius:3px;background:rgba(232,160,32,0.15);color:var(--wire)">${r.unit}</span></td>
       <td class="td-num">${r.billAmount ? '₹'+fmtN(r.billAmount) : '—'}</td>
       <td>${r.salesPerson || '—'}</td>
-      <td style="font-size:11px">${toutDisplay}</td>
       <td><span style="color:var(--success);font-size:11px;font-weight:700">${r.status || 'OK'}</span></td>
-    </tr>`;
-    }).join('');
+    </tr>`).join('');
   }
 
   loadDashboardCharts(todayRows, mtdRows, monthPrefix);
@@ -4704,7 +4466,7 @@ function loadSalesReport() {
       <td>${i+1}</td>
       <td><input value="${r.party}" style="min-width:180px"></td>
       <td><input value="${r.product}"></td>
-      <td class="td-num"><input type="number" value="${r.qty}" style="width:80px${r.qty ? '' : ';border-color:var(--danger)'}" title="${r.qty ? '' : 'Quantity blank in AM column on sheet — check source row'}"></td>
+      <td class="td-num"><input type="number" value="${r.qty}" style="width:80px"></td>
       <td class="td-num"><input type="number" value="${Math.round(r.value)}" style="width:110px"></td>
       <td class="td-num"><input type="number" value="${(mtdByCustomer[r.party]?.qty||0).toFixed(1)}" style="width:80px"></td>
       <td class="td-num"><input type="number" value="${Math.round(mtdByCustomer[r.party]?.value||0)}" style="width:110px"></td>
@@ -5201,8 +4963,7 @@ function loadDayWiseReport() {
   if (ddmmyyyyFilter) {
     pendingRows = dispatchData.filter(r => {
       if (r.dispatchDate) return false; // already dispatched
-      const tout = String(r.truckOutTime || '').trim().toUpperCase();
-      if (tout !== '' && tout !== 'NA') return false; // truck already out with a real time
+      if (String(r.truckOutTime).toUpperCase() !== 'NA') return false;
       if (!r.provisionalDate) return false;
       // Normalize both to dd-mm-yyyy before comparing
       const prov = String(r.provisionalDate).trim();
@@ -6783,10 +6544,7 @@ const provider = new firebase.auth.GoogleAuthProvider();
 provider.setCustomParameters({ hd: 'bajranggroup.com' });
 
 // ── Google Sheets API scope add karo ──
-// Full read/write scope — needed so the Group/Company Master tab can push
-// PC/ACSR forecast data live into the Demand Forecast Google Sheet, not
-// just read from it.
-provider.addScope('https://www.googleapis.com/auth/spreadsheets');
+provider.addScope('https://www.googleapis.com/auth/spreadsheets.readonly');
 
 // Google OAuth access token store karne ke liye
 let googleAccessToken = null;
