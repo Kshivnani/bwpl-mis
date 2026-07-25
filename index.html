@@ -2585,18 +2585,6 @@ function toInputDate(d) {
   return d.toISOString().split('T')[0];
 }
 
-// Effective dispatch date for ALL reports: prefer the manually-confirmed
-// Dispatch Date (col BK, filled later by the Dispatch Team after accounts
-// verification); fall back to the date the truck physically left (Truck Out
-// Time, col T) so a dispatch shows up consistently across every report as
-// soon as the truck goes out — not only once Dispatch Date is filled in.
-// Every report/page that filters or groups dispatchData by date MUST use
-// this helper (not r.dispatchDate directly) so all pages report identical
-// figures for the same day/month.
-function effDispatchDate(r) {
-  return r.dispatchDate || r.truckOutDate || '';
-}
-
 function setAllDatesToToday() {
   const t = toInputDate(today);
   ['salesDate','collDate','compDate','prodDate','vehDate','travDate','priceDate'].forEach(id => {
@@ -3229,8 +3217,7 @@ function computeCompanyQtyForMonth(companyName, suffix, productFilter) {
   for (let i = 0; i < dispatchData.length; i++) {
     const r = dispatchData[i];
     if (companyMasterKey(r.party || '') !== target) continue;
-    const rd = effDispatchDate(r);
-    if (!rd || rd.slice(3) !== suffix) continue;
+    if (!r.dispatchDate || r.dispatchDate.slice(3) !== suffix) continue;
     if (productFilter && r.product !== productFilter) continue;
     qty += r.qty || 0;
   }
@@ -3568,10 +3555,7 @@ function computeCompanySales(companyName, monthOnly) {
   for (let i = 0; i < dispatchData.length; i++) {
     const r = dispatchData[i];
     if (companyMasterKey(r.party || '') !== target) continue;
-    if (suffix) {
-      const rd = effDispatchDate(r);
-      if (!rd || rd.slice(3) !== suffix) continue;
-    }
+    if (suffix && (!r.dispatchDate || r.dispatchDate.slice(3) !== suffix)) continue;
     qty += r.qty || 0;
     value += r.billAmount || 0;
   }
@@ -4022,7 +4006,7 @@ function buildGroupRows(period, productFilter, rawSpFilter) {
   if (period !== 'all') {
     const [yr, mo] = period.split('-');
     const suffix = mo + '-' + yr;
-    rows = rows.filter(r => { const rd = effDispatchDate(r); return rd && rd.slice(3) === suffix; });
+    rows = rows.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === suffix);
   }
   if (rawSpFilter) rows = rows.filter(r => r.salesPerson === rawSpFilter);
   if (productFilter) rows = rows.filter(r => r.product === productFilter);
@@ -4426,12 +4410,12 @@ function refreshDashboard() {
   // truckOutDate fallback, a truck that already left today but whose Dispatch
   // Date isn't filled in yet would vanish from the Dashboard entirely — not
   // "Pending" (truck already out) and not "Today's Dispatch" (dispatch date blank).
-  const todayRows = dispatchData.filter(r => effDispatchDate(r) === t);
+  const todayRows = dispatchData.filter(r => r.dispatchDate === t || r.truckOutDate === t);
   const monthPrefix = t.slice(3); // MM-YYYY
-  const mtdRows = dispatchData.filter(r => {
-    const rd = effDispatchDate(r);
-    return rd && rd.slice(3) === monthPrefix;
-  });
+  const mtdRows = dispatchData.filter(r =>
+    (r.dispatchDate && r.dispatchDate.slice(3) === monthPrefix) ||
+    (r.truckOutDate && r.truckOutDate.slice(3) === monthPrefix)
+  );
 
   const todayQty = todayRows.reduce((s,r) => s + r.qty, 0);
   const todayVal = todayRows.reduce((s,r) => s + r.billAmount, 0);
@@ -4571,10 +4555,9 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
   // ── Trend chart: daily qty & value for current month ──
   const byDate = {};
   mtdRows.forEach(r => {
-    const d = effDispatchDate(r);
-    if (!byDate[d]) byDate[d] = {qty:0, value:0};
-    byDate[d].qty += r.qty;
-    byDate[d].value += r.billAmount;
+    if (!byDate[r.dispatchDate]) byDate[r.dispatchDate] = {qty:0, value:0};
+    byDate[r.dispatchDate].qty += r.qty;
+    byDate[r.dispatchDate].value += r.billAmount;
   });
   const trendDates = Object.keys(byDate).sort((a,b) => {
     const [da,ma,ya]=a.split('-').map(Number), [db,mb,yb]=b.split('-').map(Number);
@@ -4646,7 +4629,7 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
   const dateProductQty = {};
   const productSet = new Set();
   mtdRows.forEach(r => {
-    const d = effDispatchDate(r);
+    const d = r.dispatchDate;
     const p = r.product || 'Other';
     productSet.add(p);
     if (!dateProductQty[d]) dateProductQty[d] = {};
@@ -4668,7 +4651,7 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
     d.setDate(d.getDate() - i);
     last7Set.add(formatDate(d));
   }
-  const last7Rows = dispatchData.filter(r => last7Set.has(effDispatchDate(r)));
+  const last7Rows = dispatchData.filter(r => last7Set.has(r.dispatchDate));
   const last7Qty = {};
   last7Rows.forEach(r => {
     const p = r.product || 'Other';
@@ -4695,13 +4678,10 @@ function loadDashboardCharts(todayRows, mtdRows, monthPrefix) {
 function loadSalesReport() {
   const dateVal = document.getElementById('salesDate').value;
   const dd = dateVal.split('-').reverse().join('-'); // Convert yyyy-mm-dd to dd-mm-yyyy
-  const todayRows = dispatchData.filter(r => effDispatchDate(r) === dd);
+  const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
   // MTD
   const monthSuffix = dd.slice(3);
-  const mtdRows = dispatchData.filter(r => {
-    const rd = effDispatchDate(r);
-    return rd && rd.slice(3) === monthSuffix;
-  });
+  const mtdRows = dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === monthSuffix);
 
   // Group by customer
   const byCustomer = {};
@@ -4816,7 +4796,7 @@ function loadComplianceReport() {
   const dateVal = document.getElementById('compDate').value;
   const dd = dateVal.split('-').reverse().join('-');
   const monthSuffix = dd.slice(3);
-  const mtdRows = dispatchData.filter(r => { const rd = effDispatchDate(r); return rd && rd.slice(3) === monthSuffix; });
+  const mtdRows = dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === monthSuffix);
 
   // Build MTD by type/product
   const mtdByType = {};
@@ -4824,7 +4804,7 @@ function loadComplianceReport() {
     const k = r.product || 'Other';
     mtdByType[k] = (mtdByType[k]||0) + r.qty;
   });
-  const todayRows = dispatchData.filter(r => effDispatchDate(r) === dd);
+  const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
   const todayByType = {};
   todayRows.forEach(r => {
     const k = r.product || 'Other';
@@ -5009,7 +4989,7 @@ function initPriceList() {
 function loadPriceListReport() {
   const dateVal = document.getElementById('priceDate').value;
   const dd = dateVal.split('-').reverse().join('-');
-  const todayRows = dispatchData.filter(r => effDispatchDate(r) === dd);
+  const todayRows = dispatchData.filter(r => r.dispatchDate === dd);
   const tbody = document.getElementById('priceBody');
   tbody.innerHTML = '';
   if (todayRows.length === 0) { initPriceList(); return; }
@@ -5046,7 +5026,7 @@ function getMonthData(monthVal) {
   // monthVal = "2026-06"
   const [yr, mo] = monthVal.split('-');
   const suffix = mo + '-' + yr;
-  return dispatchData.filter(r => { const rd = effDispatchDate(r); return rd && rd.slice(3) === suffix; });
+  return dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === suffix);
 }
 function computeCustomerStats(rows) {
   const stats = {};
@@ -5220,7 +5200,7 @@ function loadDayWiseReport() {
   if (specificDate) {
     const [yr, mo, dy] = specificDate.split('-');
     ddmmyyyyFilter = dy + '-' + mo + '-' + yr;
-    rows = rows.filter(r => effDispatchDate(r) === ddmmyyyyFilter);
+    rows = rows.filter(r => r.dispatchDate === ddmmyyyyFilter);
   }
 
   // Pending orders: provisional date set, truck not out yet (TruckOutTime = "NA"), not yet dispatched
@@ -5253,7 +5233,7 @@ function loadDayWiseReport() {
   // Group dispatched: date -> salesPerson -> party -> product
   const byDate = {};
   rows.forEach(r => {
-    const date = effDispatchDate(r);
+    const date = r.dispatchDate;
     const sp = r.salesPerson || 'Unassigned';
     const party = r.party || 'Unknown';
     const prod = r.product || 'Other';
@@ -5492,11 +5472,10 @@ function loadAnalytics() {
     spTotals[sp].qty += r.qty;
     spTotals[sp].value += r.billAmount;
     productTotals[prod] = (productTotals[prod] || 0) + r.qty;
-    const rd = effDispatchDate(r);
-    if (rd) {
-      if (!byDateVal[rd]) byDateVal[rd] = { qty: 0, value: 0 };
-      byDateVal[rd].qty += r.qty;
-      byDateVal[rd].value += r.billAmount;
+    if (r.dispatchDate) {
+      if (!byDateVal[r.dispatchDate]) byDateVal[r.dispatchDate] = { qty: 0, value: 0 };
+      byDateVal[r.dispatchDate].qty += r.qty;
+      byDateVal[r.dispatchDate].value += r.billAmount;
     }
   });
 
