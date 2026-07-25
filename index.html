@@ -2722,7 +2722,8 @@ function parseDispatchRows(rows) {
       salesPerson: r[61],
       dispatchDate: formatDateDDMMYYYY(r[62]),
       plannedQty: parseFloat(r[7]) || 0, // column H "Qty (MT)" - planned/provisional quantity
-      truckOutTime: r[19] || ''
+      truckOutTime: r[19] || '',
+      truckOutDate: formatDateDDMMYYYY(r[19]) // date-only (dd-mm-yyyy) parsed from Truck Out Time (col T) — used as a fallback so a dispatch shows up on Dashboard as soon as the truck leaves, even if Dispatch Date (col BK) hasn't been filled yet by the Dispatch Team
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
@@ -4403,9 +4404,18 @@ function destroyChart(id) {
 // ─── DASHBOARD ───────────────────────────────────────────
 function refreshDashboard() {
   const t = todayStr;
-  const todayRows = dispatchData.filter(r => r.dispatchDate === t);
+  // A dispatch counts as "today's" if EITHER the Dispatch Date (BK, filled later
+  // by the Dispatch Team after accounts verification) OR the Truck Out Time (T,
+  // filled immediately by Security when the truck leaves) is today. Without the
+  // truckOutDate fallback, a truck that already left today but whose Dispatch
+  // Date isn't filled in yet would vanish from the Dashboard entirely — not
+  // "Pending" (truck already out) and not "Today's Dispatch" (dispatch date blank).
+  const todayRows = dispatchData.filter(r => r.dispatchDate === t || r.truckOutDate === t);
   const monthPrefix = t.slice(3); // MM-YYYY
-  const mtdRows = dispatchData.filter(r => r.dispatchDate && r.dispatchDate.slice(3) === monthPrefix);
+  const mtdRows = dispatchData.filter(r =>
+    (r.dispatchDate && r.dispatchDate.slice(3) === monthPrefix) ||
+    (r.truckOutDate && r.truckOutDate.slice(3) === monthPrefix)
+  );
 
   const todayQty = todayRows.reduce((s,r) => s + r.qty, 0);
   const todayVal = todayRows.reduce((s,r) => s + r.billAmount, 0);
