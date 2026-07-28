@@ -2585,6 +2585,37 @@ function toInputDate(d) {
   return d.toISOString().split('T')[0];
 }
 
+// Truck Out Time (col T) needs its OWN parser: unlike Dispatch Date (col BK,
+// which the sheet stores/renders as dd/mm/yyyy), Google Sheets API renders
+// this datetime cell in US format — "3/29/2025 15:37:15" (M/D/YYYY H:M:S).
+// Reusing formatDateDDMMYYYY() on it silently swapped day and month (e.g.
+// "3/29/2025" -> day=03, month=29 -> garbage "03-29-2025" that never
+// matched any real date), which made truckOutDate-based fallback matching
+// silently return zero rows everywhere. Confirmed against live sync data.
+function formatTruckOutDateDDMMYYYY(val) {
+  if (val === null || val === undefined) return '';
+  if (val instanceof Date) return formatDateDDMMYYYY(val);
+  if (typeof val === 'number') return formatDateDDMMYYYY(val);
+  let s = String(val).trim();
+  if (!s || s.toUpperCase() === 'NA') return '';
+  s = s.split(' ')[0]; // drop the time-of-day portion
+  const parts = s.split(/[\/\-.]/);
+  if (parts.length === 3) {
+    let mm, dd, yyyy;
+    if (parts[0].length === 4) {
+      // yyyy-mm-dd
+      [yyyy, mm, dd] = parts;
+    } else if (parts[2].length === 4) {
+      // US format: m/d/yyyy
+      [mm, dd, yyyy] = parts;
+    } else {
+      return s; // unrecognized — leave as-is rather than guess wrong
+    }
+    return `${String(dd).padStart(2,'0')}-${String(mm).padStart(2,'0')}-${yyyy}`;
+  }
+  return s;
+}
+
 // Effective dispatch date for ALL reports: prefer the manually-confirmed
 // Dispatch Date (col BK, filled later by the Dispatch Team after accounts
 // verification); fall back to the date the truck physically left (Truck Out
@@ -2735,7 +2766,7 @@ function parseDispatchRows(rows) {
       dispatchDate: formatDateDDMMYYYY(r[62]),
       plannedQty: parseFloat(r[7]) || 0, // column H "Qty (MT)" - planned/provisional quantity
       truckOutTime: r[19] || '',
-      truckOutDate: formatDateDDMMYYYY(r[19]) // date-only (dd-mm-yyyy) parsed from Truck Out Time (col T) — used as a fallback so a dispatch shows up on Dashboard as soon as the truck leaves, even if Dispatch Date (col BK) hasn't been filled yet by the Dispatch Team
+      truckOutDate: formatTruckOutDateDDMMYYYY(r[19]) // date-only (dd-mm-yyyy) parsed from Truck Out Time (col T, which Sheets API renders as US-format M/D/YYYY) — used as a fallback so a dispatch shows up on Dashboard as soon as the truck leaves, even if Dispatch Date (col BK) hasn't been filled yet by the Dispatch Team
     });
   }
   localStorage.setItem('bwplDispatch', JSON.stringify(dispatchData));
