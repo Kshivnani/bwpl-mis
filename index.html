@@ -7191,7 +7191,7 @@ async function syncFromGoogleSheet() {
 
     if (!sheetName) throw new Error('Dispatch sheet (GID: ' + SHEET_GID + ') not found');
 
-    const range = encodeURIComponent(sheetName + '!A1:BQ2000');
+    const range = encodeURIComponent(sheetName + '!A1:BQ20000');
     const dataUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`;
     const dataRes = await fetch(dataUrl, {
       headers: { Authorization: 'Bearer ' + googleAccessToken }
