@@ -3464,6 +3464,20 @@ async function gmPushProductToSheet(token, productKey) {
   await gmSheetsWrite(token, `${tabName}!C3:E3`,
     [[gmMonthLabel(3) + ' (MT)', gmMonthLabel(2) + ' (MT)', gmMonthLabel(1) + ' (MT)']]);
 
+  // Refresh headers for F:I too (row 3) so the sheet's column labels always
+  // match the 9-column layout actually being written below — F=Current
+  // Target, G=Next Month Target, H=Actual, I=Achievement %. Older sheets
+  // created before the "Next Month Target" column existed only had 8
+  // columns (F=Target, G=Actual, H=Achievement%), which silently shifted
+  // every push/pull by one column — this keeps the header self-correcting
+  // on every sync so that mismatch can't recur.
+  await gmSheetsWrite(token, `${tabName}!F3:I3`, [[
+    gmMonthLabel(0) + ' Target (MT)',
+    gmMonthLabel(-1) + ' Target (MT)',
+    gmMonthLabel(0) + ' Actual (MT)',
+    'Achievement %'
+  ]]);
+
   // Row 4 is the "Total" row (added on the sheet directly, above the group
   // data). Keep it alive as live SUBTOTAL formulas over the data range
   // below — SUBTOTAL (unlike plain SUM) automatically re-totals only the
