@@ -2213,7 +2213,7 @@
             <button id="gmImportExcelBtn" class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
             <input type="file" id="gmExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleCompanyMasterFileUpload(event)">
             <button class="btn btn-secondary" onclick="exportCompanyMasterExcel()">⬇ Export Excel</button>
-            <button class="btn btn-secondary" onclick="pushGroupMasterToSheet()">☁ Sync to Google Sheet</button>
+            <button class="btn btn-secondary" onclick="pushGroupMasterToSheet()" title="Two-way: pulls in any target typed directly in the sheet, then pushes the latest app data back">⇅ Sync with Google Sheet</button>
             <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
           </div>
         </div>
@@ -3324,12 +3324,16 @@ function gmBuildSyncGroups(productKey) {
     const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
     groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
     groups[gKey].target = getGroupForecast(gKey, productKey);
+    groups[gKey].targetNext = getGroupForecast(gKey, productKey, gmMonthSuffix(-1)); // next month's pre-filled target (e.g. Aug while "today" is July)
   });
-  return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+  // Sorted by Actual (current month) descending, so the sheet always opens
+  // with top performers first — same convention as the on-screen table's
+  // default "Actual" sort.
+  return Object.values(groups).sort((a, b) => b.actual - a.actual);
 }
 
 // Row shape must match the sheet's columns exactly:
-// Group Name | Sales Person | Month-3 | Month-2 | Month-1 | Target | Actual | Achievement %
+// Group Name | Sales Person | Month-3 | Month-2 | Month-1 | Current Target | Next Month Target | Actual | Achievement %
 function gmSyncRowsToValues(groups) {
   return groups.map(g => [
     g.name || '—',
@@ -3338,6 +3342,7 @@ function gmSyncRowsToValues(groups) {
     Number(g.m2.toFixed(2)),
     Number(g.m1.toFixed(2)),
     g.target || 0,
+    g.targetNext || 0,
     Number(g.actual.toFixed(2)),
     g.target > 0 ? Math.round((g.actual / g.target) * 10000) / 10000 : ''
   ]);
@@ -3380,6 +3385,70 @@ async function gmSheetsFreezeTop(token, gid, frozenRowCount) {
   if (!res.ok) throw new Error((await res.text()).slice(0, 200));
 }
 
+// Silently writes one group's target straight to Firestore + the local
+// cache — same storage as saveGroupForecast() but WITHOUT its side effects
+// (no re-render per call, no admin-blocked toast, and crucially no
+// fire-and-forget push back to the sheet), so gmPullTargetsFromSheet()
+// below can apply many rows in a loop without re-triggering itself.
+async function gmApplyPulledTarget(gKey, value, product, period) {
+  const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
+  if (!groupTargetsData[gKey]) groupTargetsData[gKey] = {};
+  groupTargetsData[gKey][field] = groupTargetsData[gKey][field] || {};
+  groupTargetsData[gKey][field][period] = value;
+  await db.collection('groupTargets').doc(gKey).set({
+    [field]: { [period]: value },
+    updatedBy: (currentUserEmail || 'unknown') + ' (via Sheet)',
+    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+}
+
+// Reads the Target columns (F = Current Month, G = Next Month) straight
+// back out of the Google Sheet and applies any value a person typed
+// directly into the sheet into the app's own Firestore-backed targets —
+// this is what makes "☁ Sync to Google Sheet" a TWO-WAY sync: edits made
+// in the app push out to the sheet, and edits made directly in the sheet
+// pull back into the app. Only touches groups that already exist in
+// Company Master (a brand-new name typed straight into the sheet has no
+// company records behind it, so the app has nowhere to file it) — any
+// such names are returned so the caller can surface them.
+async function gmPullTargetsFromSheet(token, productKey) {
+  const tabName = GM_SYNC_TABS[productKey];
+  const range = encodeURIComponent(`${tabName}!A5:G2000`);
+  const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}/values/${range}`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) throw new Error((await res.text()).slice(0, 200));
+  const json = await res.json();
+  const rows = json.values || [];
+  const nextPeriod = gmMonthSuffix(-1);
+
+  // Build the set of known group keys once (from Company Master), instead
+  // of re-scanning companyMasterData per row.
+  const knownGroups = new Set(companyMasterData.map(c => canonGroupKey((c.group || c.company || '').trim())));
+
+  let updated = 0;
+  const unmatched = [];
+  for (const r of rows) {
+    const name = (r[0] || '').trim();
+    if (!name || name === 'Total') continue;
+    const gKey = canonGroupKey(name);
+    if (!knownGroups.has(gKey)) { unmatched.push(name); continue; }
+
+    const sheetCurrent = parseFloat(r[5]); // col F — Current Month Target
+    const sheetNext = parseFloat(r[6]);    // col G — Next Month Target
+
+    if (!isNaN(sheetCurrent) && sheetCurrent !== getGroupForecast(gKey, productKey)) {
+      await gmApplyPulledTarget(gKey, sheetCurrent, productKey, gmCurrentMonthSuffix());
+      updated++;
+    }
+    if (!isNaN(sheetNext) && sheetNext !== getGroupForecast(gKey, productKey, nextPeriod)) {
+      await gmApplyPulledTarget(gKey, sheetNext, productKey, nextPeriod);
+      updated++;
+    }
+  }
+  return { updated, unmatched };
+}
+
 async function gmPushProductToSheet(token, productKey) {
   const tabName = GM_SYNC_TABS[productKey];
   const groups = gmBuildSyncGroups(productKey);
@@ -3400,16 +3469,18 @@ async function gmPushProductToSheet(token, productKey) {
   // below — SUBTOTAL (unlike plain SUM) automatically re-totals only the
   // VISIBLE rows whenever a Sheets filter (e.g. Sales Person) is applied,
   // and recalculates no matter how many groups are pushed.
-  await gmSheetsWrite(token, `${tabName}!A4:H4`, [[
+  // Columns: A Group | B SP | C-E trailing months | F Current Target |
+  // G Next Month Target | H Current Actual | I Achievement %.
+  await gmSheetsWrite(token, `${tabName}!A4:I4`, [[
     'Total', '',
     '=SUBTOTAL(9,C5:C2000)', '=SUBTOTAL(9,D5:D2000)', '=SUBTOTAL(9,E5:E2000)',
-    '=SUBTOTAL(9,F5:F2000)', '=SUBTOTAL(9,G5:G2000)', '=IFERROR(G4/F4,"")'
+    '=SUBTOTAL(9,F5:F2000)', '=SUBTOTAL(9,G5:G2000)', '=SUBTOTAL(9,H5:H2000)', '=IFERROR(H4/F4,"")'
   ]]);
 
   // Clear old data rows first (from row 5 down — row 4 stays put) — in
   // case a group was deleted, its stale row must not linger below the
   // fresh data.
-  await gmSheetsClear(token, `${tabName}!A5:H2000`);
+  await gmSheetsClear(token, `${tabName}!A5:I2000`);
 
   if (values.length) await gmSheetsWrite(token, `${tabName}!A5`, values);
 }
@@ -3434,9 +3505,32 @@ async function pushGroupMasterToSheet() {
   }
 
   try {
+    // PULL first — pick up any target a person typed directly into the
+    // sheet — only if this user is allowed to write group targets at all;
+    // otherwise skip straight to pushing the app's own numbers (read-only
+    // users still keep the sheet's trailing months / actuals current).
+    let pulled = { updated: 0, unmatched: [] };
+    if (canEditCompanyMaster()) {
+      const pcPulled = await gmPullTargetsFromSheet(token, 'pc');
+      const acsrPulled = await gmPullTargetsFromSheet(token, 'acsr');
+      pulled = {
+        updated: pcPulled.updated + acsrPulled.updated,
+        unmatched: [...new Set([...pcPulled.unmatched, ...acsrPulled.unmatched])]
+      };
+      if (pulled.updated > 0) renderCompanyMaster(); // reflect pulled targets on screen immediately
+    }
+
+    // PUSH — recompute fresh from companyMasterData/dispatchData/
+    // groupTargetsData (which now includes anything just pulled above)
+    // and write it back, so the sheet always ends up consistent with the app.
     await gmPushProductToSheet(token, 'pc');
     await gmPushProductToSheet(token, 'acsr');
-    if (status) status.innerHTML = `<span style="color:var(--success)">✅ Synced to Google Sheet — ${new Date().toLocaleTimeString()}</span>`;
+
+    let msg = `✅ Synced — ${new Date().toLocaleTimeString()}`;
+    if (pulled.updated > 0) msg += ` · ⬇ ${pulled.updated} target(s) pulled from sheet`;
+    if (pulled.unmatched.length > 0) msg += ` · ⚠️ ${pulled.unmatched.length} unknown group name(s) in sheet ignored`;
+    if (status) status.innerHTML = `<span style="color:var(--success)">${msg}</span>`;
+    if (pulled.unmatched.length > 0) console.warn('[GM Sheet Pull] Unmatched group names (not in Company Master):', pulled.unmatched);
   } catch (e) {
     console.error('[GM Sheet Sync Error]', e);
     if (status) status.innerHTML = `<span style="color:var(--danger)">❌ Sync failed: ${e.message}</span>`;
