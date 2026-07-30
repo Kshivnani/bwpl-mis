@@ -3333,7 +3333,7 @@ function gmBuildSyncGroups(productKey) {
 }
 
 // Row shape must match the sheet's columns exactly:
-// Group Name | Sales Person | Month-3 | Month-2 | Month-1 | Current Target | Next Month Target | Actual | Achievement %
+// Group Name | Sales Person | Month-3 | Month-2 | Month-1 | Current Target | Actual | Next Month Target | Achievement %
 function gmSyncRowsToValues(groups) {
   return groups.map(g => [
     g.name || '—',
@@ -3342,8 +3342,8 @@ function gmSyncRowsToValues(groups) {
     Number(g.m2.toFixed(2)),
     Number(g.m1.toFixed(2)),
     g.target || 0,
-    g.targetNext || 0,
     Number(g.actual.toFixed(2)),
+    g.targetNext || 0,
     g.target > 0 ? Math.round((g.actual / g.target) * 10000) / 10000 : ''
   ]);
 }
@@ -3402,7 +3402,7 @@ async function gmApplyPulledTarget(gKey, value, product, period) {
   }, { merge: true });
 }
 
-// Reads the Target columns (F = Current Month, G = Next Month) straight
+// Reads the Target columns (F = Current Month, H = Next Month) straight
 // back out of the Google Sheet and applies any value a person typed
 // directly into the sheet into the app's own Firestore-backed targets —
 // this is what makes "☁ Sync to Google Sheet" a TWO-WAY sync: edits made
@@ -3413,7 +3413,7 @@ async function gmApplyPulledTarget(gKey, value, product, period) {
 // such names are returned so the caller can surface them.
 async function gmPullTargetsFromSheet(token, productKey) {
   const tabName = GM_SYNC_TABS[productKey];
-  const range = encodeURIComponent(`${tabName}!A5:G2000`);
+  const range = encodeURIComponent(`${tabName}!A5:I2000`);
   const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${GM_SYNC_SHEET_ID}/values/${range}`, {
     headers: { Authorization: 'Bearer ' + token }
   });
@@ -3435,7 +3435,7 @@ async function gmPullTargetsFromSheet(token, productKey) {
     if (!knownGroups.has(gKey)) { unmatched.push(name); continue; }
 
     const sheetCurrent = parseFloat(r[5]); // col F — Current Month Target
-    const sheetNext = parseFloat(r[6]);    // col G — Next Month Target
+    const sheetNext = parseFloat(r[7]);    // col H — Next Month Target (G is now Actual, not a target — never pulled)
 
     if (!isNaN(sheetCurrent) && sheetCurrent !== getGroupForecast(gKey, productKey)) {
       await gmApplyPulledTarget(gKey, sheetCurrent, productKey, gmCurrentMonthSuffix());
@@ -3466,15 +3466,17 @@ async function gmPushProductToSheet(token, productKey) {
 
   // Refresh headers for F:I too (row 3) so the sheet's column labels always
   // match the 9-column layout actually being written below — F=Current
-  // Target, G=Next Month Target, H=Actual, I=Achievement %. Older sheets
+  // Target, G=Actual, H=Next Month Target, I=Achievement %. (Actual sits
+  // right after Current Target so the two "this month" numbers are next
+  // to each other, with next month's target after that.) Older sheets
   // created before the "Next Month Target" column existed only had 8
   // columns (F=Target, G=Actual, H=Achievement%), which silently shifted
   // every push/pull by one column — this keeps the header self-correcting
   // on every sync so that mismatch can't recur.
   await gmSheetsWrite(token, `${tabName}!F3:I3`, [[
     gmMonthLabel(0) + ' Target (MT)',
-    gmMonthLabel(-1) + ' Target (MT)',
     gmMonthLabel(0) + ' Actual (MT)',
+    gmMonthLabel(-1) + ' Target (MT)',
     'Achievement %'
   ]]);
 
@@ -3484,11 +3486,11 @@ async function gmPushProductToSheet(token, productKey) {
   // VISIBLE rows whenever a Sheets filter (e.g. Sales Person) is applied,
   // and recalculates no matter how many groups are pushed.
   // Columns: A Group | B SP | C-E trailing months | F Current Target |
-  // G Next Month Target | H Current Actual | I Achievement %.
+  // G Current Actual | H Next Month Target | I Achievement %.
   await gmSheetsWrite(token, `${tabName}!A4:I4`, [[
     'Total', '',
     '=SUBTOTAL(9,C5:C2000)', '=SUBTOTAL(9,D5:D2000)', '=SUBTOTAL(9,E5:E2000)',
-    '=SUBTOTAL(9,F5:F2000)', '=SUBTOTAL(9,G5:G2000)', '=SUBTOTAL(9,H5:H2000)', '=IFERROR(H4/F4,"")'
+    '=SUBTOTAL(9,F5:F2000)', '=SUBTOTAL(9,G5:G2000)', '=SUBTOTAL(9,H5:H2000)', '=IFERROR(G4/F4,"")'
   ]]);
 
   // Clear old data rows first (from row 5 down — row 4 stays put) — in
@@ -3505,6 +3507,22 @@ async function gmPushProductToSheet(token, productKey) {
 // stays "live" without needing a manual click every time.
 async function pushGroupMasterToSheet() {
   const status = document.getElementById('gmSyncStatus');
+
+  // Guard: Actual (sales) is computed from dispatchData, which is loaded
+  // from localStorage / a manual Dispatch upload-or-sync — it is NOT
+  // fetched automatically on every page load. If dispatchData is empty in
+  // this browser session (e.g. fresh session, cache cleared, or Dispatch
+  // Planning tab hasn't been opened yet) and we push anyway, every group's
+  // Actual would compute as 0 and OVERWRITE the sheet's real sales figures
+  // with zeros. Refuse to push in that case so the sheet's Actual column
+  // always reflects real sales, never a blank session's zero.
+  if (!dispatchData || dispatchData.length === 0) {
+    const msg = '⚠️ Dispatch data not loaded in this session — open/sync Dispatch Planning first, then retry. (Sync skipped to avoid overwriting sheet\'s Actual/sales with 0.)';
+    if (status) status.innerHTML = `<span style="color:var(--danger)">${msg}</span>`;
+    showToast(msg, true);
+    return;
+  }
+
   if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Syncing to Google Sheet...</span>';
 
   let token = window._gToken || googleAccessToken;
