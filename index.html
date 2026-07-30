@@ -2300,6 +2300,8 @@
                 <th class="td-num" id="gmColM1">Jun (MT)</th>
                 <th class="td-num" id="gmColTargetPC">Jul PC Target (MT)</th>
                 <th class="td-num" id="gmColTargetACSR">Jul ACSR Target (MT)</th>
+                <th class="td-num" id="gmColTargetPCNext" style="background:rgba(52,152,219,0.12)">Aug PC Target (MT)</th>
+                <th class="td-num" id="gmColTargetACSRNext" style="background:rgba(52,152,219,0.12)">Aug ACSR Target (MT)</th>
                 <th class="td-num" id="gmColActual">Jul Actual (MT)</th>
                 <th class="td-num">Achievement %</th>
                 <th>Sales Person</th>
@@ -2307,7 +2309,7 @@
               </tr>
             </thead>
             <tbody id="gmBody">
-              <tr><td colspan="10" class="empty-state">Loading...</td></tr>
+              <tr><td colspan="12" class="empty-state">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -3055,8 +3057,8 @@ async function gmPurgeExpiredDeleted() {
 // are shown as the PC target (folded into the new forecastsPC map) so
 // nothing already saved appears to silently reset to 0; re-enter the ACSR
 // side separately going forward.
-function getGroupForecast(gKey, product) {
-  const period = gmCurrentMonthSuffix();
+function getGroupForecast(gKey, product, periodOverride) {
+  const period = periodOverride || gmCurrentMonthSuffix();
   const g = groupTargetsData[gKey];
   if (!g) return 0;
   const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
@@ -3069,10 +3071,10 @@ function getGroupForecast(gKey, product) {
   return 0;
 }
 
-async function saveGroupForecast(gKey, rawValue, product) {
+async function saveGroupForecast(gKey, rawValue, product, periodOverride) {
   if (blockIfNotAdmin()) { renderCompanyMaster(); return; } // renders the input back to its saved value
 
-  const period = gmCurrentMonthSuffix();
+  const period = periodOverride || gmCurrentMonthSuffix();
   const parsed = parseFloat(rawValue);
   const value = isNaN(parsed) ? 0 : parsed;
   const field = product === 'acsr' ? 'forecastsACSR' : 'forecastsPC';
@@ -3629,7 +3631,10 @@ function renderCompanyMaster() {
   setHdr('gmColM1', gmMonthLabel(1) + ' (MT)');
   setHdr('gmColTargetPC', gmMonthLabel(0) + ' PC Target (MT)');
   setHdr('gmColTargetACSR', gmMonthLabel(0) + ' ACSR Target (MT)');
+  setHdr('gmColTargetPCNext', gmMonthLabel(-1) + ' PC Target (MT)');
+  setHdr('gmColTargetACSRNext', gmMonthLabel(-1) + ' ACSR Target (MT)');
   setHdr('gmColActual', gmMonthLabel(0) + ' Actual (MT)');
+  const nextPeriod = gmMonthSuffix(-1); // e.g. while "today" is in July, this resolves to August — lets SPs pre-fill next month's target early. Once the calendar rolls into August, gmMonthSuffix(0)/(−1) shift automatically so this column always means "the month after the current one" — no manual column removal needed.
 
   let rows = companyMasterData.slice();
   if (q) {
@@ -3642,7 +3647,7 @@ function renderCompanyMaster() {
   }
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="10" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="12" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
     if (countEl) countEl.textContent = '';
     return;
   }
@@ -3689,6 +3694,8 @@ function renderCompanyMaster() {
     groups[gKey].targetPC = getGroupForecast(gKey, 'pc');
     groups[gKey].targetACSR = getGroupForecast(gKey, 'acsr');
     groups[gKey].target = groups[gKey].targetPC + groups[gKey].targetACSR; // combined, used for overall achievement %
+    groups[gKey].targetPCNext = getGroupForecast(gKey, 'pc', nextPeriod);
+    groups[gKey].targetACSRNext = getGroupForecast(gKey, 'acsr', nextPeriod);
   });
 
   // Populate the Sales Person filter (preserving current selection).
@@ -3745,9 +3752,10 @@ function renderCompanyMaster() {
   const grand = groupList.reduce((acc, [, g]) => {
     acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1;
     acc.targetPC += g.targetPC; acc.targetACSR += g.targetACSR; acc.target += g.target;
+    acc.targetPCNext += g.targetPCNext; acc.targetACSRNext += g.targetACSRNext;
     acc.actual += g.actual;
     return acc;
-  }, { m3: 0, m2: 0, m1: 0, targetPC: 0, targetACSR: 0, target: 0, actual: 0 });
+  }, { m3: 0, m2: 0, m1: 0, targetPC: 0, targetACSR: 0, target: 0, targetPCNext: 0, targetACSRNext: 0, actual: 0 });
   const grandAch = grand.target > 0 ? (grand.actual / grand.target) * 100 : null;
 
   let html = `<tr style="background:rgba(232,160,32,0.18)">
@@ -3757,6 +3765,8 @@ function renderCompanyMaster() {
     <td class="td-num"><strong>${grand.m1.toFixed(2)}</strong></td>
     <td class="td-num"><strong>${grand.targetPC > 0 ? grand.targetPC.toFixed(2) : '—'}</strong></td>
     <td class="td-num"><strong>${grand.targetACSR > 0 ? grand.targetACSR.toFixed(2) : '—'}</strong></td>
+    <td class="td-num" style="background:rgba(52,152,219,0.08)"><strong>${grand.targetPCNext > 0 ? grand.targetPCNext.toFixed(2) : '—'}</strong></td>
+    <td class="td-num" style="background:rgba(52,152,219,0.08)"><strong>${grand.targetACSRNext > 0 ? grand.targetACSRNext.toFixed(2) : '—'}</strong></td>
     <td class="td-num"><strong>${grand.actual.toFixed(2)}</strong></td>
     <td class="td-num" style="${achColor(grandAch)}"><strong>${grandAch !== null ? grandAch.toFixed(1) + '%' : '—'}</strong></td>
     <td></td><td></td>
@@ -3767,6 +3777,8 @@ function renderCompanyMaster() {
     const gAch = g.target > 0 ? (g.actual / g.target) * 100 : null;
     const gTargetPCVal = g.targetPC > 0 ? g.targetPC : '';
     const gTargetACSRVal = g.targetACSR > 0 ? g.targetACSR : '';
+    const gTargetPCNextVal = g.targetPCNext > 0 ? g.targetPCNext : '';
+    const gTargetACSRNextVal = g.targetACSRNext > 0 ? g.targetACSRNext : '';
 
     html += `<tr class="gm-group-row" data-gkey="${escapeHtml(gKey)}" style="background:rgba(232,160,32,0.08)">
       <td style="cursor:pointer" onclick="gmToggleGroup('${gKey.replace(/'/g, "\\'")}')">
@@ -3783,6 +3795,14 @@ function renderCompanyMaster() {
       <td class="td-num">
         <input type="number" step="0.1" value="${gTargetACSRVal}" placeholder="ACSR target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
           onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'acsr')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+      </td>
+      <td class="td-num" style="background:rgba(52,152,219,0.05)">
+        <input type="number" step="0.1" value="${gTargetPCNextVal}" placeholder="Next PC target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'pc', '${nextPeriod}')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+      </td>
+      <td class="td-num" style="background:rgba(52,152,219,0.05)">
+        <input type="number" step="0.1" value="${gTargetACSRNextVal}" placeholder="Next ACSR target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'acsr', '${nextPeriod}')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
       </td>
       <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
       <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
@@ -3808,6 +3828,8 @@ function renderCompanyMaster() {
           <td class="td-num">${c.m1.toFixed(2)}</td>
           <td class="td-num">—</td>
           <td class="td-num">—</td>
+          <td class="td-num">—</td>
+          <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
           <td>—</td>
@@ -3822,6 +3844,8 @@ function renderCompanyMaster() {
           <td class="td-num">${c.m3.toFixed(2)}</td>
           <td class="td-num">${c.m2.toFixed(2)}</td>
           <td class="td-num">${c.m1.toFixed(2)}</td>
+          <td class="td-num">—</td>
+          <td class="td-num">—</td>
           <td class="td-num">—</td>
           <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
@@ -3930,18 +3954,18 @@ function handleCompanyMasterFileUpload(event) {
 function exportCompanyMasterExcel() {
   renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
   if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
-  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
-  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} ACSR Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
+  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0), lNext = gmMonthLabel(-1);
+  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} ACSR Target (MT)`, `${lNext} PC Target (MT)`, `${lNext} ACSR Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
 
   const rows = [header];
   gmLastGroupList.forEach(([, g]) => {
     const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
-    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.targetPC || '', g.targetACSR || '', g.actual, ach, g.sp || '']);
+    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.targetPC || '', g.targetACSR || '', g.targetPCNext || '', g.targetACSRNext || '', g.actual, ach, g.sp || '']);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Group Master');
   const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
   XLSX.writeFile(wb, 'BWPL_Group_Master_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
