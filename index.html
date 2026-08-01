@@ -3805,6 +3805,21 @@ function renderCompanyMaster() {
     groups[gKey].m3 += c.m3; groups[gKey].m2 += c.m2; groups[gKey].m1 += c.m1; groups[gKey].actual += c.actual;
   });
 
+  // When a specific Product Category is selected (e.g. PC Wire or ACSR Core
+  // Wire), a group can still have SOME companies with zero qty in that
+  // product (e.g. a company that only ever bought ACSR, sitting inside a
+  // group whose OTHER companies bought PC). Previously the whole group
+  // passed the product filter (because the GROUP total was > 0) and every
+  // company underneath — including the zero ones — was listed regardless.
+  // Trim each group down to only the companies that actually have qty in
+  // the selected product for the visible months, so a PC-never company
+  // doesn't show up under a PC filter (and vice versa for ACSR).
+  if (gmProductFilter) {
+    Object.keys(groups).forEach(gKey => {
+      groups[gKey].companies = groups[gKey].companies.filter(c => (c.m3 + c.m2 + c.m1 + c.actual) > 0);
+    });
+  }
+
   // Sales Person + manual group Target come from the group itself, not summed from companies.
   // Priority: the SP manually assigned in Company Master (or bulk-imported via the Group
   // Master Excel upload) wins FIRST — this is what you deliberately typed/edited here, so
