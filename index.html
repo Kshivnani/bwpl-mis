@@ -1148,6 +1148,9 @@
       <div class="sidebar-item" onclick="showPage('groupmaster', this)">
         <span class="nav-icon">🏢</span> Group / Company Master
       </div>
+      <div class="sidebar-item" onclick="showPage('groupmasteracsr', this)">
+        <span class="nav-icon">🔌</span> Group / Company Master ACSR
+      </div>
     </div>
 
     <div class="sidebar-section">
@@ -2316,6 +2319,79 @@
       </div>
     </div>
 
+    <!-- GROUP / COMPANY MASTER — ACSR ONLY -->
+    <div class="page" id="page-groupmasteracsr">
+      <div class="report-panel">
+        <div class="report-header">
+          <div>
+            <h2>Group / Company Master ACSR</h2>
+            <div class="meta">ACSR-only view — last 3 months actual, current &amp; next month ACSR target/actual, live from POS. Add/edit companies from the main Group / Company Master tab.</div>
+          </div>
+          <div class="report-actions">
+            <button class="btn btn-secondary" onclick="exportCompanyMasterExcelAcsr()">⬇ Export Excel</button>
+            <button class="btn btn-secondary" onclick="pushGroupMasterToSheet()" title="Two-way: pulls in any target typed directly in the sheet, then pushes the latest app data back">⇅ Sync with Google Sheet</button>
+            <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
+          </div>
+        </div>
+        <div id="gmAcsrCloudStatus" style="padding:0 20px 10px;font-size:12px;color:var(--muted)"></div>
+
+        <div class="section-pad" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;padding-top:16px">
+          <div class="form-group" style="min-width:220px;flex:1">
+            <label>Search</label>
+            <input id="gmAcsrSearch" placeholder="Search group, company, state, location..." oninput="renderCompanyMasterAcsr()">
+          </div>
+          <div class="form-group" style="min-width:180px">
+            <label>Sales Person</label>
+            <select id="gmAcsrSpFilter" onchange="gmAcsrSpFilter=this.value; renderCompanyMasterAcsr()">
+              <option value="">All Sales Persons</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:150px">
+            <label>Sort by</label>
+            <select id="gmAcsrSortBy" onchange="gmAcsrSortBy=this.value; renderCompanyMasterAcsr()">
+              <option value="last3" selected>Last 3 Months Total (MT)</option>
+              <option value="group">Group Name (A-Z)</option>
+              <option value="sp">Sales Person</option>
+              <option value="actual">Actual (MT)</option>
+              <option value="target">Target (MT)</option>
+              <option value="achievement">Achievement %</option>
+            </select>
+          </div>
+          <div class="form-group" style="min-width:120px">
+            <label>Order</label>
+            <select id="gmAcsrSortDir" onchange="gmAcsrSortDir=this.value; renderCompanyMasterAcsr()">
+              <option value="asc">↑ Ascending</option>
+              <option value="desc" selected>↓ Descending</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmExpandAllAcsr()">▾ Expand All</button>
+          <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmCollapseAllAcsr()">▸ Collapse All</button>
+          <div style="font-size:12px;color:var(--muted);padding-bottom:8px" id="gmAcsrCount"></div>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Group Name (click to expand)</th>
+                <th class="td-num" id="gmAcsrColM3">Apr (MT)</th>
+                <th class="td-num" id="gmAcsrColM2">May (MT)</th>
+                <th class="td-num" id="gmAcsrColM1">Jun (MT)</th>
+                <th class="td-num" id="gmAcsrColTarget">Jul ACSR Target (MT)</th>
+                <th class="td-num" id="gmAcsrColTargetNext" style="background:rgba(52,152,219,0.12)">Aug ACSR Target (MT)</th>
+                <th class="td-num" id="gmAcsrColActual">Jul ACSR Actual (MT)</th>
+                <th class="td-num">Achievement %</th>
+                <th>Sales Person</th>
+              </tr>
+            </thead>
+            <tbody id="gmAcsrBody">
+              <tr><td colspan="9" class="empty-state">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
     <!-- HISTORY -->
     <div class="page" id="page-history">
       <div class="report-panel">
@@ -2464,6 +2540,13 @@ let gmSortDir = 'desc';           // Sort direction: asc | desc
 let gmLastGroupList = [];         // Cache of the last filtered+sorted groupList from renderCompanyMaster(), reused by exportCompanyMasterExcel() so downloads match what's on screen
 let groupTargetsData = {};        // { canonGroupKey: { forecasts: { 'MM-YYYY': number } } } — cloud-synced group-level manual targets
 let gmLoaded = false;
+
+// ── Group / Company Master — ACSR-only tab (mirrors the state above, kept independent so its own search/sort/filter don't affect the main tab) ──
+let gmAcsrExpandedGroups = new Set();
+let gmAcsrSpFilter = '';
+let gmAcsrSortBy = 'last3';
+let gmAcsrSortDir = 'desc';
+let gmAcsrLastGroupList = [];
 let savedReports = JSON.parse(localStorage.getItem('bwplReports') || '{}');
 
 // BWPL products for compliance
@@ -2658,6 +2741,10 @@ function showPage(name, el) {
   if (name === 'groupmaster') {
     if (!gmLoaded) { gmLoaded = true; setTimeout(loadCompanyMaster, 50); }
     else setTimeout(renderCompanyMaster, 50);
+  }
+  if (name === 'groupmasteracsr') {
+    if (!gmLoaded) { gmLoaded = true; setTimeout(loadCompanyMaster, 50); } // loadCompanyMaster() renders both tabs
+    else setTimeout(renderCompanyMasterAcsr, 50);
   }
   if (name === 'top10vol' && dispatchData.length > 0) {
     setTimeout(loadTop10Vol, 50);
@@ -4005,6 +4092,226 @@ function renderCompanyMaster() {
   if (countEl) countEl.textContent = `${rows.length} companies across ${groupList.length} groups`
     + (gmSpFilter ? ' · SP: ' + gmSpFilter : '')
     + (gmProductFilter ? ' · Product: ' + gmProductFilter : '');
+
+  // Keep the ACSR-only tab (Group / Company Master ACSR) in sync with every
+  // change made here — same underlying data, filtered/rendered separately.
+  if (typeof renderCompanyMasterAcsr === 'function') renderCompanyMasterAcsr();
+}
+
+// ── Group / Company Master ACSR — ACSR-only twin of renderCompanyMaster() above ──
+// Same data source (companyMasterData / dispatchData / groupTargetsData), but:
+//   - qty for last-3-months + current month is restricted to "ACSR Core Wire" only
+//   - only the ACSR target (current + next month) column is shown, no PC target
+//   - has its own search/SP-filter/sort/expand state (gmAcsr...), independent of the main tab
+function renderCompanyMasterAcsr() {
+  const tbody = document.getElementById('gmAcsrBody');
+  if (!tbody) return;
+  const countEl = document.getElementById('gmAcsrCount');
+  const q = (document.getElementById('gmAcsrSearch')?.value || '').toLowerCase().trim();
+  const ACSR = 'ACSR Core Wire';
+
+  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
+  const setHdr = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+  setHdr('gmAcsrColM3', gmMonthLabel(3) + ' (MT)');
+  setHdr('gmAcsrColM2', gmMonthLabel(2) + ' (MT)');
+  setHdr('gmAcsrColM1', gmMonthLabel(1) + ' (MT)');
+  setHdr('gmAcsrColTarget', gmMonthLabel(0) + ' ACSR Target (MT)');
+  setHdr('gmAcsrColTargetNext', gmMonthLabel(-1) + ' ACSR Target (MT)');
+  setHdr('gmAcsrColActual', gmMonthLabel(0) + ' ACSR Actual (MT)');
+  const nextPeriod = gmMonthSuffix(-1);
+
+  let rows = companyMasterData.slice();
+  if (q) {
+    rows = rows.filter(r =>
+      (r.group || '').toLowerCase().includes(q) ||
+      (r.company || '').toLowerCase().includes(q) ||
+      (r.state || '').toLowerCase().includes(q) ||
+      (r.location || '').toLowerCase().includes(q)
+    );
+  }
+
+  if (rows.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No companies yet — add one from the Group / Company Master tab or import from Excel</td></tr>';
+    if (countEl) countEl.textContent = '';
+    return;
+  }
+
+  const achColor = (ach) => {
+    if (ach === null) return 'color:var(--muted)';
+    if (ach >= 100) return 'color:var(--success);font-weight:700';
+    if (ach >= 75) return 'color:var(--wire);font-weight:600';
+    return 'color:var(--danger);font-weight:600';
+  };
+
+  // Bucket companies by group, pulling each company's ACSR-only monthly qty from dispatchData.
+  const groups = {};
+  rows.forEach(r => {
+    const gName = (r.group || r.company || '').trim();
+    const gKey = canonGroupKey(gName);
+    if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], m3: 0, m2: 0, m1: 0, actual: 0 };
+    const c = {
+      row: r,
+      sp: (r.sp || '').trim(),
+      m3: computeCompanyQtyForMonth(r.company, m3, ACSR),
+      m2: computeCompanyQtyForMonth(r.company, m2, ACSR),
+      m1: computeCompanyQtyForMonth(r.company, m1, ACSR),
+      actual: computeCompanyQtyForMonth(r.company, m0, ACSR)
+    };
+    groups[gKey].companies.push(c);
+    groups[gKey].m3 += c.m3; groups[gKey].m2 += c.m2; groups[gKey].m1 += c.m1; groups[gKey].actual += c.actual;
+  });
+
+  // Only companies with ACSR volume in the visible window stay under a group —
+  // same trimming logic as the Product Category filter on the main tab.
+  Object.keys(groups).forEach(gKey => {
+    groups[gKey].companies = groups[gKey].companies.filter(c => (c.m3 + c.m2 + c.m1 + c.actual) > 0);
+  });
+
+  Object.keys(groups).forEach(gKey => {
+    const spVotes = {};
+    groups[gKey].companies.forEach(c => { if (c.sp) spVotes[c.sp] = (spVotes[c.sp] || 0) + 1; });
+    const importedSp = Object.keys(spVotes).sort((a, b) => spVotes[b] - spVotes[a])[0] || '';
+    groups[gKey].sp = importedSp || groupSpMap[gKey] || '—';
+    groups[gKey].target = getGroupForecast(gKey, 'acsr');
+    groups[gKey].targetNext = getGroupForecast(gKey, 'acsr', nextPeriod);
+  });
+
+  const spSelect = document.getElementById('gmAcsrSpFilter');
+  if (spSelect) {
+    const allSp = [...new Set(Object.values(groups).map(g => g.sp).filter(s => s && s !== '—'))].sort();
+    spSelect.innerHTML = '<option value="">All Sales Persons</option>' +
+      allSp.map(s => `<option value="${escapeHtml(s)}" ${s === gmAcsrSpFilter ? 'selected' : ''}>${escapeHtml(s)}</option>`).join('');
+  }
+
+  // Only groups with ANY ACSR volume across the visible window (or a manually-set ACSR target) show up here.
+  let groupList = Object.entries(groups).filter(([, g]) => (g.m3 + g.m2 + g.m1 + g.actual) > 0 || g.target > 0 || g.targetNext > 0);
+  if (gmAcsrSpFilter) groupList = groupList.filter(([, g]) => g.sp === gmAcsrSpFilter);
+
+  const dir = gmAcsrSortDir === 'desc' ? -1 : 1;
+  groupList.sort((a, b) => {
+    const g1 = a[1], g2 = b[1];
+    switch (gmAcsrSortBy) {
+      case 'last3':
+        return dir * ((g1.m3 + g1.m2 + g1.m1) - (g2.m3 + g2.m2 + g2.m1));
+      case 'sp':
+        return dir * String(g1.sp || '').localeCompare(String(g2.sp || ''));
+      case 'actual':
+        return dir * (g1.actual - g2.actual);
+      case 'target':
+        return dir * (g1.target - g2.target);
+      case 'achievement': {
+        const a1 = g1.target > 0 ? g1.actual / g1.target : -1;
+        const a2 = g2.target > 0 ? g2.actual / g2.target : -1;
+        return dir * (a1 - a2);
+      }
+      default:
+        return dir * g1.name.localeCompare(g2.name);
+    }
+  });
+
+  gmAcsrLastGroupList = groupList;
+
+  const grand = groupList.reduce((acc, [, g]) => {
+    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1;
+    acc.target += g.target; acc.targetNext += g.targetNext; acc.actual += g.actual;
+    return acc;
+  }, { m3: 0, m2: 0, m1: 0, target: 0, targetNext: 0, actual: 0 });
+  const grandAch = grand.target > 0 ? (grand.actual / grand.target) * 100 : null;
+
+  let html = `<tr style="background:rgba(232,160,32,0.18)">
+    <td><strong>Σ TOTAL — ${groupList.length} groups</strong></td>
+    <td class="td-num"><strong>${grand.m3.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${grand.m2.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${grand.m1.toFixed(2)}</strong></td>
+    <td class="td-num"><strong>${grand.target > 0 ? grand.target.toFixed(2) : '—'}</strong></td>
+    <td class="td-num" style="background:rgba(52,152,219,0.08)"><strong>${grand.targetNext > 0 ? grand.targetNext.toFixed(2) : '—'}</strong></td>
+    <td class="td-num"><strong>${grand.actual.toFixed(2)}</strong></td>
+    <td class="td-num" style="${achColor(grandAch)}"><strong>${grandAch !== null ? grandAch.toFixed(1) + '%' : '—'}</strong></td>
+    <td></td>
+  </tr>`;
+
+  groupList.forEach(([gKey, g]) => {
+    const expanded = gmAcsrExpandedGroups.has(gKey) || q.length > 0;
+    const gAch = g.target > 0 ? (g.actual / g.target) * 100 : null;
+    const gTargetVal = g.target > 0 ? g.target : '';
+    const gTargetNextVal = g.targetNext > 0 ? g.targetNext : '';
+
+    html += `<tr class="gm-group-row" data-gkey="${escapeHtml(gKey)}" style="background:rgba(232,160,32,0.08)">
+      <td style="cursor:pointer" onclick="gmToggleGroupAcsr('${gKey.replace(/'/g, "\\'")}')">
+        <strong>${expanded ? '▾' : '▸'} 📁 ${escapeHtml(g.name || '—')}</strong>
+        <span style="font-weight:400;color:var(--muted);font-size:11px"> (${g.companies.length})</span>
+      </td>
+      <td class="td-num"><strong>${g.m3.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>${g.m2.toFixed(2)}</strong></td>
+      <td class="td-num"><strong>${g.m1.toFixed(2)}</strong></td>
+      <td class="td-num">
+        <input type="number" step="0.1" value="${gTargetVal}" placeholder="ACSR target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'acsr')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+      </td>
+      <td class="td-num" style="background:rgba(52,152,219,0.05)">
+        <input type="number" step="0.1" value="${gTargetNextVal}" placeholder="Next ACSR target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
+          onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'acsr', '${nextPeriod}')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
+      </td>
+      <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
+      <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
+      <td>${escapeHtml(g.sp)}</td>
+    </tr>`;
+
+    if (!expanded) return;
+
+    g.companies.sort((a, b) => (a.row.company || '').localeCompare(b.row.company || '')).forEach(c => {
+      const r = c.row;
+      html += `<tr>
+        <td style="padding-left:28px">${escapeHtml(r.company)}<div style="font-size:11px;color:var(--muted)">${escapeHtml(r.state) || '—'} · ${escapeHtml(r.location) || '—'}</div></td>
+        <td class="td-num">${c.m3.toFixed(2)}</td>
+        <td class="td-num">${c.m2.toFixed(2)}</td>
+        <td class="td-num">${c.m1.toFixed(2)}</td>
+        <td class="td-num">—</td>
+        <td class="td-num">—</td>
+        <td class="td-num">${c.actual.toFixed(2)}</td>
+        <td class="td-num">—</td>
+        <td>—</td>
+      </tr>`;
+    });
+  });
+
+  tbody.innerHTML = html;
+  if (countEl) countEl.textContent = `${groupList.reduce((n, [, g]) => n + g.companies.length, 0)} companies across ${groupList.length} groups (ACSR only)`
+    + (gmAcsrSpFilter ? ' · SP: ' + gmAcsrSpFilter : '');
+}
+
+function gmToggleGroupAcsr(gKey) {
+  if (gmAcsrExpandedGroups.has(gKey)) gmAcsrExpandedGroups.delete(gKey); else gmAcsrExpandedGroups.add(gKey);
+  renderCompanyMasterAcsr();
+}
+function gmExpandAllAcsr() {
+  gmAcsrExpandedGroups = new Set(companyMasterData.map(r => canonGroupKey(r.group || r.company || '')));
+  renderCompanyMasterAcsr();
+}
+function gmCollapseAllAcsr() {
+  gmAcsrExpandedGroups = new Set();
+  renderCompanyMasterAcsr();
+}
+
+// Excel export for the ACSR-only tab — mirrors exportCompanyMasterExcel() but ACSR columns only.
+function exportCompanyMasterExcelAcsr() {
+  renderCompanyMasterAcsr();
+  if (gmAcsrLastGroupList.length === 0) { showToast('❌ No ACSR groups match the current filter', true); return; }
+  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0), lNext = gmMonthLabel(-1);
+  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} ACSR Target (MT)`, `${lNext} ACSR Target (MT)`, `${l0} ACSR Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
+
+  const rows = [header];
+  gmAcsrLastGroupList.forEach(([, g]) => {
+    const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
+    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.target || '', g.targetNext || '', g.actual, ach, g.sp || '']);
+  });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(wb, ws, 'Group Master ACSR');
+  const filterTag = (gmAcsrSpFilter || '').replace(/[^a-z0-9_]+/gi, '');
+  XLSX.writeFile(wb, 'BWPL_Group_Master_ACSR_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
 }
 
 // Bulk import Group Name / Company Name / State / Location from an
