@@ -2216,6 +2216,7 @@
             <button id="gmImportExcelBtn" class="btn btn-secondary" onclick="document.getElementById('gmExcelFile').click()">📥 Import Excel</button>
             <input type="file" id="gmExcelFile" accept=".xlsx,.xls" style="display:none" onchange="handleCompanyMasterFileUpload(event)">
             <button class="btn btn-secondary" onclick="exportCompanyMasterExcel()">⬇ Export Excel</button>
+            <button class="btn btn-secondary" onclick="exportGroupWithCompaniesExcel()" title="Group ke saath uski saari companies (State, Location, SP, monthly qty) — current filter/sort ke hisaab se">⬇ Group + Companies Excel</button>
             <button class="btn btn-secondary" onclick="pushGroupMasterToSheet()" title="Two-way: pulls in any target typed directly in the sheet, then pushes the latest app data back">⇅ Sync with Google Sheet</button>
             <button class="btn btn-success" onclick="loadCompanyMaster()">☁ Refresh from Cloud</button>
           </div>
@@ -4371,6 +4372,54 @@ function exportCompanyMasterExcel() {
   XLSX.utils.book_append_sheet(wb, ws, 'Group Master');
   const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
   XLSX.writeFile(wb, 'BWPL_Group_Master_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
+}
+
+// Exports the Group/Company Master WITH companies: each group appears as a
+// summary row (totals, PC target, achievement, SP) followed by all of its
+// companies (State, Location, SP, monthly qty). "Group Name" is repeated on
+// every row and "Row Type" tells Group vs Company apart, so the sheet stays
+// filterable/pivotable in Excel. Uses gmLastGroupList — same filtered (search /
+// Sales Person / Product Category) + sorted list shown on screen.
+function exportGroupWithCompaniesExcel() {
+  renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
+  if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
+  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
+  const header = ['Group Name', 'Row Type', 'Company Name', 'State', 'Location', 'Sales Person',
+    `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`];
+  const r2 = n => Math.round((n || 0) * 100) / 100;
+
+  const rows = [header];
+  const tot = { m3: 0, m2: 0, m1: 0, targetPC: 0, target: 0, actual: 0 };
+  let companyCount = 0;
+
+  gmLastGroupList.forEach(([, g]) => {
+    const gName = g.name || '—';
+    const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
+    // Group summary row
+    rows.push([gName, 'Group', `${gName} — TOTAL (${g.companies.length} companies)`, '', '', g.sp || '',
+      r2(g.m3), r2(g.m2), r2(g.m1), g.targetPC || '', r2(g.actual), ach]);
+    // Company rows (A-Z, same as on screen)
+    [...g.companies].sort((a, b) => (a.row.company || '').localeCompare(b.row.company || '')).forEach(c => {
+      rows.push([gName, 'Company', c.row.company || '', c.row.state || '', c.row.location || '', c.sp || g.sp || '',
+        r2(c.m3), r2(c.m2), r2(c.m1), '', r2(c.actual), '']);
+      companyCount++;
+    });
+    tot.m3 += g.m3; tot.m2 += g.m2; tot.m1 += g.m1; tot.targetPC += g.targetPC; tot.target += g.target; tot.actual += g.actual;
+  });
+
+  const grandAch = tot.target > 0 ? Math.round((tot.actual / tot.target) * 1000) / 10 : '';
+  rows.push(['GRAND TOTAL', '', `${gmLastGroupList.length} groups · ${companyCount} companies`, '', '', '',
+    r2(tot.m3), r2(tot.m2), r2(tot.m1), tot.targetPC ? r2(tot.targetPC) : '', r2(tot.actual), grandAch]);
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 26 }, { wch: 10 }, { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
+    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }];
+  ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+  ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: header.length - 1 } }) };
+  XLSX.utils.book_append_sheet(wb, ws, 'Group + Companies');
+  const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
+  XLSX.writeFile(wb, 'BWPL_Group_With_Companies_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
 }
 
 // Sales-person pacing: forecast vs the pace required to hit it by month-end.
