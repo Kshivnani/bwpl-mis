@@ -2268,7 +2268,7 @@
           <div class="form-group" style="min-width:150px">
             <label>Sort by</label>
             <select id="gmSortBy" onchange="gmSortBy=this.value; renderCompanyMaster()">
-              <option value="last3" selected>Last 3 Months Total (MT)</option>
+              <option value="last3" selected>Past 6 Months Total (MT)</option>
               <option value="group">Group Name (A-Z)</option>
               <option value="sp">Sales Person</option>
               <option value="actual">Actual (MT)</option>
@@ -2282,6 +2282,21 @@
               <option value="asc">↑ Ascending</option>
               <option value="desc" selected>↓ Descending</option>
             </select>
+          </div>
+          <div class="form-group" style="min-width:150px">
+            <label>Show Months</label>
+            <div class="ms-wrap" id="gmMonthsMs">
+              <button type="button" class="ms-toggle" onclick="toggleMsPanel('gmMonthsMs')">
+                <span id="gmMonthsMsLabel">All 6 months</span><span class="ms-caret">▾</span>
+              </button>
+              <div class="ms-panel">
+                <div class="ms-panel-head">
+                  <span id="gmMonthsMsCount">Untick to hide</span>
+                  <a onclick="gmShowAllMonths();return false;">Show all</a>
+                </div>
+                <div class="ms-options" id="gmMonthsMsOptions"></div>
+              </div>
+            </div>
           </div>
           <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmExpandAll()">▾ Expand All</button>
           <button class="btn btn-secondary" style="padding:6px 10px;font-size:12px" onclick="gmCollapseAll()">▸ Collapse All</button>
@@ -2297,11 +2312,8 @@
         <div class="table-wrap">
           <table>
             <thead>
-              <tr>
+              <tr id="gmHeadRow">
                 <th>Group Name (click to expand)</th>
-                <th class="td-num" id="gmColM3">Apr (MT)</th>
-                <th class="td-num" id="gmColM2">May (MT)</th>
-                <th class="td-num" id="gmColM1">Jun (MT)</th>
                 <th class="td-num" id="gmColTargetPC">Jul PC Target (MT)</th>
                 <th class="td-num" id="gmColActual">Jul Actual (MT)</th>
                 <th class="td-num">Achievement %</th>
@@ -2310,7 +2322,7 @@
               </tr>
             </thead>
             <tbody id="gmBody">
-              <tr><td colspan="9" class="empty-state">Loading...</td></tr>
+              <tr><td colspan="12" class="empty-state">Loading...</td></tr>
             </tbody>
           </table>
         </div>
@@ -3827,20 +3839,67 @@ function computeCompanySales(companyName, monthOnly) {
   return { qty, value };
 }
 
+// ── Past-6-months history columns (Group / Company Master, main tab) ──
+// Shows the last 6 COMPLETED months (e.g. Apr–Sep while today is in Oct), rolling
+// forward automatically each month. Any month can be hidden via "Show Months";
+// the choice is remembered in this browser (stored by month, e.g. "04-2026").
+const GM_HIST_MONTHS = 6;
+let gmHiddenMonths = new Set();
+try { gmHiddenMonths = new Set(JSON.parse(localStorage.getItem('bwplGmHiddenMonths') || '[]')); } catch (e) { gmHiddenMonths = new Set(); }
+function gmHistOffsets() { return Array.from({ length: GM_HIST_MONTHS }, (_, i) => GM_HIST_MONTHS - i); } // [6,5,4,3,2,1]
+function gmVisibleIdx() { return gmHistOffsets().map((o, i) => i).filter(i => !gmHiddenMonths.has(gmMonthSuffix(gmHistOffsets()[i]))); }
+function gmMonthFullLabel(offset) {
+  const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
+  return d.toLocaleString('en-US', { month: 'short' }) + ' ' + d.getFullYear();
+}
+function gmSaveHiddenMonths() {
+  try { localStorage.setItem('bwplGmHiddenMonths', JSON.stringify([...gmHiddenMonths])); } catch (e) {}
+}
+function gmToggleMonth(suffix) {
+  if (gmHiddenMonths.has(suffix)) gmHiddenMonths.delete(suffix); else gmHiddenMonths.add(suffix);
+  gmSaveHiddenMonths();
+  renderCompanyMaster();
+}
+function gmShowAllMonths() {
+  gmHiddenMonths = new Set();
+  gmSaveHiddenMonths();
+  renderCompanyMaster();
+}
+function gmRenderMonthOptions() {
+  const optsEl = document.getElementById('gmMonthsMsOptions');
+  if (!optsEl) return;
+  optsEl.innerHTML = gmHistOffsets().map(o => {
+    const suffix = gmMonthSuffix(o);
+    return `<label class="ms-option"><input type="checkbox" ${gmHiddenMonths.has(suffix) ? '' : 'checked'} onchange="gmToggleMonth('${suffix}')"><span>${gmMonthFullLabel(o)}</span></label>`;
+  }).join('');
+  const hidden = gmHistOffsets().filter(o => gmHiddenMonths.has(gmMonthSuffix(o))).length;
+  const labelEl = document.getElementById('gmMonthsMsLabel');
+  if (labelEl) labelEl.textContent = hidden === 0 ? 'All ' + GM_HIST_MONTHS + ' months' : (GM_HIST_MONTHS - hidden) + ' of ' + GM_HIST_MONTHS + ' months';
+}
+
 function renderCompanyMaster() {
   const tbody = document.getElementById('gmBody');
   if (!tbody) return;
   const countEl = document.getElementById('gmCount');
   const q = (document.getElementById('gmSearch')?.value || '').toLowerCase().trim();
 
-  // Dynamic month columns: 3 trailing ACTUAL months + current month Target/Actual.
-  const m3 = gmMonthSuffix(3), m2 = gmMonthSuffix(2), m1 = gmMonthSuffix(1), m0 = gmMonthSuffix(0);
-  const setHdr = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
-  setHdr('gmColM3', gmMonthLabel(3) + ' (MT)');
-  setHdr('gmColM2', gmMonthLabel(2) + ' (MT)');
-  setHdr('gmColM1', gmMonthLabel(1) + ' (MT)');
-  setHdr('gmColTargetPC', gmMonthLabel(0) + ' PC Target (MT)');
-  setHdr('gmColActual', gmMonthLabel(0) + ' Actual (MT)');
+  // Dynamic month columns: past 6 completed months (hideable) + current month Target/Actual.
+  const m0 = gmMonthSuffix(0);
+  const histOffs = gmHistOffsets();
+  const histSuffix = histOffs.map(o => gmMonthSuffix(o));
+  const visIdx = gmVisibleIdx();
+  const nCols = visIdx.length + 6;
+  const headRow = document.getElementById('gmHeadRow');
+  if (headRow) {
+    headRow.innerHTML = '<th>Group Name (click to expand)</th>' +
+      visIdx.map(i => `<th class="td-num">${gmMonthLabel(histOffs[i])} (MT)</th>`).join('') +
+      `<th class="td-num" id="gmColTargetPC">${gmMonthLabel(0)} PC Target (MT)</th>` +
+      `<th class="td-num" id="gmColActual">${gmMonthLabel(0)} Actual (MT)</th>` +
+      '<th class="td-num">Achievement %</th><th>Sales Person</th><th>Action</th>';
+  }
+  gmRenderMonthOptions();
+  const mCells = (arr, bold) => visIdx.map(i => `<td class="td-num">${bold ? '<strong>' : ''}${arr[i].toFixed(2)}${bold ? '</strong>' : ''}</td>`).join('');
+  const msSum = (arr) => arr.reduce((s, v) => s + v, 0);
 
   let rows = companyMasterData.slice();
   if (q) {
@@ -3853,7 +3912,7 @@ function renderCompanyMaster() {
   }
 
   if (rows.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="9" class="empty-state">No companies yet — add one above or import from Excel</td></tr>';
+    tbody.innerHTML = `<tr><td colspan="${nCols}" class="empty-state">No companies yet — add one above or import from Excel</td></tr>`;
     if (countEl) countEl.textContent = '';
     return;
   }
@@ -3872,17 +3931,16 @@ function renderCompanyMaster() {
   rows.forEach(r => {
     const gName = (r.group || r.company || '').trim();
     const gKey = canonGroupKey(gName);
-    if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], m3: 0, m2: 0, m1: 0, actual: 0 };
+    if (!groups[gKey]) groups[gKey] = { name: gName, companies: [], ms: histOffs.map(() => 0), actual: 0 };
     const c = {
       row: r,
       sp: (r.sp || '').trim(), // Sales Person imported directly on this company row (from the GM-Parties Excel "SP" column)
-      m3: computeCompanyQtyForMonth(r.company, m3, gmProductFilter),
-      m2: computeCompanyQtyForMonth(r.company, m2, gmProductFilter),
-      m1: computeCompanyQtyForMonth(r.company, m1, gmProductFilter),
+      ms: histSuffix.map(sfx => computeCompanyQtyForMonth(r.company, sfx, gmProductFilter)),
       actual: computeCompanyQtyForMonth(r.company, m0, gmProductFilter)
     };
     groups[gKey].companies.push(c);
-    groups[gKey].m3 += c.m3; groups[gKey].m2 += c.m2; groups[gKey].m1 += c.m1; groups[gKey].actual += c.actual;
+    c.ms.forEach((v, i) => { groups[gKey].ms[i] += v; });
+    groups[gKey].actual += c.actual;
   });
 
   // When a specific Product Category is selected (e.g. PC Wire or ACSR Core
@@ -3896,7 +3954,7 @@ function renderCompanyMaster() {
   // doesn't show up under a PC filter (and vice versa for ACSR).
   if (gmProductFilter) {
     Object.keys(groups).forEach(gKey => {
-      groups[gKey].companies = groups[gKey].companies.filter(c => (c.m3 + c.m2 + c.m1 + c.actual) > 0);
+      groups[gKey].companies = groups[gKey].companies.filter(c => (msSum(c.ms) + c.actual) > 0);
     });
   }
 
@@ -3937,15 +3995,15 @@ function renderCompanyMaster() {
   if (gmSpFilter) groupList = groupList.filter(([, g]) => g.sp === gmSpFilter);
   // When a product category is chosen, only show groups that actually have
   // dispatch volume in that product (across the visible months).
-  if (gmProductFilter) groupList = groupList.filter(([, g]) => (g.m3 + g.m2 + g.m1 + g.actual) > 0);
+  if (gmProductFilter) groupList = groupList.filter(([, g]) => (msSum(g.ms) + g.actual) > 0);
 
   // Sort — by Group Name, Sales Person, Actual/Target qty, or Achievement %.
   const dir = gmSortDir === 'desc' ? -1 : 1;
   groupList.sort((a, b) => {
     const g1 = a[1], g2 = b[1];
     switch (gmSortBy) {
-      case 'last3':
-        return dir * ((g1.m3 + g1.m2 + g1.m1) - (g2.m3 + g2.m2 + g2.m1));
+      case 'last3': // "Past 6 Months Total" — sums only the months currently shown
+        return dir * (visIdx.reduce((s, i) => s + g1.ms[i], 0) - visIdx.reduce((s, i) => s + g2.ms[i], 0));
       case 'sp':
         return dir * String(g1.sp || '').localeCompare(String(g2.sp || ''));
       case 'actual':
@@ -3968,18 +4026,16 @@ function renderCompanyMaster() {
 
   // Grand total — top row.
   const grand = groupList.reduce((acc, [, g]) => {
-    acc.m3 += g.m3; acc.m2 += g.m2; acc.m1 += g.m1;
+    g.ms.forEach((v, i) => { acc.ms[i] += v; });
     acc.targetPC += g.targetPC; acc.target += g.target;
     acc.actual += g.actual;
     return acc;
-  }, { m3: 0, m2: 0, m1: 0, targetPC: 0, target: 0, actual: 0 });
+  }, { ms: histOffs.map(() => 0), targetPC: 0, target: 0, actual: 0 });
   const grandAch = grand.target > 0 ? (grand.actual / grand.target) * 100 : null;
 
   let html = `<tr style="background:rgba(232,160,32,0.18)">
     <td><strong>Σ TOTAL — ${groupList.length} groups</strong></td>
-    <td class="td-num"><strong>${grand.m3.toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${grand.m2.toFixed(2)}</strong></td>
-    <td class="td-num"><strong>${grand.m1.toFixed(2)}</strong></td>
+    ${mCells(grand.ms, true)}
     <td class="td-num"><strong>${grand.targetPC > 0 ? grand.targetPC.toFixed(2) : '—'}</strong></td>
     <td class="td-num"><strong>${grand.actual.toFixed(2)}</strong></td>
     <td class="td-num" style="${achColor(grandAch)}"><strong>${grandAch !== null ? grandAch.toFixed(1) + '%' : '—'}</strong></td>
@@ -3996,9 +4052,7 @@ function renderCompanyMaster() {
         <strong>${expanded ? '▾' : '▸'} 📁 ${escapeHtml(g.name || '—')}</strong>
         <span style="font-weight:400;color:var(--muted);font-size:11px"> (${g.companies.length})</span>
       </td>
-      <td class="td-num"><strong>${g.m3.toFixed(2)}</strong></td>
-      <td class="td-num"><strong>${g.m2.toFixed(2)}</strong></td>
-      <td class="td-num"><strong>${g.m1.toFixed(2)}</strong></td>
+      ${mCells(g.ms, true)}
       <td class="td-num">
         <input type="number" step="0.1" value="${gTargetPCVal}" placeholder="PC target" style="width:80px;text-align:right;font-weight:700" ${isSuperAdmin ? '' : 'readonly title="Only inframis@bajranggroup.com can edit"'}
           onblur="saveGroupForecast('${gKey.replace(/'/g, "\\'")}', this.value, 'pc')" onkeydown="if(event.key==='Enter') this.blur()" onclick="event.stopPropagation()">
@@ -4022,9 +4076,7 @@ function renderCompanyMaster() {
             <input id="gmEditLocation" value="${escapeHtml(r.location || '')}" style="width:100px;margin-top:2px" placeholder="Location">
             <input id="gmEditSp" value="${escapeHtml(r.sp || '')}" style="width:100px;margin-top:2px" placeholder="Sales Person">
           </td>
-          <td class="td-num">${c.m3.toFixed(2)}</td>
-          <td class="td-num">${c.m2.toFixed(2)}</td>
-          <td class="td-num">${c.m1.toFixed(2)}</td>
+          ${mCells(c.ms, false)}
           <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
@@ -4037,9 +4089,7 @@ function renderCompanyMaster() {
       } else {
         html += `<tr>
           <td style="padding-left:28px">${escapeHtml(r.company)}<div style="font-size:11px;color:var(--muted)">${escapeHtml(r.state) || '—'} · ${escapeHtml(r.location) || '—'}</div></td>
-          <td class="td-num">${c.m3.toFixed(2)}</td>
-          <td class="td-num">${c.m2.toFixed(2)}</td>
-          <td class="td-num">${c.m1.toFixed(2)}</td>
+          ${mCells(c.ms, false)}
           <td class="td-num">—</td>
           <td class="td-num">${c.actual.toFixed(2)}</td>
           <td class="td-num">—</td>
@@ -4357,18 +4407,19 @@ function handleCompanyMasterFileUpload(event) {
 function exportCompanyMasterExcel() {
   renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
   if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
-  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
-  const header = ['Group Name', '# Companies', `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
+  const l0 = gmMonthLabel(0);
+  const histOffs = gmHistOffsets(), visIdx = gmVisibleIdx(); // same visible months as on screen
+  const header = ['Group Name', '# Companies', ...visIdx.map(i => `${gmMonthLabel(histOffs[i])} (MT)`), `${l0} PC Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`, 'Sales Person'];
 
   const rows = [header];
   gmLastGroupList.forEach(([, g]) => {
     const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
-    rows.push([g.name || '—', g.companies.length, g.m3, g.m2, g.m1, g.targetPC || '', g.actual, ach, g.sp || '']);
+    rows.push([g.name || '—', g.companies.length, ...visIdx.map(i => g.ms[i]), g.targetPC || '', g.actual, ach, g.sp || '']);
   });
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
+  ws['!cols'] = [{ wch: 26 }, { wch: 12 }, ...visIdx.map(() => ({ wch: 10 })), { wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 14 }];
   XLSX.utils.book_append_sheet(wb, ws, 'Group Master');
   const filterTag = [gmSpFilter, gmProductFilter].filter(Boolean).join('_').replace(/[^a-z0-9_]+/gi, '');
   XLSX.writeFile(wb, 'BWPL_Group_Master_' + (filterTag ? filterTag + '_' : '') + toInputDate(today) + '.xlsx');
@@ -4383,13 +4434,14 @@ function exportCompanyMasterExcel() {
 function exportGroupWithCompaniesExcel() {
   renderCompanyMaster(); // make sure gmLastGroupList reflects the current filters/sort before exporting
   if (gmLastGroupList.length === 0) { showToast('❌ No groups match the current filter', true); return; }
-  const l3 = gmMonthLabel(3), l2 = gmMonthLabel(2), l1 = gmMonthLabel(1), l0 = gmMonthLabel(0);
+  const l0 = gmMonthLabel(0);
+  const histOffs = gmHistOffsets(), visIdx = gmVisibleIdx(); // same visible months as on screen
   const header = ['Group Name', 'Row Type', 'Company Name', 'State', 'Location', 'Sales Person',
-    `${l3} (MT)`, `${l2} (MT)`, `${l1} (MT)`, `${l0} PC Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`];
+    ...visIdx.map(i => `${gmMonthLabel(histOffs[i])} (MT)`), `${l0} PC Target (MT)`, `${l0} Actual (MT)`, `${l0} Achievement %`];
   const r2 = n => Math.round((n || 0) * 100) / 100;
 
   const rows = [header];
-  const tot = { m3: 0, m2: 0, m1: 0, targetPC: 0, target: 0, actual: 0 };
+  const tot = { ms: histOffs.map(() => 0), targetPC: 0, target: 0, actual: 0 };
   let companyCount = 0;
 
   gmLastGroupList.forEach(([, g]) => {
@@ -4397,24 +4449,25 @@ function exportGroupWithCompaniesExcel() {
     const ach = g.target > 0 ? Math.round((g.actual / g.target) * 1000) / 10 : '';
     // Group summary row
     rows.push([gName, 'Group', `${gName} — TOTAL (${g.companies.length} companies)`, '', '', g.sp || '',
-      r2(g.m3), r2(g.m2), r2(g.m1), g.targetPC || '', r2(g.actual), ach]);
+      ...visIdx.map(i => r2(g.ms[i])), g.targetPC || '', r2(g.actual), ach]);
     // Company rows (A-Z, same as on screen)
     [...g.companies].sort((a, b) => (a.row.company || '').localeCompare(b.row.company || '')).forEach(c => {
       rows.push([gName, 'Company', c.row.company || '', c.row.state || '', c.row.location || '', c.sp || g.sp || '',
-        r2(c.m3), r2(c.m2), r2(c.m1), '', r2(c.actual), '']);
+        ...visIdx.map(i => r2(c.ms[i])), '', r2(c.actual), '']);
       companyCount++;
     });
-    tot.m3 += g.m3; tot.m2 += g.m2; tot.m1 += g.m1; tot.targetPC += g.targetPC; tot.target += g.target; tot.actual += g.actual;
+    g.ms.forEach((v, i) => { tot.ms[i] += v; });
+    tot.targetPC += g.targetPC; tot.target += g.target; tot.actual += g.actual;
   });
 
   const grandAch = tot.target > 0 ? Math.round((tot.actual / tot.target) * 1000) / 10 : '';
   rows.push(['GRAND TOTAL', '', `${gmLastGroupList.length} groups · ${companyCount} companies`, '', '', '',
-    r2(tot.m3), r2(tot.m2), r2(tot.m1), tot.targetPC ? r2(tot.targetPC) : '', r2(tot.actual), grandAch]);
+    ...visIdx.map(i => r2(tot.ms[i])), tot.targetPC ? r2(tot.targetPC) : '', r2(tot.actual), grandAch]);
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = [{ wch: 26 }, { wch: 10 }, { wch: 40 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
-    { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 12 }, { wch: 14 }];
+    ...visIdx.map(() => ({ wch: 10 })), { wch: 14 }, { wch: 12 }, { wch: 14 }];
   ws['!freeze'] = { xSplit: 0, ySplit: 1 };
   ws['!autofilter'] = { ref: XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: rows.length - 1, c: header.length - 1 } }) };
   XLSX.utils.book_append_sheet(wb, ws, 'Group + Companies');
