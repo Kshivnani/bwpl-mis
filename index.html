@@ -3284,6 +3284,63 @@ async function restoreGroupMasterGroup(gKey, groupName) {
   }
 }
 
+// All known Sales Person names (from Company Master, POS/Master sheet and dispatch data) —
+// feeds the <datalist> suggestions on the per-group Sales Person input.
+function gmAllSalesPersons() {
+  const set = new Set();
+  companyMasterData.forEach(r => { const s = (r.sp || '').trim(); if (s) set.add(s); });
+  Object.values(groupSpMap).forEach(s => { if (s) set.add(String(s).trim()); });
+  dispatchData.forEach(r => { const s = (r.salesPerson || '').trim(); if (s) set.add(s); });
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+function gmRefreshSpDatalist() {
+  let dl = document.getElementById('gmSpList');
+  if (!dl) { dl = document.createElement('datalist'); dl.id = 'gmSpList'; document.body.appendChild(dl); }
+  dl.innerHTML = gmAllSalesPersons().map(s => `<option value="${escapeHtml(s)}"></option>`).join('');
+}
+
+// Changes the Sales Person for EVERY company inside one group in a single go
+// (Firestore batch), then refreshes both Group Master tabs and the Google Sheet.
+async function changeGroupSalesPerson(gKey, newSpRaw, groupName, inputEl) {
+  if (blockIfNotAdmin()) { renderCompanyMaster(); return; }
+  const newSp = (newSpRaw || '').trim();
+  const companies = companyMasterData.filter(r => canonGroupKey(r.group || r.company || '') === gKey);
+  if (companies.length === 0) return;
+
+  const oldSps = [...new Set(companies.map(r => (r.sp || '').trim()).filter(Boolean))];
+  if (oldSps.length === 1 && oldSps[0] === newSp) return; // nothing changed
+
+  const msg = newSp
+    ? `Group "${groupName}" ki saari ${companies.length} companies ka Sales Person "${newSp}" kar dein?` + (oldSps.length ? `\n(Abhi: ${oldSps.join(', ')})` : '')
+    : `Group "${groupName}" ki saari ${companies.length} companies se Sales Person hata dein?`;
+  if (!confirm(msg)) { renderCompanyMaster(); return; } // re-render restores the old value in the input
+
+  if (inputEl) inputEl.disabled = true;
+  try {
+    const CHUNK = 400; // stay under Firestore's 500-op batch limit
+    for (let start = 0; start < companies.length; start += CHUNK) {
+      const batch = db.batch();
+      companies.slice(start, start + CHUNK).forEach(r => {
+        batch.set(db.collection('companyMaster').doc(r.id), {
+          sp: newSp,
+          updatedBy: currentUserEmail || 'unknown',
+          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+      });
+      await batch.commit();
+    }
+    companies.forEach(r => { r.sp = newSp; });
+    showToast(`✅ "${groupName}" → Sales Person: ${newSp || '—'} (${companies.length} companies updated)`);
+    renderCompanyMaster(); // also re-renders the ACSR tab
+    pushGroupMasterToSheet(); // fire-and-forget, keeps the Google Sheet in sync
+  } catch (e) {
+    console.error('[Group SP Change Error]', e);
+    showToast('❌ Sales Person change failed: ' + e.message, true);
+    renderCompanyMaster();
+  }
+}
+
 function gmToggleRecycleBin() {
   gmRecycleBinOpen = !gmRecycleBinOpen;
   const panel = document.getElementById('gmRecycleBinPanel');
@@ -3974,6 +4031,8 @@ function renderCompanyMaster() {
     groups[gKey].target = groups[gKey].targetPC; // PC only — ACSR target lives on the Group / Company Master ACSR tab
   });
 
+  gmRefreshSpDatalist(); // suggestions for the per-group Sales Person input
+
   // Populate the Sales Person filter (preserving current selection).
   const spSelect = document.getElementById('gmSpFilter');
   if (spSelect) {
@@ -4059,7 +4118,11 @@ function renderCompanyMaster() {
       </td>
       <td class="td-num"><strong>${g.actual.toFixed(2)}</strong></td>
       <td class="td-num" style="${achColor(gAch)}"><strong>${gAch !== null ? gAch.toFixed(1) + '%' : '—'}</strong></td>
-      <td>${escapeHtml(g.sp)}</td>
+      <td>${isSuperAdmin
+        ? `<input list="gmSpList" value="${escapeHtml(g.sp === '—' ? '' : g.sp)}" placeholder="Select / type SP" title="Change Sales Person for the whole group" style="width:110px;font-weight:600"
+            onclick="event.stopPropagation()" onkeydown="if(event.key==='Enter') this.blur()"
+            onchange="changeGroupSalesPerson('${gKey.replace(/'/g, "\\'")}', this.value, '${escapeHtml(g.name).replace(/'/g, "\\'")}', this)">`
+        : escapeHtml(g.sp)}</td>
       <td>${isSuperAdmin ? `<button class="btn btn-secondary" style="padding:3px 8px;font-size:11px" onclick="event.stopPropagation();deleteGroupMasterGroup('${gKey.replace(/'/g, "\\'")}', '${escapeHtml(g.name).replace(/'/g, "\\'")}')">🗑️ Delete Group</button>` : ''}</td>
     </tr>`;
 
