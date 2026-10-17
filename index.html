@@ -1610,7 +1610,7 @@
           <table>
             <thead>
               <tr>
-                <th>Sr. No.</th><th>Customer</th><th>Product</th>
+                <th>Sr. No.</th><th>Customer</th><th>Product</th><th>Unit</th>
                 <th class="td-num">Qty — For the day (MT)</th>
                 <th class="td-num">Value (Rs.)</th>
                 <th class="td-num">MTD Sales Qty</th>
@@ -5334,8 +5334,9 @@ function loadSalesReport() {
   // Group by customer
   const byCustomer = {};
   todayRows.forEach(r => {
-    const key = r.party + '|' + r.product;
-    if (!byCustomer[key]) byCustomer[key] = {party:r.party, product:r.product, qty:0, value:0};
+    const unitName = String(r.unit || '').trim();
+    const key = r.party + '|' + r.product + '|' + unitName;
+    if (!byCustomer[key]) byCustomer[key] = {party:r.party, product:r.product, unit:unitName, qty:0, value:0};
     byCustomer[key].qty += r.qty;
     byCustomer[key].value += r.billAmount;
   });
@@ -5354,7 +5355,7 @@ function loadSalesReport() {
 
   const tbody = document.getElementById('salesBody');
   if (rows.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" class="empty-state">No dispatch data for ${dd}. Upload POS file first.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" class="empty-state">No dispatch data for ${dd}. Upload POS file first.</td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map((r,i) => `
@@ -5362,6 +5363,7 @@ function loadSalesReport() {
       <td>${i+1}</td>
       <td><input value="${r.party}" style="min-width:180px"></td>
       <td><input value="${r.product}"></td>
+      <td><input value="${String(r.unit||'').replace(/"/g,'&quot;')}" placeholder="Unit" style="width:90px"></td>
       <td class="td-num"><input type="number" value="${r.qty}" style="width:80px${r.qty ? '' : ';border-color:var(--danger)'}" title="${r.qty ? '' : 'Quantity blank in AM column on sheet — check source row'}"></td>
       <td class="td-num"><input type="number" value="${Math.round(r.value)}" style="width:110px"></td>
       <td class="td-num"><input type="number" value="${(mtdByCustomer[r.party]?.qty||0).toFixed(1)}" style="width:80px"></td>
@@ -5370,6 +5372,7 @@ function loadSalesReport() {
     </tr>`).join('') +
     `<tr class="summary-row">
       <td colspan="2"><strong>TOTAL</strong></td>
+      <td></td>
       <td></td>
       <td class="td-num"><strong>${totQty.toFixed(1)}</strong></td>
       <td class="td-num"><strong>₹${fmtN(totVal)}</strong></td>
@@ -5387,6 +5390,7 @@ function addSalesRow() {
     <td>${n}</td>
     <td><input placeholder="Customer name" style="min-width:180px"></td>
     <td><input placeholder="Product"></td>
+    <td><input placeholder="Unit" style="width:90px"></td>
     <td class="td-num"><input type="number" placeholder="0" style="width:80px"></td>
     <td class="td-num"><input type="number" placeholder="0" style="width:110px"></td>
     <td class="td-num"><input type="number" placeholder="0" style="width:80px"></td>
@@ -6438,13 +6442,13 @@ function downloadReport(type) {
       ['Daily Sales Register'],
       ['Date:', dateVal, '', 'Time: BY 10:30 Hrs.'],
       [],
-      ['Sr. NO.', 'Customer', 'Product', 'Qty. For the day (MT)', 'Value (Rs.)', 'MTD Sales Qty', 'MTD Sales Value']
+      ['Sr. NO.', 'Customer', 'Product', 'Unit', 'Qty. For the day (MT)', 'Value (Rs.)', 'MTD Sales Qty', 'MTD Sales Value']
     ];
     document.querySelectorAll('#salesBody tr').forEach(tr => {
       const cells = tr.querySelectorAll('td');
-      if (cells.length >= 7) {
+      if (cells.length >= 8) {
         const vals = [cells[0].textContent];
-        for (let i = 1; i <= 6; i++) {
+        for (let i = 1; i <= 7; i++) {
           const inp = cells[i].querySelector('input');
           vals.push(inp ? inp.value : cells[i].textContent);
         }
