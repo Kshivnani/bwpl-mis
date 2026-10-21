@@ -923,6 +923,73 @@
     th, td { padding: 5px 6px; }
   }
 
+
+  /* ===== FINANCE SECTION ===== */
+  #page-finance .fx-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  #page-finance .fx-chip { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--white);
+    background:var(--input-bg); border:1px solid var(--input-border); border-radius:6px; padding:6px 10px; cursor:pointer; }
+  #page-finance .fx-controls select { background:var(--input-bg); color:var(--white); border:1px solid var(--input-border);
+    border-radius:6px; padding:7px 10px; font-size:13px; }
+  #page-finance .fx-controls select option { background:var(--steel-mid); color:var(--white); }
+  #page-finance .neg { color:var(--danger); }
+  #page-finance .pos { color:var(--success); }
+  #page-finance .dim { color:var(--muted); }
+  #page-finance .fx-empty { padding:28px; text-align:center; color:var(--muted); font-size:13px; }
+  #page-finance .fx-panel { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; margin:0 0 16px; overflow:hidden; }
+  #page-finance .fx-panel-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;
+    padding:12px 16px; background:var(--report-header-bg); border-bottom:1px solid var(--td-border); }
+  #page-finance .fx-panel-head h3 { margin:0; font-size:13.5px; color:var(--white); }
+  #page-finance .fx-panel-head .note { font-size:11.5px; color:var(--muted); }
+  #page-finance .fx-panel-body { padding:14px 16px; }
+  #page-finance .fx-frame { overflow-x:auto; }
+  #page-finance table.fx-t { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+  #page-finance .fx-t th { text-align:right; white-space:nowrap; padding:8px 10px; background:var(--table-header-bg);
+    color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+  #page-finance .fx-t td { text-align:right; white-space:nowrap; padding:7px 10px; border-bottom:1px solid var(--td-border); color:var(--white); }
+  #page-finance .fx-t th.tl, #page-finance .fx-t td.tl { text-align:left; }
+  #page-finance .fx-t td.neg { color:var(--danger); }
+  #page-finance .fx-t td.pos { color:var(--success); }
+  #page-finance .fx-t td.dim { color:var(--muted); }
+  #page-finance .fx-t tr.sum td { font-weight:700; border-top:2px solid var(--border); background:var(--report-header-bg); }
+  #page-finance .fx-t tr.dayrow td { background:rgba(232,160,32,0.08); }
+  #page-finance .fx-tag { display:inline-block; font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:10px; }
+  #page-finance .fx-tag.good { background:rgba(46,204,113,.16); color:var(--success); }
+  #page-finance .fx-tag.warn { background:rgba(232,160,32,.18); color:var(--wire); }
+  #page-finance .fx-tag.bad  { background:rgba(231,76,60,.16); color:var(--danger); }
+  #page-finance .fx-tag.flat { background:var(--input-bg); color:var(--muted); }
+  #page-finance .fx-note { margin:0 0 12px; padding:10px 14px; border-radius:8px; font-size:12.5px; color:var(--white);
+    border:1px solid var(--border); background:var(--card-bg); border-left:4px solid var(--info); }
+  #page-finance .fx-note.warn { border-left-color:var(--wire); }
+  #page-finance .fx-note.err  { border-left-color:var(--danger); }
+  #page-finance .fx-panel-body .fx-note { margin:13px 0 0; }
+  #page-finance .fx-tiles { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:0 0 16px; }
+  #page-finance .fx-tile { background:var(--card-bg); border:1px solid var(--border); border-top:3px solid var(--info);
+    border-radius:10px; padding:12px 14px; min-width:0; }
+  #page-finance .fx-tile.red { border-top-color:var(--danger); }
+  #page-finance .fx-tile.green { border-top-color:var(--success); }
+  #page-finance .fx-tile.amber { border-top-color:var(--wire); }
+  #page-finance .fx-tile .k { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  #page-finance .fx-tile .v { font-size:20px; font-weight:700; color:var(--white); margin:4px 0 2px; }
+  #page-finance .fx-tile .s { font-size:11px; color:var(--muted); }
+  #page-finance .fx-split { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  #page-finance .fx-split .fx-panel { min-width:0; }
+  #page-finance .fx-chartbox { position:relative; width:100%; }
+  #page-finance .fx-strip { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin:0 0 16px; }
+  #page-finance .fx-strip-top { display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+  #page-finance .fx-strip .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  #page-finance .fx-strip .fig { font-size:26px; font-weight:700; color:var(--white); }
+  #page-finance .fx-strip .of { font-size:13px; font-weight:400; color:var(--muted); }
+  #page-finance .fx-strip .verdict { text-align:right; }
+  #page-finance .fx-strip .verdict .v { font-size:16px; font-weight:700; }
+  #page-finance .fx-strip .verdict .d { font-size:11.5px; color:var(--muted); }
+  #page-finance .fx-strip .track { height:8px; background:var(--input-bg); border-radius:4px; margin:12px 0 6px; overflow:hidden; }
+  #page-finance .fx-strip .fill { height:100%; border-radius:4px; background:var(--success); }
+  #page-finance .fx-strip .fill.bad { background:var(--danger); }
+  #page-finance .fx-strip .legend { font-size:11.5px; color:var(--muted); }
+  @media (max-width: 1000px) {
+    #page-finance .fx-tiles { grid-template-columns:repeat(2,1fr); }
+    #page-finance .fx-split { grid-template-columns:1fr; }
+  }
 </style>
 </head>
 <body>
@@ -1150,6 +1217,16 @@
       </div>
       <div class="sidebar-item" onclick="showPage('groupmasteracsr', this)">
         <span class="nav-icon">🔌</span> Group / Company Master ACSR
+      </div>
+    </div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Apps Script Data</div>
+      <div class="sidebar-item" onclick="showPage('appsdata', this)">
+        <span class="nav-icon">🧩</span> Custom Data Section
+      </div>
+      <div class="sidebar-item" onclick="showPage('finance', this)">
+        <span class="nav-icon">💰</span> Finance &amp; Cash Flow
       </div>
     </div>
 
@@ -2401,6 +2478,64 @@
       </div>
     </div>
 
+    <!-- APPS SCRIPT DATA (new section) -->
+    <div class="page" id="page-appsdata">
+      <div class="dash-banner">
+        <div>
+          <div class="dash-eyebrow"><span class="live-dot"></span> DIRECT SHEETS API</div>
+          <div class="dash-banner-title">Custom Data Section</div>
+          <div class="dash-banner-sub" id="adBannerSub">Apps Script wali sheets ka data — seedha Sheets API se, bina Apps Script ke</div>
+        </div>
+        <div class="dash-banner-actions">
+          <div class="form-group" style="margin:0">
+            <select id="adSource" onchange="renderAppsData()" style="min-width:200px"></select>
+          </div>
+          <button class="btn btn-primary" onclick="syncAppsData()" id="adSyncBtn">☁ Sync Now</button>
+          <button class="btn btn-secondary" onclick="downloadAppsData()">⬇ Excel</button>
+        </div>
+      </div>
+      <div id="adStatus" style="padding:0 4px 10px;font-size:12px;color:var(--muted)"></div>
+
+      <div class="overview-grid" id="adKpis" style="grid-template-columns:repeat(4,1fr)"></div>
+
+      <div class="report-panel">
+        <div class="report-header">
+          <div><h2 id="adTitle">Data</h2><div class="meta" id="adMeta">—</div></div>
+          <div class="report-actions">
+            <input type="text" id="adSearch" placeholder="🔍 Search..." oninput="renderAppsData()" style="width:200px;padding:7px 12px;border-radius:6px;border:1px solid var(--input-border);background:var(--input-bg);color:var(--white);font-size:13px">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr id="adHead"></tr></thead>
+            <tbody id="adBody"><tr><td class="empty-state">Loading...</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- FINANCE (new section, ported from the Apps Script finance dashboard) -->
+    <div class="page" id="page-finance">
+      <div class="dash-banner">
+        <div>
+          <div class="dash-eyebrow"><span class="live-dot"></span> DIRECT SHEETS API</div>
+          <div class="dash-banner-title">Finance &amp; Cash Flow</div>
+          <div class="dash-banner-sub">Cash flow, bank balances &amp; limits, projection, statutory dues — live from the finance sheets</div>
+        </div>
+        <div class="dash-banner-actions">
+          <div class="fx-controls">
+            <div id="fxUnits" class="fx-controls"></div>
+            <select id="fxMonth" onchange="loadFinance(false)" title="Month for paid / received / compliance"></select>
+            <select id="fxYear" onchange="loadFinance(false)"></select>
+            <button class="btn btn-primary" id="fxRefreshBtn" onclick="loadFinance(true)">↻ Refresh</button>
+            <button class="btn btn-secondary" onclick="fxExport()">⬇ Excel</button>
+          </div>
+        </div>
+      </div>
+      <div id="fxStatus" style="padding:0 4px 10px;font-size:12px;color:var(--muted)"></div>
+      <div id="fxBody"><div class="fx-empty">Loading finance data...</div></div>
+    </div>
+
     <!-- HISTORY -->
     <div class="page" id="page-history">
       <div class="report-panel">
@@ -2754,6 +2889,12 @@ function showPage(name, el) {
   if (name === 'groupmasteracsr') {
     if (!gmLoaded) { gmLoaded = true; setTimeout(loadCompanyMaster, 50); } // loadCompanyMaster() renders both tabs
     else setTimeout(renderCompanyMasterAcsr, 50);
+  }
+  if (name === 'appsdata') {
+    setTimeout(initAppsData, 50);
+  }
+  if (name === 'finance') {
+    setTimeout(initFinance, 50);
   }
   if (name === 'top10vol' && dispatchData.length > 0) {
     setTimeout(loadTop10Vol, 50);
@@ -7116,6 +7257,2152 @@ function renderWrTable() {
 }
 
 
+// ═══════════════════════════════════════════════════════════════
+// CUSTOM DATA SECTION — Apps Script sheets, fetched directly via
+// Sheets API (same login token as Wire Rod / Forecast sync).
+//
+// Naya data source jodne ke liye sirf APPS_DATA_SOURCES me ek entry add karein:
+//   key           : unique id
+//   title         : dropdown / table heading
+//   spreadsheetId : Google Sheet ID
+//   gid           : tab ka gid (ya sheetName: 'Tab Name')
+//   range         : e.g. 'A1:Z5000'
+//   transform(rows): Apps Script wala logic yahan JS me — raw rows (array of arrays) lekar
+//                    { kpis:[{label,value,sub}], columns:[...], rows:[[...]] } return kare
+// ═══════════════════════════════════════════════════════════════
+const APPS_DATA_SOURCES = [
+  // ── EXAMPLE (Apps Script code milne par yahan real entries banengi) ──
+  // {
+  //   key: 'example',
+  //   title: 'Example Sheet',
+  //   spreadsheetId: 'PASTE_SHEET_ID',
+  //   gid: '0',
+  //   range: 'A1:Z5000',
+  //   transform: function(rows) {
+  //     var header = rows[0] || [];
+  //     var data = rows.slice(1).filter(function(r){ return r[0]; });
+  //     return { kpis: [{label:'Total Rows', value:data.length, sub:'records'}], columns: header, rows: data };
+  //   }
+  // }
+];
+
+let adCache = {};   // key -> { raw, result, syncedAt }
+
+function adCurrentSource() {
+  const sel = document.getElementById('adSource');
+  return APPS_DATA_SOURCES.find(s => s.key === (sel && sel.value)) || null;
+}
+
+function initAppsData() {
+  const sel = document.getElementById('adSource');
+  if (!sel) return;
+  if (sel.options.length === 0) {
+    sel.innerHTML = APPS_DATA_SOURCES.length
+      ? APPS_DATA_SOURCES.map(s => `<option value="${s.key}">${escapeHtml(s.title)}</option>`).join('')
+      : '<option value="">— No source added yet —</option>';
+  }
+  renderAppsData();
+}
+
+async function syncAppsData() {
+  const src = adCurrentSource();
+  const status = document.getElementById('adStatus');
+  const btn = document.getElementById('adSyncBtn');
+  if (!src) { showToast('❌ Pehle APPS_DATA_SOURCES me source add karein', true); return; }
+  if (btn) { btn.textContent = '⏳ Syncing...'; btn.disabled = true; }
+  if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Fetching from Google Sheet...</span>';
+
+  let token = window._gToken || googleAccessToken;
+  if (!token) {
+    try {
+      token = await getSheetsAccessToken();
+      window._gToken = token; googleAccessToken = token;
+    } catch (e) {
+      if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+      if (btn) { btn.textContent = '☁ Sync Now'; btn.disabled = false; }
+      return;
+    }
+  }
+
+  try {
+    let sheetName = src.sheetName;
+    if (!sheetName) {
+      const metaRes = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${src.spreadsheetId}?fields=sheets.properties`, {
+        headers: { Authorization: 'Bearer ' + token }
+      });
+      if (metaRes.status === 401) { window._gToken = null; googleAccessToken = null; throw new Error('Session expired — dobara Sync dabayein'); }
+      if (!metaRes.ok) throw new Error((await metaRes.json()).error?.message || 'Sheet access failed');
+      const meta = await metaRes.json();
+      const obj = meta.sheets?.find(x => String(x.properties.sheetId) === String(src.gid));
+      if (!obj) throw new Error('Tab (gid ' + src.gid + ') nahi mila');
+      sheetName = obj.properties.title;
+    }
+    const range = encodeURIComponent(sheetName + '!' + (src.range || 'A1:Z5000'));
+    const render = src.valueRender ? '?valueRenderOption=' + src.valueRender : '';
+    const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${src.spreadsheetId}/values/${range}${render}`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error((await res.json()).error?.message || 'Data fetch failed');
+    const raw = (await res.json()).values || [];
+    const result = src.transform(raw);
+    adCache[src.key] = { raw, result, syncedAt: new Date() };
+    if (status) status.innerHTML = `<span style="color:var(--success)">✅ ${raw.length} rows synced — ${new Date().toLocaleTimeString('en-IN')}</span>`;
+    showToast('✅ ' + src.title + ' synced');
+    renderAppsData();
+  } catch (e) {
+    if (status) status.innerHTML = `<span style="color:var(--danger)">❌ ${e.message}</span>`;
+    showToast('❌ ' + e.message, true);
+  }
+  if (btn) { btn.textContent = '☁ Sync Now'; btn.disabled = false; }
+}
+
+function renderAppsData() {
+  const head = document.getElementById('adHead'), body = document.getElementById('adBody');
+  const kpiEl = document.getElementById('adKpis');
+  if (!head || !body) return;
+  const src = adCurrentSource();
+
+  if (!src) {
+    kpiEl.innerHTML = '';
+    head.innerHTML = '';
+    body.innerHTML = '<tr><td class="empty-state"><div class="icon">🧩</div>Abhi koi data source nahi hai.<br>Apps Script code ke hisaab se source add hote hi yahan dikhega.</td></tr>';
+    return;
+  }
+  document.getElementById('adTitle').textContent = src.title;
+  const c = adCache[src.key];
+  if (!c) {
+    kpiEl.innerHTML = '';
+    head.innerHTML = '';
+    body.innerHTML = '<tr><td class="empty-state"><div class="icon">☁</div>"Sync Now" dabayein data load karne ke liye.</td></tr>';
+    document.getElementById('adMeta').textContent = 'Not synced yet';
+    return;
+  }
+
+  const r = c.result;
+  kpiEl.style.gridTemplateColumns = 'repeat(' + Math.min(Math.max((r.kpis || []).length, 1), 4) + ',1fr)';
+  kpiEl.innerHTML = (r.kpis || []).map((k, i) => `
+    <div class="stat-card" style="--accent-color:${CHART_COLORS[i % CHART_COLORS.length]}">
+      <div class="label">${escapeHtml(k.label)}</div>
+      <div class="value">${escapeHtml(k.value)}</div>
+      <div class="sub">${escapeHtml(k.sub || '')}</div>
+    </div>`).join('');
+
+  const q = (document.getElementById('adSearch').value || '').toLowerCase().trim();
+  const rows = q ? r.rows.filter(row => row.some(v => String(v == null ? '' : v).toLowerCase().includes(q))) : r.rows;
+  head.innerHTML = r.columns.map(h => `<th>${escapeHtml(h)}</th>`).join('');
+  body.innerHTML = rows.length
+    ? rows.slice(0, 1000).map(row => '<tr>' + r.columns.map((_, i) => {
+        const v = row[i];
+        const isNum = typeof v === 'number';
+        return `<td class="${isNum ? 'td-num' : ''}">${escapeHtml(v == null ? '' : v)}</td>`;
+      }).join('') + '</tr>').join('')
+    : `<tr><td colspan="${r.columns.length}" class="empty-state">No matching rows</td></tr>`;
+  document.getElementById('adMeta').textContent =
+    rows.length + ' rows' + (rows.length > 1000 ? ' (first 1000 shown)' : '') + ' • synced ' + c.syncedAt.toLocaleTimeString('en-IN');
+}
+
+function downloadAppsData() {
+  const src = adCurrentSource();
+  const c = src && adCache[src.key];
+  if (!c) { showToast('❌ Pehle data sync karein', true); return; }
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet([c.result.columns, ...c.result.rows]);
+  XLSX.utils.book_append_sheet(wb, ws, src.title.slice(0, 31));
+  XLSX.writeFile(wb, 'BWPL_' + src.title.replace(/\s+/g, '_') + '_' + toInputDate(today) + '.xlsx');
+}
+
+/* =====================================================================
+   FINANCE ENGINE  (client side port of Finance.gs runFinance)
+   Everything is prefixed fx / FX_ so it cannot collide with the MIS code.
+   All money is in rupees. Sheet figures that are in lakh are converted once.
+   ===================================================================== */
+
+const FX_LAKH = 100000;
+
+/* Day of the month by which the previous month's liability must be paid. */
+const FX_DUE_RULES = [
+  { head: 'Salary',   day: 7,  match: ['salary', 'wages'] },
+  { head: 'TDS',      day: 7,  match: ['tds'] },
+  { head: 'ESI & PF', day: 15, match: ['esi', 'pf', 'provident'] },
+  { head: 'GST',      day: 20, match: ['gst'] }
+];
+const FX_SKIP_HEADS  = ['total', 'date', 'grand total', 'remarks'];
+const FX_NOT_PAYMENT = ['internal transfer'];
+const FX_UNIT_ORDER  = ['VKI', 'BGR', 'BGI'];
+const FX_UNIT_LABEL  = { VKI: 'VKI', BGR: 'U3', BGI: 'Infra' };
+const FX_MONTHS      = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const FX_MONTHS_FULL = ['January','February','March','April','May','June','July','August',
+                        'September','October','November','December'];
+
+/* The morning balance workbook ("Bank Balance" tab, amounts in lakh). */
+const FX_BB_SHEET_ID = '1lBpIxt6LLsPOtULxGt6egdXZeMheeQPlGpc0rrsK04A';
+const FX_BB_TAB      = 'Bank Balance';
+const FX_BB_UNIT_MAP = { 'I': 'VKI', 'II': 'VKI', 'III': 'BGR', 'BW & INFRA': 'BGI' };
+const FX_BB_NOT_UNIT = ['TOTAL', 'NET', 'LESS :', 'LESS:', 'LESS: VKM', 'LC/BG', 'VIVRITI', 'UNIT'];
+const FX_BB_BANKS    = ['PNB', 'HDFC', 'KOTAK'];
+
+/* One cash flow workbook and one bank statement workbook per unit.
+   banks lists the statement tabs the workbook really has. */
+const FX_UNITS = {
+  VKI: { cash: '1Vd-awEOrdyFStOGk6hjFrkx27aSJYnsVXvuZWFBMRnU',
+         bank: '1vTkmlEw5b-Au7L87KKnNh2mTHCpzpm1xY9hvyl7VZrw', banks: ['PNB', 'HDFC'] },
+  BGR: { cash: '1d8eXdmWWPVyG8RH4fn1zI5CzSMZdfrcnqyH1Z0_1Yj4',
+         bank: '143h3_KYioXZNHr3EKXTwJsvn59eaH47mJ1mFDM-qdu4', banks: ['PNB', 'HDFC'] },
+  BGI: { cash: '1glLdG9JODmhIBvOOJeRAzOeKFEzOrecIWtUpiKYSw9k',
+         bank: '1Xef5ObacOn3q5RB12mlTvdnEMDmnutGuNXnVct95OOs', banks: ['PNB', 'HDFC', 'Kotak'] }
+};
+const FX_TAB_OUTFLOW = 'Outflow Data';
+const FX_TAB_INFLOW  = 'Inflow data';
+const FX_TAB_LIMITS  = 'Credit limt Bank wise';
+
+/* Statement columns are found by header NAME (never by position), using the
+   same names Field_Map holds. Each field lists the accepted spellings. */
+const FX_BANK_FIELDS = {
+  PNB:   { date: ['actualdate'], account: ['accountnumber'], desc: ['description'],
+           cat: ['particulars'], sub: ['particularssubtype'], unit: ['unitname'],
+           debit: ['dramount'], credit: ['cramount'],
+           balance: [], balanceText: ['balance'], flag: [] },
+  HDFC:  { date: ['actualdate'], account: ['srno'], desc: ['discription', 'description'],
+           cat: ['particulars'], sub: ['particularssubtype'], unit: ['unitname'],
+           debit: ['withdrawalamt'], credit: ['depositamt'],
+           balance: ['closingbalance'], balanceText: [], flag: [] },
+  Kotak: { date: ['actualdate'], account: ['accountnumber'], desc: ['description'],
+           cat: ['particulars'], sub: ['particularssubtype'], unit: ['unitname'],
+           debit: ['debit'], credit: ['credit'],
+           balance: [], balanceText: ['balance'], flag: ['drcr'] }
+};
+
+
+/* ============================ small helpers ============================ */
+
+function fxLabel(code) {
+  const c = String(code || '').trim().toUpperCase();
+  return FX_UNIT_LABEL[c] || c;
+}
+function fxPad2(n) { return (n < 10 ? '0' : '') + n; }
+function fxNorm(s) { return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
+function fxStr(v)  { return String(v == null ? '' : v).trim(); }
+
+/* Number from a sheet cell: plain numbers pass, text has commas, rupee signs
+   and spaces removed, (123) reads as negative. Anything else is 0. */
+function fxNum(v) {
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  let s = String(v == null ? '' : v).trim();
+  if (!s) return 0;
+  let neg = false;
+  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
+  s = s.replace(/[,₹\s]/g, '');
+  const n = parseFloat(s);
+  if (isNaN(n)) return 0;
+  return neg ? -n : n;
+}
+
+function fxIso(y, m, d) { return y + '-' + fxPad2(m) + '-' + fxPad2(d); }
+function fxIsoFromUtc(dt) { return fxIso(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate()); }
+
+function fxAddDays(iso, n) {
+  const p = String(iso).split('-').map(Number);
+  return fxIsoFromUtc(new Date(Date.UTC(p[0], p[1] - 1, p[2] + n)));
+}
+function fxDayGap(fromIso, toIso) {
+  if (!fromIso || !toIso) return null;
+  const a = String(fromIso).substring(0, 10).split('-').map(Number);
+  const b = String(toIso).substring(0, 10).split('-').map(Number);
+  const x = Date.UTC(a[0], a[1] - 1, a[2]), y = Date.UTC(b[0], b[1] - 1, b[2]);
+  if (isNaN(x) || isNaN(y)) return null;
+  return Math.round((y - x) / 86400000);
+}
+
+/* The calendar in India, whatever the device clock says. */
+function fxIst(now) {
+  const t = new Date(now.getTime() + 5.5 * 3600000);
+  return { iso: fxIsoFromUtc(t), y: t.getUTCFullYear(), m: t.getUTCMonth(), d: t.getUTCDate(),
+           dow: t.getUTCDay(), hh: t.getUTCHours(), mi: t.getUTCMinutes() };
+}
+
+/* A sheet date as yyyy-MM-dd, or '' when the cell is not a date. Serial
+   numbers, ISO text, dd/mm/yyyy and dd-Mon-yyyy are understood. */
+function fxParseDate(v) {
+  if (v === null || v === undefined || v === '') return '';
+  if (v instanceof Date) return isNaN(v.getTime()) ? '' : fxIsoFromUtc(v);
+
+  if (typeof v === 'number') {
+    if (v < 20000 || v > 80000) return '';
+    return fxIsoFromUtc(new Date(Math.round((Math.floor(v) - 25569) * 86400000)));
+  }
+
+  const s = String(v).trim();
+  if (!s) return '';
+  let m, y, mo, d;
+
+  if ((m = s.match(/^(\d{4})[-\/.](\d{1,2})[-\/.](\d{1,2})/))) {
+    y = +m[1]; mo = +m[2]; d = +m[3];
+  } else if ((m = s.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{2,4})/))) {
+    d = +m[1]; mo = +m[2]; y = +m[3];
+    if (y < 100) y += 2000;
+  } else if ((m = s.match(/^(\d{1,2})[-\/. ]+([A-Za-z]{3,9})[-\/. ,]+(\d{2,4})/))) {
+    d = +m[1]; y = +m[3];
+    if (y < 100) y += 2000;
+    mo = fxMonthIndex(m[2]) + 1;
+  } else {
+    return '';
+  }
+  if (!(mo >= 1 && mo <= 12 && d >= 1 && d <= 31 && y >= 1990 && y <= 2100)) return '';
+  return fxIso(y, mo, d);
+}
+
+function fxMonthIndex(name) {
+  const k = String(name || '').trim().toLowerCase().substring(0, 3);
+  for (let i = 0; i < 12; i++) if (FX_MONTHS[i].toLowerCase() === k) return i;
+  return -1;
+}
+
+function fxAccount(v) {
+  return String(v == null ? '' : v).trim().replace(/\.0+$/, '').replace(/\s+/g, '');
+}
+
+/* Short crore / lakh text for the notes. */
+function fxShort(n) {
+  const v = Number(n) || 0, a = Math.abs(v), sign = v < 0 ? '-' : '';
+  if (a >= 1e7) return sign + (a / 1e7).toFixed(2) + ' Cr';
+  if (a >= 1e5) return sign + (a / 1e5).toFixed(2) + ' L';
+  return sign + String(Math.round(a));
+}
+
+function fxResolve(headers, cands) {
+  for (let i = 0; i < cands.length; i++) {
+    for (let c = 0; c < headers.length; c++) {
+      if (fxNorm(headers[c]) === cands[i]) return c;
+    }
+  }
+  return -1;
+}
+
+
+/* ============================ balances ============================ */
+
+/* PNB writes the running balance as text, "76834121.19 Dr." (overdrawn).
+   HDFC gives a plain number. Both end as one signed figure, negative when
+   drawn. */
+function fxBankBalance(numeric, text, flag) {
+  const s = fxStr(text);
+  const f = fxStr(flag).toUpperCase();
+
+  const helper = fxNum(numeric);
+  let fromText = 0;
+  if (s) {
+    const v = parseFloat(s.replace(/[^0-9.\-]/g, ''));
+    if (!isNaN(v)) fromText = v;
+  }
+
+  let n = helper;
+  if (helper && fromText && Math.abs(Math.abs(helper) - Math.abs(fromText)) > 1) n = fromText;
+  if (!n) n = fromText || helper;
+  if (!n) return 0;
+
+  if (/dr\.?\s*$/i.test(s) || f === 'DR') return -Math.abs(n);
+  if (/cr\.?\s*$/i.test(s) || f === 'CR') return  Math.abs(n);
+  return n;
+}
+
+function fxBalanceDisagrees(numeric, text) {
+  const helper = fxNum(numeric);
+  if (!helper) return false;
+  const s = fxStr(text);
+  if (!s) return false;
+  const v = parseFloat(s.replace(/[^0-9.\-]/g, ''));
+  if (isNaN(v) || !v) return false;
+  return Math.abs(Math.abs(helper) - Math.abs(v)) > 1;
+}
+
+/* Works out whether a statement is listed oldest first or newest first by
+   testing the running balance, not by trusting the bank's habit. */
+function fxDetectOrder(rows) {
+  let asc = 0, desc = 0, inverted = 0, normal = 0;
+
+  for (let i = 0; i + 1 < rows.length && i < 60; i++) {
+    const a = rows[i], b = rows[i + 1];
+    if (!a.balance && !b.balance) continue;
+
+    if (Math.abs((a.balance - b.debit + b.credit) - b.balance) < 1) { asc++;  normal++; }
+    if (Math.abs((a.balance + b.debit - b.credit) - b.balance) < 1) { asc++;  inverted++; }
+    if (Math.abs((b.balance - a.debit + a.credit) - a.balance) < 1) { desc++; normal++; }
+    if (Math.abs((b.balance + a.debit - a.credit) - a.balance) < 1) { desc++; inverted++; }
+  }
+
+  let order;
+  if (!asc && !desc) {
+    const first = rows[0], last = rows[rows.length - 1];
+    order = (first && last && first.date && last.date && first.date > last.date) ? 'desc' : 'asc';
+  } else {
+    order = (desc > asc) ? 'desc' : 'asc';
+  }
+  return { order: order, inverted: inverted > normal, matched: asc + desc };
+}
+
+
+/* ============================ expense heads ============================ */
+
+/* Groups heads that are the same thing written at different lengths
+   (GST/TDS, GST/TDS/EPF, GST/TDS/EPF & ESIC). The shorter one, stripped of
+   punctuation, must be a prefix of the longer and be 4+ characters. */
+function fxMergeHeads(heads) {
+  const key = h => String(h).toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  const sorted = heads.slice().sort((a, b) => key(b).length - key(a).length);
+
+  const groups = [];
+  sorted.forEach(function (h) {
+    const k = key(h);
+    if (!k) return;
+    for (let i = 0; i < groups.length; i++) {
+      const gk = groups[i].key;
+      const sh = (k.length < gk.length) ? k : gk;
+      const lg = (k.length < gk.length) ? gk : k;
+      if (sh.length >= 4 && lg.indexOf(sh) === 0) { groups[i].members.push(h); return; }
+    }
+    groups.push({ key: k, name: h, members: [h] });
+  });
+
+  const order = [], map = {}, notes = [];
+  groups.forEach(function (g) {
+    g.members.forEach(function (m) { map[m] = g.name; });
+    if (g.members.length > 1) notes.push(g.members.join(' = '));
+  });
+  heads.forEach(function (h) {
+    const name = map[h] || h;
+    if (order.indexOf(name) === -1) order.push(name);
+  });
+  return { order: order, map: map, notes: notes };
+}
+
+
+/* ============================ sheet readers ============================ */
+
+/* grid: array of rows from the Sheets API (UNFORMATTED_VALUE). */
+function fxCell(row, c) { return row ? row[c] : undefined; }
+
+/* Outflow Data: one column per payment head, amounts in lakh. */
+function fxReadOutflow(grid, loc) {
+  const out = { heads: [], rows: [] };
+  if (!grid || !grid.length) return out;
+
+  let hr = 0;
+  for (let i = 0; i < Math.min(grid.length, 15); i++) {
+    if (fxNorm(fxCell(grid[i], 0)) === 'date') { hr = i; break; }
+  }
+
+  const headers = (grid[hr] || []).map(fxStr);
+  let dateCol = headers.findIndex(h => h.toLowerCase() === 'date');
+  if (dateCol < 0) dateCol = 0;
+
+  for (let c = 0; c < headers.length; c++) {
+    if (c === dateCol) continue;
+    const head = headers[c];
+    if (!head || FX_SKIP_HEADS.indexOf(head.toLowerCase()) > -1) continue;
+    if (out.heads.indexOf(head) === -1) out.heads.push(head);
+  }
+
+  for (let r = hr + 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const iso = fxParseDate(row[dateCol]);
+    if (!iso) continue;
+
+    for (let c = 0; c < headers.length; c++) {
+      if (c === dateCol) continue;
+      const head = headers[c];
+      if (!head || FX_SKIP_HEADS.indexOf(head.toLowerCase()) > -1) continue;
+
+      const amt = Number(row[c]);
+      if (!amt || isNaN(amt)) continue;
+      out.rows.push({ loc: loc, date: iso, category: head, amount: amt * FX_LAKH });
+    }
+  }
+  return out;
+}
+
+/* Inflow data: date, category, amount in lakh. */
+function fxReadInflow(grid, loc) {
+  const out = [];
+  if (!grid || !grid.length) return out;
+
+  let hr = -1, cD = 0, cC = 1, cA = 2;
+  for (let i = 0; i < Math.min(grid.length, 15); i++) {
+    const hs = (grid[i] || []).map(fxNorm);
+    const a = hs.findIndex(h => h === 'amountlakh' || h === 'amountinlakh' || h === 'amount');
+    const d = hs.indexOf('date');
+    if (a > -1 && d > -1) {
+      hr = i; cD = d; cA = a;
+      const c = hs.indexOf('category');
+      cC = c > -1 ? c : 1;
+      break;
+    }
+  }
+
+  for (let r = hr + 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    const amt = fxNum(row[cA]);
+    if (!amt) continue;
+    out.push({ loc: loc, date: fxParseDate(row[cD]), category: fxStr(row[cC]), amount: amt * FX_LAKH });
+  }
+  return out;
+}
+
+/* A bank statement tab to rows of { date, account, description, category,
+   sub, debit, credit, balance }. Throws, loudly, if the money columns cannot
+   be found - a wrong column reads without error and gives a wrong balance. */
+function fxReadStatement(grid, bank, tabLabel) {
+  const spec = FX_BANK_FIELDS[bank];
+  if (!grid || !grid.length) return [];
+
+  let hr = -1, idx = null;
+  for (let i = 0; i < Math.min(grid.length, 15); i++) {
+    const hs = (grid[i] || []).map(fxStr);
+    const dc = fxResolve(hs, spec.debit), cc = fxResolve(hs, spec.credit);
+    if (dc > -1 && cc > -1) {
+      hr = i;
+      idx = { headers: hs, debit: dc, credit: cc };
+      break;
+    }
+  }
+  if (hr < 0) {
+    throw new Error('the debit / credit columns of ' + tabLabel + ' were not found by name (' +
+                    spec.debit.join('/') + ', ' + spec.credit.join('/') + ')');
+  }
+
+  const col = {};
+  ['date', 'account', 'desc', 'cat', 'sub', 'unit', 'balance', 'balanceText', 'flag'].forEach(function (f) {
+    col[f] = spec[f].length ? fxResolve(idx.headers, spec[f]) : -1;
+  });
+
+  const rows = [];
+  for (let r = hr + 1; r < grid.length; r++) {
+    const row = grid[r] || [];
+    rows.push({
+      date: col.date > -1 ? fxParseDate(row[col.date]) : '',
+      account: col.account > -1 ? row[col.account] : '',
+      description: col.desc > -1 ? fxStr(row[col.desc]) : '',
+      category: col.cat > -1 ? fxStr(row[col.cat]) : '',
+      sub: col.sub > -1 ? fxStr(row[col.sub]) : '',
+      debit: fxNum(row[idx.debit]),
+      credit: fxNum(row[idx.credit]),
+      balanceNum: col.balance > -1 ? row[col.balance] : '',
+      balanceText: col.balanceText > -1 ? row[col.balanceText] : '',
+      flag: col.flag > -1 ? row[col.flag] : ''
+    });
+  }
+  return rows;
+}
+
+/* Credit limit tab: account number, bank, sanctioned limit in rupees. */
+function fxReadLimits(grid) {
+  const out = [];
+  if (!grid) return out;
+  grid.forEach(function (row) {
+    const acc = fxAccount(fxCell(row, 0));
+    if (!/^\d{6,}$/.test(acc)) return;     /* header and blank rows fall out here */
+    out.push({ account: acc, bank: fxStr(fxCell(row, 1)), limit: fxNum(fxCell(row, 2)) });
+  });
+  return out;
+}
+
+/* The morning Bank Balance tab. Read by label, never by position, so a
+   moved column or row does not change what is picked. Amounts are lakh. */
+function fxReadBankBalanceSheet(grid) {
+  const out = { byUnit: {}, limitByUnit: {}, asOn: '', problems: [], rowsRead: 0 };
+  if (!grid || grid.length < 3) { out.problems.push('The Bank Balance tab is empty.'); return out; }
+
+  const lastRow = grid.length;
+  let lastCol = 0;
+  grid.forEach(r => { if (r && r.length > lastCol) lastCol = r.length; });
+
+  const raw = (r, c) => (grid[r - 1] || [])[c - 1];
+  const up  = (r, c) => fxStr(raw(r, c)).toUpperCase();
+
+  /* the date the tab was prepared for */
+  for (let r = 1; r <= Math.min(6, lastRow) && !out.asOn; r++) {
+    for (let c = 1; c <= lastCol; c++) {
+      if (up(r, c).indexOf('MORNING BANK BALANCE') === -1) continue;
+      for (let c2 = c; c2 <= Math.min(c + 6, lastCol); c2++) {
+        let d = fxParseDate(raw(r, c2));
+        if (!d && c2 === c) {                  /* date typed inside the title text */
+          const m = fxStr(raw(r, c2)).match(/(\d{1,2}[-\/. ][A-Za-z0-9]{1,9}[-\/. ,]+\d{2,4})/);
+          if (m) d = fxParseDate(m[1]);
+        }
+        if (d) { out.asOn = d; break; }
+      }
+      break;
+    }
+  }
+
+  /* A real bank header row names two or more banks AND has a Balance column
+     under them; the interest summary on the same tab does not. */
+  const headerRows = [];
+  for (let hr = 1; hr < lastRow; hr++) {
+    let found = 0, hasBalanceBelow = false;
+    for (let hc = 1; hc <= lastCol; hc++) {
+      if (FX_BB_BANKS.indexOf(up(hr, hc)) > -1) {
+        found++;
+        for (let bc = hc; bc <= Math.min(hc + 3, lastCol); bc++) {
+          if (up(hr + 1, bc) === 'BALANCE') { hasBalanceBelow = true; break; }
+        }
+      }
+    }
+    if (found >= 2 && hasBalanceBelow) headerRows.push(hr);
+  }
+
+  if (!headerRows.length) {
+    out.problems.push('No row on the Bank Balance tab names two or more of ' +
+                      FX_BB_BANKS.join(', ') + ', so the tables could not be located.');
+    return out;
+  }
+
+  const consumed = {};
+
+  headerRows.forEach(function (hRow) {
+    const marks = [];
+    for (let c = 1; c <= lastCol; c++) {
+      const label = up(hRow, c);
+      if (label) marks.push({ col: c, label: label });
+    }
+
+    let spans = [];
+    marks.forEach(function (m, i) {
+      if (FX_BB_BANKS.indexOf(m.label) === -1) return;
+      const endCol = (i + 1 < marks.length) ? marks[i + 1].col - 1 : lastCol;
+      spans.push({ bank: m.label, from: m.col, to: endCol });
+    });
+    if (!spans.length) return;
+
+    const subRow = hRow + 1;
+    spans.forEach(function (sp) {
+      sp.balanceCol = 0; sp.limitCol = 0;
+      for (let c = sp.from; c <= sp.to; c++) {
+        const t = up(subRow, c);
+        if (t === 'BALANCE' && !sp.balanceCol) sp.balanceCol = c;
+        if ((t === 'DP' || t === 'DLOD') && !sp.limitCol) sp.limitCol = c;
+      }
+    });
+    spans = spans.filter(sp => sp.balanceCol);
+    if (!spans.length) return;
+
+    for (let dr = subRow + 1; dr <= lastRow; dr++) {
+      const label = up(dr, 1) || up(dr, 2);
+      if (!label) continue;
+      if (FX_BB_NOT_UNIT.indexOf(label) > -1) break;
+
+      const loc = FX_BB_UNIT_MAP[label];
+      if (!loc) continue;
+
+      if (consumed[dr]) {
+        out.problems.push('Row ' + dr + ' (' + label + ') is claimed by more than one table ' +
+                          'on the Bank Balance tab and was counted once only.');
+        continue;
+      }
+      consumed[dr] = true;
+
+      spans.forEach(function (sp) {
+        const bank = (sp.bank === 'KOTAK') ? 'Kotak' : sp.bank;
+
+        const bal = Number(raw(dr, sp.balanceCol));
+        if (!isNaN(bal) && bal) {
+          if (!out.byUnit[loc]) out.byUnit[loc] = {};
+          out.byUnit[loc][bank] = (out.byUnit[loc][bank] || 0) + bal * FX_LAKH;
+        }
+        if (sp.limitCol) {
+          const lim = Number(raw(dr, sp.limitCol));
+          if (!isNaN(lim) && lim) {
+            if (!out.limitByUnit[loc]) out.limitByUnit[loc] = {};
+            out.limitByUnit[loc][bank] = (out.limitByUnit[loc][bank] || 0) + lim * FX_LAKH;
+          }
+        }
+      });
+      out.rowsRead++;
+    }
+  });
+
+  if (!out.rowsRead) {
+    out.problems.push('The Bank Balance tab was read but no row carried a unit label of ' +
+                      Object.keys(FX_BB_UNIT_MAP).join(', ') + '.');
+  }
+  return out;
+}
+
+
+/* ============================ the report ============================ */
+
+/* inp = { now: Date, month: 'Oct', year: 2026, units: ['VKI','BGR','BGI'],
+           raw: { VKI: { outflow:{grid,err}, inflow:{grid,err},
+                         banks:{ PNB:{grid,err}, ... }, limits:{grid,err} } },
+           bb: { grid, err } }
+   Returns the same shape Finance.gs gave the dashboard. */
+function fxBuild(inp) {
+  const now = inp.now || new Date();
+  const ist = fxIst(now);
+
+  const codes = (inp.units && inp.units.length ? inp.units : FX_UNIT_ORDER).slice();
+  codes.sort(function (a, b) {
+    let ia = FX_UNIT_ORDER.indexOf(a), ib = FX_UNIT_ORDER.indexOf(b);
+    if (ia === -1) ia = FX_UNIT_ORDER.length;
+    if (ib === -1) ib = FX_UNIT_ORDER.length;
+    return ia !== ib ? ia - ib : String(a).localeCompare(String(b));
+  });
+  if (!codes.length) throw new Error('Select at least one unit.');
+  const locs = codes.map(c => ({ code: c, name: fxLabel(c) }));
+
+  const month = String(inp.month || FX_MONTHS[ist.m]).trim();
+  const year = Number(inp.year) || ist.y;
+  const mIdx = fxMonthIndex(month);
+  if (mIdx < 0) throw new Error('Month "' + month + '" was not recognised.');
+
+  const prefix = year + '-' + fxPad2(mIdx + 1);
+  const problems = [];
+  const sources = [];     /* one line per sheet read, for the status panel */
+
+  const todayIso = ist.iso;
+  const yestIso = fxAddDays(todayIso, -1);
+
+  /* window: today to the coming Saturday (a Saturday is that day alone) */
+  const daysToSat = (6 - ist.dow + 7) % 7;
+  const rangeFrom = todayIso;
+  const rangeTo = fxAddDays(todayIso, daysToSat);
+  const rangeSource = daysToSat ? 'today to the coming Saturday' : 'today, which is Saturday';
+
+  const horizon = [];
+  for (let i = 0, d = rangeFrom; i < 90 && d <= rangeTo; i++, d = fxAddDays(d, 1)) horizon.push(d);
+  if (!horizon.length) horizon.push(rangeTo);
+
+  const daysInMonth = new Date(Date.UTC(year, mIdx + 1, 0)).getUTCDate();
+  const isCurrent = (ist.y === year && ist.m === mIdx);
+  const daysElapsed = isCurrent ? Math.min(ist.d, daysInMonth) : daysInMonth;
+
+  function note(unit, what, srcObj, rows) {
+    sources.push({ unit: unit, source: what, ok: !srcObj || !srcObj.err,
+                   rows: rows, error: srcObj && srcObj.err ? srcObj.err : '' });
+    if (srcObj && srcObj.err) problems.push(fxLabel(unit) + ' ' + what + ': ' + srcObj.err);
+  }
+
+  /* ---------------- actual money, from the bank statements ---------------- */
+  const txns = [];
+  let undated = 0;
+  const helperOff = {};
+
+  locs.forEach(function (loc) {
+    const raw = (inp.raw && inp.raw[loc.code]) || {};
+    const cfg = FX_UNITS[loc.code];
+    if (!cfg) return;
+
+    cfg.banks.forEach(function (bank) {
+      const src = raw.banks && raw.banks[bank];
+      if (!src || src.err) { note(loc.code, bank + ' statement', src || { err: 'not fetched' }, 0); return; }
+
+      try {
+        const stmt = fxReadStatement(src.grid, bank, bank + ' tab');
+        let lastAccount = '', seq = 0, kept = 0;
+
+        stmt.forEach(function (r) {
+          const dr = r.debit, cr = r.credit;
+          if (!dr && !cr) return;
+
+          let acc = fxAccount(r.account);
+          if (acc) lastAccount = acc; else acc = lastAccount;
+
+          if (!r.date) { undated++; return; }
+
+          if (fxBalanceDisagrees(r.balanceNum, r.balanceText)) {
+            helperOff[bank + ' ' + (acc || '?')] = true;
+          }
+
+          txns.push({
+            loc: loc.code, locName: loc.name, bank: bank,
+            date: r.date, account: acc,
+            description: r.description || '',
+            category: String(r.category || 'Others').trim() || 'Others',
+            sub: String(r.sub || '').trim(),
+            debit: dr, credit: cr,
+            balance: fxBankBalance(r.balanceNum, r.balanceText, r.flag),
+            src: loc.code + '|' + bank, seq: seq++
+          });
+          kept++;
+        });
+        note(loc.code, bank + ' statement', null, kept);
+      } catch (err) {
+        note(loc.code, bank + ' statement', { err: err.message }, 0);
+      }
+    });
+  });
+
+  const isRealPayment = t => t.debit > 0 && FX_NOT_PAYMENT.indexOf(t.category.toLowerCase()) === -1;
+
+  let paidYesterday = 0, paidToday = 0, paidMTD = 0, recdYesterday = 0, recdMTD = 0, txnCount = 0;
+  const paidByCat = {}, paidByLoc = {};
+
+  txns.forEach(function (t) {
+    if (t.date === yestIso) {
+      if (isRealPayment(t)) paidYesterday += t.debit;
+      recdYesterday += t.credit;
+    }
+    if (t.date === todayIso && isRealPayment(t)) paidToday += t.debit;
+
+    if (String(t.date).indexOf(prefix) !== 0) return;
+    txnCount++;
+    recdMTD += t.credit;
+
+    if (!isRealPayment(t)) return;
+    paidMTD += t.debit;
+    paidByCat[t.category] = (paidByCat[t.category] || 0) + t.debit;
+    paidByLoc[t.loc]      = (paidByLoc[t.loc]      || 0) + t.debit;
+  });
+
+  /* ---------------- closing balance per account ---------------- */
+  const latest = {};
+  (function () {
+    const groups = {};
+    txns.forEach(function (t) {
+      if (!t.account || t.date > todayIso) return;
+      const g = t.src + '|' + t.account;
+      (groups[g] = groups[g] || []).push(t);
+    });
+
+    Object.keys(groups).forEach(function (g) {
+      const rows = groups[g].slice().sort((a, b) => a.seq - b.seq);
+      const detected = fxDetectOrder(rows);
+      const order = detected.order;
+
+      /* newest first, stopping at the first row that carries a balance */
+      const walk = (order === 'asc') ? rows.slice().reverse() : rows;
+
+      let pick = null;
+      for (let i = 0; i < walk.length; i++) {
+        if (!walk[i].balance) continue;
+        if (walk[i].date && walk[i].date > todayIso) continue;
+        pick = walk[i];
+        break;
+      }
+      if (!pick) return;
+
+      const cur = latest[pick.account];
+      if (!cur || (pick.date && pick.date > cur.date)) {
+        latest[pick.account] = {
+          loc: pick.loc, bank: pick.bank, account: pick.account, date: pick.date,
+          balance: pick.balance, seq: pick.seq, order: order,
+          undatedRows: rows.filter(r => !r.date).length,
+          totalRows: rows.length,
+          reconciled: detected.matched,
+          inverted: detected.inverted && pick.balance > 0
+        };
+      }
+    });
+  })();
+
+  /* ---------------- limits ---------------- */
+  const limitOf = {}, limitFrom = {};
+  locs.forEach(function (loc) {
+    const raw = (inp.raw && inp.raw[loc.code]) || {};
+    const src = raw.limits;
+    if (!src || src.err) { note(loc.code, 'credit limits', src || { err: 'not fetched' }, 0); return; }
+    const list = fxReadLimits(src.grid);
+    note(loc.code, 'credit limits', null, list.length);
+    list.forEach(function (r) {
+      const existing = limitOf[r.account];
+      if (!existing || r.limit > existing.limit) {
+        limitOf[r.account] = { bank: r.bank || (existing ? existing.bank : ''), limit: r.limit };
+        limitFrom[r.account] = loc.code;
+      }
+    });
+  });
+
+  const accounts = [], seen = {};
+  let totalBalance = 0, totalLimit = 0, totalUsed = 0;
+
+  Object.keys(limitOf).concat(Object.keys(latest)).forEach(function (acc) {
+    if (seen[acc]) return;
+    seen[acc] = true;
+
+    const bal = latest[acc], lim = limitOf[acc];
+    const limit = lim ? lim.limit : 0;
+    const balance = bal ? bal.balance : null;
+    const used = (balance === null) ? null : (balance < 0 ? -balance : 0);
+
+    accounts.push({
+      loc: (bal && bal.loc) || limitFrom[acc] || '',
+      account: acc,
+      bank: (bal && bal.bank) || (lim && lim.bank) || '',
+      asOn: bal ? bal.date : '',
+      inverted: !!(bal && bal.inverted),
+      undatedRows: bal ? (bal.undatedRows || 0) : 0,
+      totalRows: bal ? (bal.totalRows || 0) : 0,
+      reconciled: bal ? (bal.reconciled || 0) : 0,
+      unverified: !!(bal && bal.totalRows > 5 && !bal.reconciled),
+      balance: balance, limit: limit, used: used,
+      headroom: (limit && used !== null) ? limit - used : null,
+      utilisation: (limit && used !== null) ? used / limit : null
+    });
+
+    if (balance !== null) totalBalance += balance;
+    totalLimit += limit;
+    if (used !== null) totalUsed += used;
+  });
+  accounts.sort((a, b) => (b.limit || 0) - (a.limit || 0));
+
+  /* ---------------- planned outflow and expected inflow ---------------- */
+  const plan = [], expect = [], rawHeads = [];
+
+  locs.forEach(function (loc) {
+    const raw = (inp.raw && inp.raw[loc.code]) || {};
+
+    const o = raw.outflow;
+    if (!o || o.err) {
+      note(loc.code, 'Outflow Data', o || { err: 'not fetched' }, 0);
+    } else {
+      const parsed = fxReadOutflow(o.grid, loc.code);
+      note(loc.code, 'Outflow Data', null, parsed.rows.length);
+      parsed.rows.forEach(r => plan.push(r));
+      parsed.heads.forEach(h => { if (rawHeads.indexOf(h) === -1) rawHeads.push(h); });
+    }
+
+    const i = raw.inflow;
+    if (!i || i.err) {
+      note(loc.code, 'Inflow data', i || { err: 'not fetched' }, 0);
+    } else {
+      const list = fxReadInflow(i.grid, loc.code);
+      note(loc.code, 'Inflow data', null, list.length);
+      list.forEach(r => expect.push(r));
+    }
+  });
+
+  const planNext7 = plan.filter(r => horizon.indexOf(r.date) > -1);
+  const inNext7 = expect.filter(r => horizon.indexOf(r.date) > -1);
+  const undatedInflow = expect.filter(r => !r.date).reduce((s, r) => s + r.amount, 0);
+
+  const planByCat = {};
+  planNext7.forEach(r => { planByCat[r.category] = (planByCat[r.category] || 0) + r.amount; });
+
+  const outNext7 = planNext7.reduce((s, r) => s + r.amount, 0);
+  const inNext7Total = inNext7.reduce((s, r) => s + r.amount, 0);
+
+  const projection = horizon.map(function (iso) {
+    let o = 0, i = 0;
+    planNext7.forEach(r => { if (r.date === iso) o += r.amount; });
+    inNext7.forEach(r => { if (r.date === iso) i += r.amount; });
+    return { date: iso,
+             label: iso.substring(8) + '-' + FX_MONTHS[Number(iso.substring(5, 7)) - 1],
+             inflow: i, outflow: o, net: i - o, closing: 0 };
+  });
+
+  /* ---------------- opening balance: the morning Bank Balance sheet ---------------- */
+  const BANK_ORDER = ['PNB', 'HDFC', 'Kotak'];
+  function canonBank(name) {
+    const r = String(name || '').trim();
+    if (!r) return 'Other';
+    for (let i = 0; i < BANK_ORDER.length; i++) {
+      if (BANK_ORDER[i].toLowerCase() === r.toLowerCase()) return BANK_ORDER[i];
+    }
+    return r;
+  }
+  accounts.forEach(a => { a.bank = canonBank(a.bank); });
+
+  let bbSheet = { byUnit: {}, limitByUnit: {}, asOn: '', problems: [], rowsRead: 0 };
+  if (!inp.bb || inp.bb.err) {
+    bbSheet.problems.push('The morning bank balance workbook could not be read: ' +
+                          (inp.bb && inp.bb.err ? inp.bb.err : 'not fetched'));
+    sources.push({ unit: '', source: 'Morning Bank Balance', ok: false, rows: 0,
+                   error: inp.bb && inp.bb.err ? inp.bb.err : 'not fetched' });
+  } else {
+    bbSheet = fxReadBankBalanceSheet(inp.bb.grid);
+    sources.push({ unit: '', source: 'Morning Bank Balance', ok: !bbSheet.problems.length,
+                   rows: bbSheet.rowsRead, error: bbSheet.problems.join(' ') });
+  }
+  bbSheet.problems.forEach(p => problems.push('Bank balance sheet: ' + p));
+
+  const usingSheet = Object.keys(bbSheet.byUnit).length > 0;
+
+  const unitByBank = {}, unitDP = {}, unitAsOn = {};
+  const bankSeen = {};
+
+  accounts.forEach(function (a) {
+    if (a.asOn && a.loc && (!unitAsOn[a.loc] || a.asOn > unitAsOn[a.loc])) unitAsOn[a.loc] = a.asOn;
+  });
+
+  if (usingSheet) {
+    Object.keys(bbSheet.byUnit).forEach(function (loc) {
+      unitByBank[loc] = bbSheet.byUnit[loc];
+      Object.keys(bbSheet.byUnit[loc]).forEach(b => { bankSeen[b] = true; });
+    });
+    Object.keys(bbSheet.limitByUnit).forEach(function (loc) {
+      unitDP[loc] = bbSheet.limitByUnit[loc];
+      Object.keys(bbSheet.limitByUnit[loc]).forEach(b => { bankSeen[b] = true; });
+    });
+  } else {
+    problems.push('The morning Bank Balance sheet gave nothing, so the opening balance falls back ' +
+                  'to the drawn balance on the statements. Those are negative on a cash credit ' +
+                  'account and are not the same figure.');
+    accounts.forEach(function (a) {
+      if (a.balance === null || !a.loc) return;
+      (unitByBank[a.loc] = unitByBank[a.loc] || {})[a.bank] =
+        ((unitByBank[a.loc] || {})[a.bank] || 0) + a.balance;
+    });
+    accounts.forEach(a => { bankSeen[a.bank] = true; });
+  }
+
+  const bankCols = BANK_ORDER.filter(b => bankSeen[b]);
+  Object.keys(bankSeen).forEach(b => { if (bankCols.indexOf(b) === -1) bankCols.push(b); });
+
+  /* ---------------- expense heads (columns) ---------------- */
+  planNext7.forEach(function (r) {
+    const h = String(r.category || '').trim();
+    if (h && rawHeads.indexOf(h) === -1) rawHeads.push(h);
+  });
+
+  const merge = fxMergeHeads(rawHeads);
+  const headOrder = merge.order.slice();
+  const headSeen = {};
+  headOrder.forEach(h => { headSeen[h] = true; });
+
+  if (merge.notes.length) {
+    problems.push('Expense heads are spelled differently across the units and were grouped: ' +
+                  merge.notes.join('; ') + '. Making the Outflow Data header rows identical ' +
+                  'would make this exact.');
+  }
+
+  const unitOut = {}, unitIn = {}, unitHead = {};
+  planNext7.forEach(function (r) {
+    unitOut[r.loc] = (unitOut[r.loc] || 0) + r.amount;
+    const raw = String(r.category || '').trim() || 'Other';
+    const h = merge.map[raw] || raw;
+    if (!headSeen[h]) { headSeen[h] = true; headOrder.push(h); }
+    if (!unitHead[r.loc]) unitHead[r.loc] = {};
+    unitHead[r.loc][h] = (unitHead[r.loc][h] || 0) + r.amount;
+  });
+  inNext7.forEach(r => { unitIn[r.loc] = (unitIn[r.loc] || 0) + r.amount; });
+
+  /* ---------------- expected collection ---------------- */
+  /* Last calendar month, whole. */
+  const lmEndDate = new Date(Date.UTC(ist.y, ist.m, 0));
+  const lmStartDate = new Date(Date.UTC(lmEndDate.getUTCFullYear(), lmEndDate.getUTCMonth(), 1));
+  const collSince = fxIsoFromUtc(lmStartDate), collUntil = fxIsoFromUtc(lmEndDate);
+  const collLabel = FX_MONTHS_FULL[lmStartDate.getUTCMonth()] + ' ' + lmStartDate.getUTCFullYear();
+  const COLL_WINDOW = lmEndDate.getUTCDate();
+
+  const collAmt = {}, collDays = {}, collSkip = {};
+  function noteSkip(loc, why, amt) {
+    if (!collSkip[loc]) collSkip[loc] = {};
+    collSkip[loc][why] = (collSkip[loc][why] || 0) + amt;
+  }
+
+  txns.forEach(function (t) {
+    if (!(t.credit > 0)) return;
+    if (FX_NOT_PAYMENT.indexOf(String(t.category || '').toLowerCase()) > -1) {
+      noteSkip(t.loc, 'internal transfers', t.credit); return;
+    }
+    if (!t.date) { noteSkip(t.loc, 'receipts with no date', t.credit); return; }
+    if (t.date < collSince || t.date > collUntil) {
+      noteSkip(t.loc, 'receipts outside ' + collLabel, t.credit); return;
+    }
+    collAmt[t.loc] = (collAmt[t.loc] || 0) + t.credit;
+    (collDays[t.loc] = collDays[t.loc] || {})[t.date] = true;
+  });
+
+  function avgCollection(code) {
+    if (!collAmt[code]) return null;
+    return (collAmt[code] / COLL_WINDOW) * horizon.length;
+  }
+
+  const collBasis = {};
+  const weeklyByUnit = locs.map(function (l) {
+    const banks = unitByBank[l.code] || {};
+    const connected = Object.keys(banks).length > 0;
+
+    let opening = null;
+    if (connected) {
+      opening = 0;
+      Object.keys(banks).forEach(b => { opening += banks[b]; });
+    }
+    const out = unitOut[l.code] || 0;
+
+    const planned = unitIn[l.code] || 0;
+    const avg = avgCollection(l.code);
+    let inn = planned;
+    collBasis[l.code] = 'planned';
+    if (!planned && avg !== null) { inn = avg; collBasis[l.code] = 'average'; }
+    else if (!planned && avg === null) { inn = 0; collBasis[l.code] = 'none'; }
+
+    let why = '';
+    if (collBasis[l.code] === 'none') {
+      const sk = collSkip[l.code] || {};
+      const bits = Object.keys(sk).map(k => fxShort(sk[k]) + ' ' + k);
+      why = bits.length ? 'Nothing qualified. Left out: ' + bits.join(', ') + '.'
+                        : 'No receipt at all was found on this unit\'s statements.';
+    }
+
+    return {
+      code: l.code, name: l.name, connected: connected,
+      accounts: Object.keys(banks).length, accountList: [],
+      opening: opening,
+      asOn: usingSheet ? (bbSheet.asOn || '') : (unitAsOn[l.code] || ''),
+      byBank: banks, drawingPower: unitDP[l.code] || {},
+      collectionBasis: collBasis[l.code],
+      collectionPlanned: planned, collectionAverage: avg, collectionWhy: why,
+      collectionDays: collDays[l.code] ? Object.keys(collDays[l.code]).length : 0,
+      collectionTotal: collAmt[l.code] || 0,
+      staleDays: unitAsOn[l.code] ? fxDayGap(unitAsOn[l.code], todayIso) : null,
+      outflow: out, inflow: inn, net: inn - out,
+      closing: connected ? (opening + inn - out) : null,
+      heads: unitHead[l.code] || {}
+    };
+  });
+
+  const weeklyHeads = Object.keys(planByCat).map(h => ({
+    head: h, amount: planByCat[h], share: outNext7 ? planByCat[h] / outNext7 : 0
+  })).sort((a, b) => b.amount - a.amount);
+
+  const connectedUnits = weeklyByUnit.filter(u => u.connected);
+  const missingUnits = weeklyByUnit.filter(u => !u.connected);
+
+  const headTotal = {};
+  headOrder.forEach(function (h) {
+    headTotal[h] = connectedUnits.reduce((s, u) => s + (u.heads[h] || 0), 0);
+  });
+
+  const groupOpening = connectedUnits.reduce((a, u) => a + u.opening, 0);
+  const groupInflow  = connectedUnits.reduce((a, u) => a + u.inflow, 0);
+  const groupOutflow = connectedUnits.reduce((a, u) => a + u.outflow, 0);
+
+  /* ---- the day by day run ---- */
+  (function () {
+    let dailyAvg = 0;
+    connectedUnits.forEach(function (u) {
+      if (u.collectionBasis === 'average' && horizon.length) dailyAvg += u.inflow / horizon.length;
+    });
+
+    const unitRunning = {};
+    connectedUnits.forEach(u => { unitRunning[u.code] = u.opening; });
+
+    let running = groupOpening;
+    projection.forEach(function (p) {
+      let i = 0;
+      inNext7.forEach(function (r) {
+        if (r.date !== p.date) return;
+        const owner = weeklyByUnit.filter(u => u.code === r.loc)[0];
+        if (owner && owner.connected && owner.collectionBasis === 'planned') i += r.amount;
+      });
+      i += dailyAvg;
+
+      let o = 0;
+      const dayHeads = {};
+      planNext7.forEach(function (r) {
+        if (r.date !== p.date) return;
+        const ow = weeklyByUnit.filter(u => u.code === r.loc)[0];
+        if (!(ow && ow.connected)) return;
+        o += r.amount;
+        const raw = String(r.category || '').trim() || 'Other';
+        const h = merge.map[raw] || raw;
+        dayHeads[h] = (dayHeads[h] || 0) + r.amount;
+      });
+
+      p.heads = dayHeads;
+      p.opening = running;
+      p.openingIsActual = (p.date === rangeFrom);
+      p.openingActual = (p.date === rangeFrom) ? running : null;
+      p.openingAssumed = running;
+
+      if (p.openingIsActual) {
+        p.openingBanks = {};
+        connectedUnits.forEach(function (u) {
+          const bb = u.byBank || {};
+          Object.keys(bb).forEach(b => { p.openingBanks[b] = (p.openingBanks[b] || 0) + bb[b]; });
+        });
+      }
+      p.inflow = i; p.outflow = o; p.net = i - o;
+      running += p.net;
+      p.closing = running;
+
+      p.units = {};
+      p.unitRows = [];
+      connectedUnits.forEach(function (u) {
+        let ui = 0;
+        if (u.collectionBasis === 'average') {
+          ui = horizon.length ? u.inflow / horizon.length : 0;
+        } else if (u.collectionBasis === 'planned') {
+          inNext7.forEach(r => { if (r.date === p.date && r.loc === u.code) ui += r.amount; });
+        }
+
+        let uo = 0;
+        const uHeads = {};
+        planNext7.forEach(function (r) {
+          if (r.date !== p.date || r.loc !== u.code) return;
+          uo += r.amount;
+          const raw = String(r.category || '').trim() || 'Other';
+          const h = merge.map[raw] || raw;
+          uHeads[h] = (uHeads[h] || 0) + r.amount;
+        });
+
+        const uOpen = unitRunning[u.code];
+        unitRunning[u.code] = uOpen + ui - uo;
+
+        const row = {
+          code: u.code, name: u.name, opening: uOpen,
+          openingIsActual: (p.date === rangeFrom),
+          openingActual: (p.date === rangeFrom) ? uOpen : null,
+          openingAssumed: uOpen,
+          openingBanks: (p.date === rangeFrom) ? (u.byBank || {}) : null,
+          inflow: ui, outflow: uo, heads: uHeads,
+          net: ui - uo, closing: unitRunning[u.code]
+        };
+        p.unitRows.push(row);
+        p.units[u.code] = row;
+      });
+    });
+  })();
+
+  const unitsAgree = projection.every(function (p) {
+    let sum = 0;
+    (p.unitRows || []).forEach(r => { sum += r.closing; });
+    return Math.abs(sum - p.closing) < 1;
+  });
+  if (!unitsAgree) {
+    problems.push('The unit lines in the day by day table do not add up to the group line. ' +
+                  'One of them is being built from a different opening balance.');
+  }
+
+  /* ---- did last month's rate hold up? ---- */
+  const checkDays = [];
+  for (let cd = 7; cd >= 1; cd--) checkDays.push(fxAddDays(todayIso, -cd));
+
+  const actualByDay = {};
+  txns.forEach(function (t) {
+    if (!(t.credit > 0)) return;
+    if (FX_NOT_PAYMENT.indexOf(String(t.category || '').toLowerCase()) > -1) return;
+    if (!t.date || checkDays.indexOf(t.date) === -1) return;
+    actualByDay[t.date] = (actualByDay[t.date] || 0) + t.credit;
+  });
+
+  let groupDailyRate = 0;
+  connectedUnits.forEach(function (u) {
+    if (u.collectionBasis === 'average' && COLL_WINDOW) groupDailyRate += (u.collectionTotal || 0) / COLL_WINDOW;
+  });
+
+  const collectionCheck = {
+    from: checkDays[0], to: checkDays[checkDays.length - 1], dailyRate: groupDailyRate,
+    days: checkDays.map(function (d) {
+      const actual = actualByDay[d] || 0;
+      return { date: d, label: d.substring(8) + '-' + FX_MONTHS[Number(d.substring(5, 7)) - 1],
+               average: groupDailyRate, actual: actual, diff: actual - groupDailyRate };
+    })
+  };
+  collectionCheck.totalAverage = groupDailyRate * checkDays.length;
+  collectionCheck.totalActual = checkDays.reduce((a, d) => a + (actualByDay[d] || 0), 0);
+  collectionCheck.totalDiff = collectionCheck.totalActual - collectionCheck.totalAverage;
+
+  const excludedOutflow = missingUnits.reduce((a, u) => a + u.outflow, 0);
+  const excludedUnits = missingUnits.filter(u => u.outflow > 0).map(u => u.code);
+
+  let planLastDate = '';
+  plan.forEach(r => { if (r.date && r.date > planLastDate) planLastDate = r.date; });
+  const planState = planNext7.length ? 'ok' : (plan.length ? 'stale' : 'empty');
+
+  const closingAll = groupOpening + groupInflow - groupOutflow;
+  const weekly = {
+    from: rangeFrom, to: rangeTo, days: horizon.length, rangeSource: rangeSource,
+    openingTotal: groupOpening, inflowTotal: groupInflow, outflowTotal: groupOutflow,
+    netTotal: groupInflow - groupOutflow, closingTotal: closingAll,
+    excludedOutflow: excludedOutflow, excludedUnits: excludedUnits,
+    usingBalanceSheet: usingSheet, balanceSheetAsOn: bbSheet.asOn || '',
+    headroomNow: usingSheet ? groupOpening : (totalLimit - totalUsed),
+    headroomAfter: (usingSheet ? groupOpening : (totalLimit - totalUsed)) + (groupInflow - groupOutflow),
+    creditLimit: usingSheet
+      ? connectedUnits.reduce(function (a, u) {
+          const dp = u.drawingPower || {};
+          return a + Object.keys(dp).reduce((x, b) => x + dp[b], 0);
+        }, 0)
+      : totalLimit,
+    bankCols: bankCols,
+    bankTotal: (function () {
+      const t = {};
+      bankCols.forEach(function (b) {
+        t[b] = connectedUnits.reduce((sum, u) => sum + ((u.byBank && u.byBank[b]) || 0), 0);
+      });
+      return t;
+    })(),
+    collectionPlannedUnits: weeklyByUnit.filter(u => u.collectionBasis === 'planned').map(u => u.code),
+    collectionAverageUnits: weeklyByUnit.filter(u => u.collectionBasis === 'average').map(u => u.code),
+    collectionWindowDays: COLL_WINDOW, collectionMonth: collLabel,
+    projectionAgrees: (function () {
+      if (!projection.length) return true;
+      return Math.abs(projection[projection.length - 1].closing - closingAll) < 1;
+    })(),
+    collectionCheck: collectionCheck, unitsAgree: unitsAgree, projectionBanks: bankCols,
+    openingDetail: {
+      date: rangeFrom, banks: bankCols,
+      rows: connectedUnits.map(u => ({ code: u.code, name: u.name, byBank: u.byBank || {}, total: u.opening }))
+    },
+    byUnit: weeklyByUnit, byHead: weeklyHeads,
+    headOrder: headOrder, headTotal: headTotal, anyInflow: inNext7Total > 0,
+    byDay: projection,
+    planState: planState, planRows: plan.length, planRowsThisWeek: planNext7.length,
+    planLastDate: planLastDate,
+    unitsCovered: connectedUnits.map(u => u.code), unitsMissing: missingUnits.map(u => u.code),
+    oldestAsOn: connectedUnits.reduce(function (acc, u) {
+      return (!acc || (u.asOn && u.asOn < acc)) ? (u.asOn || acc) : acc;
+    }, '')
+  };
+
+  if (projection.length && Math.abs(projection[projection.length - 1].closing - closingAll) >= 1) {
+    problems.push('The day by day closing balance and the cash flow table disagree. One of them is ' +
+                  'being built from a different opening balance or a different set of units.');
+  }
+
+  const undatedAccounts = accounts.filter(a => a.totalRows && a.undatedRows >= a.totalRows * 0.5);
+  if (undatedAccounts.length) {
+    problems.push('The ActualDate column is blank on most rows of ' +
+      undatedAccounts.map(a => a.bank + ' ' + a.account).join(', ') +
+      '. The balance is still correct, because it is taken from the order the statement runs in, ' +
+      'but those rows cannot be counted into today or month-to-date figures until the column is filled.');
+  }
+
+  if (planState !== 'ok') {
+    problems.push(planState === 'empty'
+      ? 'The Outflow Data tab has no dated row, so no payment can be planned for the week.'
+      : 'The Outflow Data tab ends on ' + planLastDate + ', so nothing is planned for ' +
+        horizon[0] + ' to ' + horizon[horizon.length - 1] + '. The expected closing balance is the ' +
+        'opening balance until that tab is filled in.');
+  }
+
+  /* ---------------- statutory and compliance ---------------- */
+  function headFor(t) {
+    const hay = (t.category + ' ' + t.sub + ' ' + t.description).toLowerCase();
+    for (let i = 0; i < FX_DUE_RULES.length; i++) {
+      const rule = FX_DUE_RULES[i];
+      for (let j = 0; j < rule.match.length; j++) {
+        if (hay.indexOf(rule.match[j]) > -1) return rule.head;
+      }
+    }
+    return '';
+  }
+
+  const statMTD = {}, statYesterday = {}, statLastPaid = {};
+  txns.forEach(function (t) {
+    if (!isRealPayment(t)) return;
+    const head = headFor(t);
+    if (!head) return;
+    if (t.date === yestIso) statYesterday[head] = (statYesterday[head] || 0) + t.debit;
+    if (String(t.date).indexOf(prefix) !== 0) return;
+    statMTD[head] = (statMTD[head] || 0) + t.debit;
+    if (!statLastPaid[head] || t.date > statLastPaid[head]) statLastPaid[head] = t.date;
+  });
+
+  const failures = [];
+  FX_DUE_RULES.forEach(function (rule) {
+    const dueIso = year + '-' + fxPad2(mIdx + 1) + '-' + fxPad2(Math.min(rule.day, daysInMonth));
+    if (dueIso > todayIso) return;
+
+    const paid = statMTD[rule.head] || 0;
+    const lastPaid = statLastPaid[rule.head] || '';
+    if (paid > 0 && lastPaid && lastPaid <= dueIso) return;
+
+    failures.push({
+      head: rule.head, dueDate: dueIso, paid: paid, paidOn: lastPaid,
+      state: paid > 0 ? 'Paid late' : 'Not paid',
+      daysLate: fxDayGap(dueIso, lastPaid || todayIso)
+    });
+  });
+
+  function isStatutoryHead(name) {
+    const h = String(name).toLowerCase();
+    return h.indexOf('gst') > -1 || h.indexOf('tds') > -1 || h.indexOf('salary') > -1 ||
+           h.indexOf('esi') > -1 || h.indexOf('pf') > -1;
+  }
+  const statutoryPlan = planNext7.filter(r => isStatutoryHead(r.category));
+
+  /* ---------------- warnings ---------------- */
+  const warnings = fxWarnings(txns.length, txnCount, plan.length, expect.length, undatedInflow,
+                              accounts, problems, prefix, undated, Object.keys(helperOff));
+
+  const pad = n => fxPad2(n);
+  const generatedAt = pad(ist.d) + '-' + FX_MONTHS[ist.m] + '-' + ist.y + ' ' + pad(ist.hh) + ':' + pad(ist.mi);
+
+  return {
+    reportId: 'RPT_FIN', reportName: 'Finance and Cash Flow',
+    month: month, year: year, locations: locs,
+    today: todayIso, yesterday: yestIso, daysElapsed: daysElapsed, daysInMonth: daysInMonth,
+    setupWarning: '',
+    kpi: {
+      paidYesterday: paidYesterday, paidToday: paidToday, paidMTD: paidMTD,
+      recdYesterday: recdYesterday, recdMTD: recdMTD, netMTD: recdMTD - paidMTD,
+      bankBalance: totalBalance, creditLimit: totalLimit, creditUsed: totalUsed,
+      headroom: totalLimit - totalUsed,
+      utilisation: totalLimit ? totalUsed / totalLimit : null,
+      outNext7: outNext7, inNext7: inNext7Total, netNext7: inNext7Total - outNext7,
+      closingNext7: projection.length ? projection[projection.length - 1].closing
+                                      : (usingSheet ? groupOpening : totalBalance),
+      failures: failures.length, transactions: txnCount
+    },
+    byCategory: Object.keys(paidByCat).map(k => ({
+      key: k, amount: paidByCat[k], share: paidMTD ? paidByCat[k] / paidMTD : 0, planned: planByCat[k] || 0
+    })).sort((a, b) => b.amount - a.amount).slice(0, 12),
+    byLocation: locs.map(l => ({ key: l.code, name: l.name, paid: paidByLoc[l.code] || 0,
+                                 share: paidMTD ? (paidByLoc[l.code] || 0) / paidMTD : 0 })),
+    accounts: accounts,
+    majorPayments: txns.filter(t => t.date === yestIso && isRealPayment(t))
+      .sort((a, b) => b.debit - a.debit).slice(0, 10)
+      .map(t => ({ party: t.sub || t.description || t.category, category: t.category,
+                   amount: t.debit, mode: t.bank, bank: t.bank, loc: t.loc })),
+    statutoryPaid: FX_DUE_RULES.map(rule => ({
+      category: rule.head, dueDay: rule.day,
+      mtd: statMTD[rule.head] || 0, yesterday: statYesterday[rule.head] || 0 })),
+    statutoryDue: statutoryPlan.slice().sort((a, b) => a.date < b.date ? -1 : 1)
+      .map(r => ({ date: r.date, category: r.category, party: '', amount: r.amount, loc: r.loc })),
+    creditorPlan: planNext7.filter(r => !isStatutoryHead(r.category))
+      .sort((a, b) => a.date === b.date ? b.amount - a.amount : (a.date < b.date ? -1 : 1))
+      .slice(0, 25)
+      .map(r => ({ date: r.date, category: r.category, party: '', amount: r.amount, loc: r.loc })),
+    projection: projection, weekly: weekly, failureList: failures,
+    warnings: warnings, sources: sources,
+    canExport: true, generatedAt: generatedAt, fromCache: false
+  };
+}
+
+function fxWarnings(txnTotal, txnInMonth, planCount, expectCount, undatedInflow, accounts,
+                    problems, prefix, undatedTxns, helperOff) {
+  const out = [];
+
+  if (helperOff && helperOff.length) {
+    out.push({ type: 'data',
+      text: 'The Balance helper column does not match the bank\'s own balance on ' + helperOff.length +
+            ' account, so the bank figure is being used instead.', detail: helperOff });
+  }
+  if (undatedTxns) {
+    out.push({ type: 'data',
+      text: undatedTxns + ' bank transactions have no ActualDate and are left out. Fill that column ' +
+            'down in the statement tabs to bring them in.', detail: [] });
+  }
+  if (!txnTotal) {
+    out.push({ type: 'source', text: 'No bank transaction could be read, so every actual figure reads zero.', detail: [] });
+  } else if (!txnInMonth) {
+    out.push({ type: 'data',
+      text: 'The bank statements hold ' + txnTotal + ' transactions but none in ' + prefix +
+            '. Paid and received figures stay at zero until the statement is brought up to date.', detail: [] });
+  }
+  if (!planCount) {
+    out.push({ type: 'source', text: 'Outflow Data has no dated row, so nothing is planned for the week.', detail: [] });
+  }
+  if (undatedInflow) {
+    out.push({ type: 'data',
+      text: 'Inflow data holds entries with no date. They are left out of the projection because they ' +
+            'cannot be placed on a day.', detail: [] });
+  } else if (!expectCount) {
+    out.push({ type: 'source', text: 'Inflow data is empty, so the projection shows outgoings only.', detail: [] });
+  }
+  const inverted = accounts.filter(a => a.inverted);
+  if (inverted.length) {
+    out.push({ type: 'data',
+      text: inverted.length + ' account shows a balance that falls when money comes in, which means the ' +
+            'column is holding the drawn amount rather than a balance. It is shown as written in the sheet.',
+      detail: inverted.map(a => (a.bank || '?') + ' ' + a.account) });
+  }
+  const zeroLimit = accounts.filter(a => !a.limit);
+  if (zeroLimit.length) {
+    out.push({ type: 'data',
+      text: zeroLimit.length + ' account has its sanctioned limit recorded as zero, so headroom and ' +
+            'utilisation cannot be shown for it. Fill the figure into the Credit limt Bank wise tab.',
+      detail: zeroLimit.map(a => (a.bank || '?') + ' ' + a.account) });
+  }
+  const noBalance = accounts.filter(a => a.balance === null);
+  if (noBalance.length) {
+    out.push({ type: 'data',
+      text: noBalance.length + ' account has a sanctioned limit but no transaction, so its utilisation ' +
+            'cannot be worked out.', detail: noBalance.map(a => a.bank + ' ' + a.account) });
+  }
+  if (problems.length) {
+    out.push({ type: 'source', text: 'Some finance sheets could not be read.', detail: problems });
+  }
+  return out;
+}
+
+
+/* =====================================================================
+   FINANCE SECTION - fetching, page logic and renderers
+   (renderers are ports of the Apps Script finance dashboard)
+   ===================================================================== */
+
+let FX = null;                 /* the last report built */
+let FX_RAW = { at: 0, units: {}, bb: null };
+let FX_BUSY = false;
+const FX_CHARTS = {};
+const FX_RAW_TTL = 5 * 60 * 1000;
+
+/* ---------------- formatting ---------------- */
+const fxEsc = s => escapeHtml(s == null ? '' : s);
+const fxPct = n => (n === null || n === undefined) ? '—' : ((Number(n) * 100).toFixed(1) + '%');
+const fxInr = n => '₹' + (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+function fxInrShort(n) {
+  const v = Number(n) || 0, a = Math.abs(v), s = v < 0 ? '-' : '';
+  if (a >= 1e7) return s + '₹' + (a / 1e7).toFixed(2) + ' Cr';
+  if (a >= 1e5) return s + '₹' + (a / 1e5).toFixed(2) + ' L';
+  return s + '₹' + a.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+function fxShortDate(iso) {
+  const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return String(iso || '');
+  return Number(m[3]) + ' ' + FX_MONTHS[Number(m[2]) - 1];
+}
+const fxShortLabel = (s, n) => { s = String(s || ''); return s.length > (n || 22) ? s.substring(0, (n || 22) - 1) + '…' : s; };
+
+const fxEmpty = msg => '<div class="fx-empty">' + fxEsc(msg) + '</div>';
+const fxTile = (k, v, s, cls) =>
+  '<div class="fx-tile ' + (cls || '') + '"><div class="k">' + fxEsc(k) + '</div><div class="v">' + v +
+  '</div><div class="s">' + fxEsc(s) + '</div></div>';
+const fxPanel = (title, note, inner) =>
+  '<div class="fx-panel"><div class="fx-panel-head"><h3>' + fxEsc(title) + '</h3>' +
+  (note ? '<span class="note">' + fxEsc(note) + '</span>' : '') + '</div><div class="fx-panel-body">' + inner + '</div></div>';
+const fxChartBox = (id, h) => '<div class="fx-chartbox" style="height:' + h + 'px"><canvas id="' + id + '"></canvas></div>';
+const fxBarHeight = (rows, per) => Math.max(200, Math.min(760, rows * (per || 34) + 80));
+
+
+/* ---------------- fetching ---------------- */
+async function fxToken() {
+  let token = window._gToken || googleAccessToken;
+  if (!token) {
+    token = await getSheetsAccessToken();
+    window._gToken = token; googleAccessToken = token;
+  }
+  return token;
+}
+
+async function fxFetchTab(sheetId, tab) {
+  const token = await fxToken();
+  const url = 'https://sheets.googleapis.com/v4/spreadsheets/' + sheetId + '/values/' +
+              encodeURIComponent("'" + tab + "'") +
+              '?valueRenderOption=UNFORMATTED_VALUE&dateTimeRenderOption=SERIAL_NUMBER&majorDimension=ROWS';
+  const res = await fetch(url, { headers: { Authorization: 'Bearer ' + token } });
+
+  if (res.status === 401) {
+    window._gToken = null; googleAccessToken = null;
+    throw new Error('Google session expired, press Refresh again');
+  }
+  if (!res.ok) {
+    let msg = 'HTTP ' + res.status;
+    try { msg = (await res.json()).error.message || msg; } catch (e) {}
+    if (res.status === 403 || /permission|not have access/i.test(msg)) {
+      msg = 'No access - ask the owner to share this workbook with your Google account (' + msg + ')';
+    }
+    throw new Error(msg);
+  }
+  return (await res.json()).values || [];
+}
+
+async function fxSafe(sheetId, tab) {
+  try { return { grid: await fxFetchTab(sheetId, tab) }; }
+  catch (e) { return { err: e.message || String(e) }; }
+}
+
+async function fxFetchUnit(code) {
+  const cfg = FX_UNITS[code];
+  const out = { banks: {} };
+  const jobs = [
+    fxSafe(cfg.cash, FX_TAB_OUTFLOW).then(r => { out.outflow = r; }),
+    fxSafe(cfg.cash, FX_TAB_INFLOW).then(r => { out.inflow = r; }),
+    fxSafe(cfg.bank, FX_TAB_LIMITS).then(r => { out.limits = r; })
+  ].concat(cfg.banks.map(b => fxSafe(cfg.bank, b).then(r => { out.banks[b] = r; })));
+  await Promise.all(jobs);
+  return out;
+}
+
+/* ---------------- page controls ---------------- */
+function fxSelectedUnits() {
+  const boxes = document.querySelectorAll('#fxUnits input[type=checkbox]');
+  const picked = [];
+  boxes.forEach(b => { if (b.checked) picked.push(b.value); });
+  return picked;
+}
+
+function initFinance() {
+  const mSel = document.getElementById('fxMonth'), ySel = document.getElementById('fxYear');
+  if (!mSel) return;
+  if (!mSel.options.length) {
+    const ist = fxIst(new Date());
+    mSel.innerHTML = FX_MONTHS.map((m, i) => '<option value="' + m + '"' + (i === ist.m ? ' selected' : '') + '>' + FX_MONTHS_FULL[i] + '</option>').join('');
+    let ys = '';
+    for (let y = ist.y - 3; y <= ist.y + 1; y++) ys += '<option' + (y === ist.y ? ' selected' : '') + '>' + y + '</option>';
+    ySel.innerHTML = ys;
+    document.getElementById('fxUnits').innerHTML = FX_UNIT_ORDER.map(c =>
+      '<label class="fx-chip"><input type="checkbox" value="' + c + '" checked onchange="loadFinance(false)"> ' + fxEsc(fxLabel(c)) + '</label>').join('');
+  }
+  if (!FX) loadFinance(false);
+}
+
+async function loadFinance(force) {
+  if (FX_BUSY) return;
+  const units = fxSelectedUnits();
+  const status = document.getElementById('fxStatus');
+  const body = document.getElementById('fxBody');
+  const btn = document.getElementById('fxRefreshBtn');
+  if (!units.length) { if (status) status.innerHTML = '<span style="color:var(--danger)">Select at least one unit.</span>'; return; }
+
+  FX_BUSY = true;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
+
+  try {
+    const stale = (Date.now() - FX_RAW.at) > FX_RAW_TTL;
+    if (force || stale || !FX_RAW.at) FX_RAW = { at: Date.now(), units: {}, bb: null };
+
+    const missing = units.filter(u => !FX_RAW.units[u]);
+    const needBB = !FX_RAW.bb;
+    if (missing.length || needBB) {
+      if (status) status.innerHTML = '<span style="color:var(--muted)">\u2601 Reading the finance sheets...</span>';
+      const jobs = missing.map(c => fxFetchUnit(c).then(r => { FX_RAW.units[c] = r; }));
+      if (needBB) jobs.push(fxSafe(FX_BB_SHEET_ID, FX_BB_TAB).then(r => { FX_RAW.bb = r; }));
+      await Promise.all(jobs);
+    }
+
+    const monthSel = document.getElementById('fxMonth').value;
+    const yearSel = document.getElementById('fxYear').value;
+
+    FX = fxBuild({ now: new Date(), month: monthSel, year: Number(yearSel), units: units,
+                   raw: FX_RAW.units, bb: FX_RAW.bb });
+    paintFinance();
+
+    const bad = FX.sources.filter(s => !s.ok).length;
+    if (status) {
+      status.innerHTML = bad
+        ? '<span style="color:var(--wire)">⚠ Built ' + fxEsc(FX.generatedAt) + ' - ' + bad + ' of ' + FX.sources.length + ' sheet reads failed, see "Data sources" below</span>'
+        : '<span style="color:var(--success)">✅ Built ' + fxEsc(FX.generatedAt) + ' from ' + FX.sources.length + ' sheets</span>';
+    }
+  } catch (e) {
+    if (status) status.innerHTML = '<span style="color:var(--danger)">❌ ' + fxEsc(e.message || e) + '</span>';
+    if (body && !FX) body.innerHTML = fxEmpty(e.message || String(e));
+  }
+
+  FX_BUSY = false;
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
+}
+
+function paintFinance() {
+  const body = document.getElementById('fxBody');
+  if (!body || !FX) return;
+  body.innerHTML = fxView();
+  fxDrawCharts();
+}
+
+
+/* ---------------- renderers ---------------- */
+function fxCfRange() { return FX && FX.weekly ? (FX.weekly.from + ' to ' + FX.weekly.to) : ''; }
+
+function fxWarningsBlock() {
+  if (!FX.warnings.length) return '';
+  return FX.warnings.map(function (w) {
+    const detail = (w.detail && w.detail.length)
+      ? '<details style="margin-top:5px"><summary style="cursor:pointer">' + w.detail.length + ' detail</summary><ul style="margin:6px 0 0 18px">' +
+        w.detail.map(d => '<li>' + fxEsc(d) + '</li>').join('') + '</ul></details>' : '';
+    return '<div class="fx-note ' + (w.type === 'source' ? 'warn' : 'info') + '">' + fxEsc(w.text) + detail + '</div>';
+  }).join('');
+}
+
+function fxLiquidityStrip() {
+  const k = FX.kpi, w = FX.weekly;
+  const ok = k.closingNext7 >= 0;
+  const limit = w.usingBalanceSheet ? w.creditLimit : k.creditLimit;
+  const head = w.usingBalanceSheet ? w.headroomNow : k.headroom;
+  const used = (k.utilisation === null) ? 0 : Math.min(k.utilisation * 100, 100);
+
+  return '<div class="fx-strip"><div class="fx-strip-top"><div>' +
+    '<div class="lbl">Available headroom today</div>' +
+    '<div class="fig">' + fxInrShort(head) + '<span class="of"> of ' + fxInrShort(limit) + ' limit</span></div>' +
+    '</div><div class="verdict"><div class="v ' + (ok ? 'pos' : 'neg') + '">' + (ok ? 'Range clears' : 'Range short') + '</div>' +
+    '<div class="d">closing ' + fxInrShort(k.closingNext7) + ' after planned payments</div></div></div>' +
+    '<div class="track"><div class="fill ' + (used > 85 ? 'bad' : 'good') + '" style="width:' + used.toFixed(1) + '%"></div></div>' +
+    '<div class="legend">Bar is credit limit used on the statements: <b>' + fxPct(k.utilisation) + '</b> across ' + FX.accounts.length + ' accounts.</div></div>';
+}
+
+function fxMoneyCell(v) {
+  if (v === null || v === undefined) return '<td>—</td>';
+  if (!v) return '<td class="dim">·</td>';
+  return '<td class="' + (v < 0 ? 'neg' : '') + '">' + fxInrShort(v) + '</td>';
+}
+
+function fxCashflowTable() {
+  const w = FX.weekly;
+  if (!w) return fxEmpty('Refresh the report to build this.');
+  const banks = w.bankCols || [], heads = w.headOrder || [];
+
+  const body = w.byUnit.map(function (u) {
+    const bankCells = banks.map(b => u.connected ? fxMoneyCell((u.byBank && u.byBank[b]) || 0) : '<td class="dim">·</td>').join('');
+    const headCells = heads.map(h => fxMoneyCell((u.heads && u.heads[h]) || 0)).join('');
+
+    let coll;
+    if (u.collectionBasis === 'average') {
+      const tip = fxInrShort(u.collectionTotal) + ' collected in ' + w.collectionMonth + ' over ' + u.collectionDays +
+                  ' days, spread across ' + w.collectionWindowDays + ' calendar days and applied to this range';
+      coll = '<td class="dim" title="' + fxEsc(tip) + '">' + fxInrShort(u.inflow) + '<span style="font-size:10px"> avg</span></td>';
+    } else if (u.collectionBasis === 'none') {
+      coll = '<td class="dim" title="' + fxEsc(u.collectionWhy || '') + '">—</td>';
+    } else {
+      coll = fxMoneyCell(u.inflow);
+    }
+
+    const when = u.connected ? (u.asOn ? 'as on ' + fxEsc(u.asOn) : 'date not recorded') : 'no opening balance for this unit';
+    return '<tr><td class="tl">' + fxEsc(u.name) + '<br><span class="dim" style="font-size:10.5px">' + when + '</span></td>' +
+      bankCells +
+      '<td class="' + ((u.opening || 0) < 0 ? 'neg' : '') + '"><b>' + (u.connected ? fxInrShort(u.opening) : '—') + '</b></td>' +
+      coll + headCells +
+      '<td class="' + ((u.closing || 0) < 0 ? 'neg' : '') + '"><b>' + (u.connected ? fxInrShort(u.closing) : '—') + '</b></td></tr>';
+  }).join('');
+
+  const span = fxShortDate(w.from) + ' to ' + fxShortDate(w.to);
+  const spanTag = '<br><span style="font-weight:500;opacity:.75">' + fxEsc(span) + '</span>';
+
+  const head1 = '<tr><th class="tl" rowspan="2">Unit</th><th colspan="' + (banks.length + 1) + '">Opening balance</th>' +
+    '<th rowspan="2">Expected collection' + spanTag + '</th>' +
+    (heads.length ? '<th colspan="' + heads.length + '">Payment' + spanTag + '</th>' : '') +
+    '<th rowspan="2">Closing<br>balance</th></tr>';
+  const head2 = '<tr>' + banks.map(b => '<th>' + fxEsc(b) + '</th>').join('') + '<th>Total</th>' +
+    heads.map(h => '<th>' + fxEsc(h) + '</th>').join('') + '</tr>';
+
+  return '<div class="fx-frame"><table class="fx-t"><thead>' + head1 + head2 + '</thead><tbody>' + body +
+    '<tr class="sum"><td class="tl">Group total</td>' +
+    banks.map(b => fxMoneyCell((w.bankTotal && w.bankTotal[b]) || 0)).join('') +
+    '<td class="' + (w.openingTotal < 0 ? 'neg' : '') + '">' + fxInrShort(w.openingTotal) + '</td>' +
+    fxMoneyCell(w.inflowTotal) +
+    heads.map(h => fxMoneyCell((w.headTotal && w.headTotal[h]) || 0)).join('') +
+    '<td class="' + (w.closingTotal < 0 ? 'neg' : '') + '">' + fxInrShort(w.closingTotal) + '</td></tr></tbody></table></div>' +
+    fxCfNotes();
+}
+
+function fxCfNotes() {
+  const w = FX.weekly;
+  let out = '';
+  const tight = w.headroomAfter < 0;
+
+  out += '<p style="font-size:12px;margin:12px 2px 0"><b>Available</b> ' + fxInrShort(w.headroomNow) + ' today, ' +
+    '<b class="' + (tight ? 'neg' : 'pos') + '">' + fxInrShort(w.headroomAfter) + '</b> after the range, against ' +
+    fxInrShort(w.creditLimit) + ' drawing power. ' +
+    (tight ? 'The range does not clear on current limits.' : 'The range clears on current limits.') + '</p>';
+
+  out += '<p class="dim" style="font-size:11px;margin:11px 2px 0">' +
+    (w.usingBalanceSheet
+      ? 'Opening balance is the morning Bank Balance sheet' + (w.balanceSheetAsOn ? ' as on ' + fxEsc(w.balanceSheetAsOn) : '') +
+        ', which gives what is available rather than what is drawn. '
+      : 'Opening balance falls back to the drawn balance on the statements. ') +
+    'Range ' + fxEsc(w.from) + ' to ' + fxEsc(w.to) + ' — ' + fxEsc(w.rangeSource || '') +
+    ', so the closing balance is where today\'s cash lands by Saturday.</p>';
+
+  const noColl = (w.byUnit || []).filter(u => u.collectionBasis === 'none' && u.collectionWhy);
+  if (noColl.length) {
+    out += '<div class="fx-note warn"><b>No collection figure for ' + fxEsc(noColl.map(u => u.code).join(', ')) + '</b>' +
+      noColl.map(u => '<div style="margin:3px 0">' + fxEsc(u.name) + ': ' + fxEsc(u.collectionWhy) + '</div>').join('') + '</div>';
+  }
+  if (w.collectionAverageUnits && w.collectionAverageUnits.length) {
+    out += '<p class="dim" style="font-size:11px;margin:11px 2px 0">Expected collection for ' + fxEsc(w.collectionAverageUnits.join(', ')) +
+      ' is what actually came in during ' + fxEsc(w.collectionMonth) + ', divided by that month\'s ' + w.collectionWindowDays +
+      ' days and applied to this range. Every day of the month counts, so weekends are not left out. Transfers between ' +
+      'the group\'s own accounts are excluded. It is a guide, not a commitment, and is marked avg in the table.</p>';
+  }
+  if (w.unitsAgree === false) out += '<div class="fx-note err"><b>Unit lines do not add up.</b> The unit rows in the day by day table do not sum to the day row above them.</div>';
+  if (w.projectionAgrees === false) out += '<div class="fx-note err"><b>Two closing balances disagree.</b> The day by day run does not end on the same figure as this table.</div>';
+
+  if (w.planState === 'stale') {
+    out += '<div class="fx-note warn"><b>No payment recorded in this range.</b> The Outflow Data tab has ' + w.planRows +
+      ' row(s) but the last one is dated ' + fxEsc(w.planLastDate) + ', outside ' + fxEsc(w.from) + ' to ' + fxEsc(w.to) +
+      '. Until those dates are entered there, every expense column is nil.</div>';
+  } else if (w.planState === 'empty') {
+    out += '<div class="fx-note err"><b>Outflow Data tab is empty.</b> No dated row was found, so no payment can be planned.</div>';
+  }
+  if (w.excludedOutflow > 0) {
+    out += '<p class="dim" style="font-size:11px;margin:11px 2px 0">' + fxInrShort(w.excludedOutflow) + ' of planned payments belongs to ' +
+      fxEsc((w.excludedUnits || []).join(', ')) + ', which has no opening balance. Those amounts show in that unit\'s own row but are kept out of the group total.</p>';
+  }
+  if (w.unitsMissing.length) {
+    out += '<p class="dim" style="font-size:11px;margin:11px 2px 0">' + fxEsc(w.unitsMissing.join(', ')) +
+      ' has no opening balance on the morning sheet, so the group total covers ' + fxEsc(w.unitsCovered.join(', ')) +
+      ' only. It is left blank rather than entered as nil, because a nil would read as an empty account.</p>';
+  }
+  return out;
+}
+
+function fxCollectionCheck() {
+  const w = FX.weekly;
+  if (!w || !w.byUnit.length) return '';
+  if (!w.byUnit.some(u => u.collectionTotal > 0)) return fxEmpty('No collection was found in ' + (w.collectionMonth || 'the previous month') + '.');
+
+  let tMonth = 0;
+  const body = w.byUnit.map(function (u) {
+    const total = u.collectionTotal || 0;
+    const perDay = w.collectionWindowDays ? total / w.collectionWindowDays : 0;
+    const exp = perDay * w.days;
+    tMonth += total;
+    const basis = u.collectionBasis === 'average' ? '<span class="fx-tag good">average</span>'
+      : (u.collectionBasis === 'planned' ? '<span class="fx-tag warn">from Inflow tab</span>' : '<span class="fx-tag flat">none</span>');
+    return '<tr><td class="tl">' + fxEsc(u.name) + '</td><td>' + (total ? fxInrShort(total) : '·') + '</td><td>' + (u.collectionDays || 0) +
+      '</td><td>' + (perDay ? fxInrShort(perDay) : '·') + '</td><td>' + (exp ? fxInrShort(exp) : '·') +
+      '</td><td>' + (u.inflow ? fxInrShort(u.inflow) : '—') + '</td><td>' + basis + '</td></tr>';
+  }).join('');
+
+  const perDayTot = w.collectionWindowDays ? tMonth / w.collectionWindowDays : 0;
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Unit</th><th>Collected in ' + fxEsc(w.collectionMonth || 'last month') +
+    '</th><th>On how<br>many days</th><th>Per day<br>(÷ ' + w.collectionWindowDays + ')</th><th>× ' + w.days + ' day' + (w.days === 1 ? '' : 's') +
+    '</th><th>In the table</th><th>Basis</th></tr></thead><tbody>' + body +
+    '<tr class="sum"><td class="tl">Group total</td><td>' + fxInrShort(tMonth) + '</td><td></td><td>' + fxInrShort(perDayTot) +
+    '</td><td>' + fxInrShort(perDayTot * w.days) + '</td><td>' + fxInrShort(w.inflowTotal) + '</td><td></td></tr></tbody></table></div>' +
+    '<p class="dim" style="font-size:11px;margin:9px 2px 0">"Collected" is money that actually reached the bank, with transfers between the group\'s own accounts excluded. ' +
+    'The division is by every calendar day of the month, not by the days money arrived.</p>';
+}
+
+function fxAccuracyTable() {
+  const c = FX.weekly && FX.weekly.collectionCheck;
+  if (!c || !c.days.length) return fxEmpty('No collection history to compare against.');
+  const body = c.days.map(d => '<tr><td class="tl">' + fxEsc(d.label) + '</td><td>' + fxInr(d.average) + '</td><td>' +
+    (d.actual ? fxInr(d.actual) : '<span class="dim">·</span>') + '</td><td class="' + (d.diff >= 0 ? 'pos' : 'neg') + '">' +
+    (d.diff >= 0 ? '+' : '') + fxInr(d.diff) + '</td></tr>').join('');
+  const hit = c.totalAverage ? (c.totalActual / c.totalAverage) : null;
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Day</th><th>Average used</th><th>Actually received</th><th>Difference</th></tr></thead><tbody>' +
+    body + '<tr class="sum"><td class="tl">Total, 7 days</td><td>' + fxInr(c.totalAverage) + '</td><td>' + fxInr(c.totalActual) +
+    '</td><td class="' + (c.totalDiff >= 0 ? 'pos' : 'neg') + '">' + (c.totalDiff >= 0 ? '+' : '') + fxInr(c.totalDiff) + '</td></tr></tbody></table></div>' +
+    '<p class="dim" style="font-size:11px;margin:9px 2px 0">The rate is ' + fxInrShort(c.dailyRate) + ' a day, the same one the forecast uses. ' +
+    (hit === null ? '' : 'Over these seven days the real collection came to ' + fxPct(hit) + ' of it. ') +
+    'Today is left out because it is only half done.</p>';
+}
+
+function fxProjTable() {
+  const w = FX.weekly;
+  const opening = w ? w.openingTotal : 0;
+  let inTot = 0, outTot = 0;
+  FX.projection.forEach(p => { inTot += p.inflow; outTot += p.outflow; });
+
+  const heads = ((w && w.headOrder) || []).filter(h => FX.projection.some(p => p.heads && p.heads[h] > 0));
+  const cell = v => v ? '<td>' + fxInr(v) + '</td>' : '<td class="dim">·</td>';
+
+  const banks = ((w && w.projectionBanks) || []).filter(b => FX.projection.some(function (p) {
+    if (p.openingBanks && p.openingBanks[b]) return true;
+    return (p.unitRows || []).some(u => u.openingBanks && u.openingBanks[b]);
+  }));
+
+  const measuredRow = FX.projection.filter(p => p.openingIsActual)[0];
+
+  function bankCells(r, measured) {
+    return banks.map(function (b) {
+      if (!measured) return '<td class="dim" title="not known until that morning">—</td>';
+      const v = (r.openingBanks && r.openingBanks[b]) || 0;
+      if (!v) return '<td class="dim">·</td>';
+      return '<td class="' + (v < 0 ? 'neg' : '') + '">' + fxInr(v) + '</td>';
+    }).join('');
+  }
+
+  function line(label, r, cls, indent) {
+    const hc = heads.map(h => cell(r.heads ? r.heads[h] : 0)).join('');
+    const act = (r.openingActual === null || r.openingActual === undefined) ? null : r.openingActual;
+    const asm = (r.openingAssumed === undefined) ? r.opening : r.openingAssumed;
+    const actCell = act === null ? '<td class="dim" title="not known until that morning">—</td>'
+      : '<td class="' + (act < 0 ? 'neg' : '') + '"><b>' + fxInr(act) + '</b></td>';
+    const asmCell = '<td class="' + (asm < 0 ? 'neg' : '') + '"' + (r.openingIsActual ? '' : ' style="opacity:.78"') + '>' + fxInr(asm) + '</td>';
+
+    return '<tr class="' + (cls || '') + '"><td class="tl"' + (indent ? ' style="padding-left:26px"' : '') + '>' +
+      (indent ? '<span class="dim">' + fxEsc(label) + '</span>' : '<b>' + fxEsc(label) + '</b>') + '</td>' +
+      bankCells(r, act !== null) + actCell + asmCell +
+      '<td>' + (r.inflow ? fxInr(r.inflow) : '<span class="dim">·</span>') + '</td>' + hc +
+      '<td>' + (r.outflow ? '<b>' + fxInr(r.outflow) + '</b>' : '<span class="dim">·</span>') + '</td>' +
+      '<td class="' + (r.net < 0 ? 'neg' : 'pos') + '">' + fxInr(r.net) + '</td>' +
+      '<td class="' + (r.closing < 0 ? 'neg' : '') + '"><b>' + fxInr(r.closing) + '</b></td></tr>';
+  }
+
+  const body = FX.projection.map(function (p) {
+    let rows = line(p.label, p, 'dayrow', false);
+    (p.unitRows || []).forEach(u => { rows += line(u.name, u, '', true); });
+    return rows;
+  }).join('');
+
+  const closing = w ? w.closingTotal : 0;
+  const headTot = heads.map(function (h) {
+    let t = 0;
+    FX.projection.forEach(p => { t += (p.heads && p.heads[h]) || 0; });
+    return cell(t);
+  }).join('');
+
+  const head1 = '<tr><th class="tl" rowspan="2">Day</th><th colspan="' + (banks.length + 2) + '">Opening balance</th>' +
+    '<th rowspan="2">Expected<br>collection</th>' +
+    (heads.length ? '<th colspan="' + (heads.length + 1) + '">Payment</th>' : '<th rowspan="2">Payment</th>') +
+    '<th rowspan="2">Net</th><th rowspan="2">Closing</th></tr>';
+  const head2 = '<tr>' + banks.map(b => '<th>' + fxEsc(b) + '</th>').join('') + '<th>Actual</th><th>Assumed</th>' +
+    (heads.length ? heads.map(h => '<th>' + fxEsc(h) + '</th>').join('') + '<th>Total</th>' : '') + '</tr>';
+
+  let html = '<div class="fx-frame"><table class="fx-t"><thead>' + head1 + head2 + '</thead><tbody>' + body +
+    '<tr class="sum"><td class="tl">Week</td>' + bankCells(measuredRow || {}, !!measuredRow) +
+    '<td class="' + (opening < 0 ? 'neg' : '') + '">' + fxInr(opening) + '</td><td class="dim">·</td>' +
+    '<td>' + fxInr(inTot) + '</td>' + headTot + '<td>' + fxInr(outTot) + '</td>' +
+    '<td class="' + ((inTot - outTot) < 0 ? 'neg' : 'pos') + '">' + fxInr(inTot - outTot) + '</td>' +
+    '<td class="' + (closing < 0 ? 'neg' : '') + '">' + fxInr(closing) + '</td></tr></tbody></table></div>';
+
+  const actualDay = measuredRow ? fxShortDate(measuredRow.date) : 'the first day';
+  html += '<p class="dim" style="font-size:11px;margin:9px 2px 0"><b>Actual</b> is a measured opening balance and only ' + fxEsc(actualDay) +
+    ' has one, taken from the morning Bank Balance sheet. <b>Assumed</b> is the previous day\'s closing carried forward, so from the second day on it is a forecast resting on the forecast above it.</p>';
+
+  if (!inTot && w) {
+    const none = (w.byUnit || []).filter(u => u.collectionBasis === 'none');
+    html += '<div class="fx-note warn"><b>Expected in is nil.</b> ' +
+      (none.length ? 'No unit has a collection figure to spread across these days. ' + none.map(u => fxEsc(u.name) + ': ' + fxEsc(u.collectionWhy || 'nothing counted')).join(' ')
+                   : 'The units have a collection figure but none of it falls in this range.') + '</div>';
+  }
+  return html;
+}
+
+function fxBankTable() {
+  if (!FX.accounts.length) return fxEmpty('No bank account was found on the statements or the limit tabs.');
+  const body = FX.accounts.map(function (a) {
+    const u = a.utilisation === null ? '<span class="fx-tag flat">n/a</span>'
+      : (a.utilisation > 0.85 ? '<span class="fx-tag bad">' + fxPct(a.utilisation) + '</span>'
+        : (a.utilisation > 0.6 ? '<span class="fx-tag warn">' + fxPct(a.utilisation) + '</span>'
+          : '<span class="fx-tag good">' + fxPct(a.utilisation) + '</span>'));
+    return '<tr><td class="tl">' + fxEsc(a.bank) + ' ' + fxEsc(a.account) + '</td><td class="tl">' + fxEsc(fxLabel(a.loc)) +
+      '</td><td class="tl dim">' + fxEsc(a.asOn || 'no entry') + '</td><td>' + (a.balance === null ? '—' : fxInr(a.balance)) +
+      '</td><td>' + fxInr(a.limit) + '</td><td>' + (a.used === null ? '—' : fxInr(a.used)) + '</td><td>' +
+      (a.headroom === null ? '—' : fxInr(a.headroom)) + '</td><td>' + u + '</td></tr>';
+  }).join('');
+  const k = FX.kpi;
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Account</th><th class="tl">Unit</th><th class="tl">As on</th><th>Balance</th>' +
+    '<th>Limit</th><th>Used</th><th>Headroom</th><th>Used %</th></tr></thead><tbody>' + body +
+    '<tr class="sum"><td class="tl">Total</td><td></td><td></td><td>' + fxInr(k.bankBalance) + '</td><td>' + fxInr(k.creditLimit) + '</td><td>' +
+    fxInr(k.creditUsed) + '</td><td>' + fxInr(k.headroom) + '</td><td>' + fxPct(k.utilisation) + '</td></tr></tbody></table></div>';
+}
+
+function fxMajorTable() {
+  if (!FX.majorPayments.length) return fxEmpty('No payment was recorded as paid yesterday.');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Party</th><th class="tl">Category</th><th>Amount</th><th class="tl">Mode</th></tr></thead><tbody>' +
+    FX.majorPayments.map(p => '<tr><td class="tl">' + fxEsc(p.party) + '</td><td class="tl">' + fxEsc(p.category) + '</td><td>' + fxInr(p.amount) +
+      '</td><td class="tl">' + fxEsc(p.mode || '—') + '</td></tr>').join('') + '</tbody></table></div>';
+}
+
+function fxFailTable() {
+  const rows = FX.statutoryPaid.map(function (s) {
+    const f = FX.failureList.filter(x => x.head === s.category)[0];
+    const state = f ? '<span class="fx-tag bad">' + fxEsc(f.state) + '</span>'
+      : (s.mtd ? '<span class="fx-tag good">Paid</span>' : '<span class="fx-tag flat">Not due</span>');
+    return '<tr><td class="tl">' + fxEsc(s.category) + '</td><td class="tl">' + (s.dueDay ? 'day ' + s.dueDay : '—') + '</td><td>' +
+      (s.mtd ? fxInr(s.mtd) : '—') + '</td><td>' + state + '</td><td class="tl">' + (f && f.daysLate > 0 ? f.daysLate + ' days late' : '') + '</td></tr>';
+  }).join('');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Head</th><th class="tl">Due</th><th>Paid MTD</th><th>Status</th><th class="tl">Delay</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>';
+}
+
+function fxStatDueTable() {
+  if (!FX.statutoryDue.length) return fxEmpty('Nothing statutory is planned in this range.');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Date</th><th class="tl">Unit</th><th class="tl">Head</th><th>Amount</th></tr></thead><tbody>' +
+    FX.statutoryDue.map(r => '<tr><td class="tl">' + fxEsc(r.date) + '</td><td class="tl">' + fxEsc(fxLabel(r.loc)) + '</td><td class="tl">' + fxEsc(r.category) +
+      '</td><td>' + fxInr(r.amount) + '</td></tr>').join('') + '</tbody></table></div>';
+}
+
+function fxCreditorTable() {
+  if (!FX.creditorPlan.length) return fxEmpty('No creditor payment is planned in this range.');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Date</th><th class="tl">Unit</th><th class="tl">Category</th><th>Amount</th></tr></thead><tbody>' +
+    FX.creditorPlan.map(r => '<tr><td class="tl">' + fxEsc(r.date) + '</td><td class="tl">' + fxEsc(fxLabel(r.loc)) + '</td><td class="tl">' + fxEsc(r.category) +
+      '</td><td>' + fxInr(r.amount) + '</td></tr>').join('') + '</tbody></table></div>';
+}
+
+function fxSourcesTable() {
+  const rows = FX.sources.map(s => '<tr><td class="tl">' + fxEsc(s.unit ? fxLabel(s.unit) : 'Group') + '</td><td class="tl">' + fxEsc(s.source) + '</td><td class="tl">' +
+    (s.ok ? '<span class="fx-tag good">read</span>' : '<span class="fx-tag bad">failed</span>') + '</td><td>' + (s.rows || 0) + '</td><td class="tl" style="white-space:normal;max-width:520px">' +
+    fxEsc(s.error || '') + '</td></tr>').join('');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Unit</th><th class="tl">Sheet</th><th class="tl">Status</th><th>Rows</th><th class="tl">Detail</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>' +
+    '<p class="dim" style="font-size:11px;margin:9px 2px 0">This page reads each workbook with <b>your own Google account</b>. A "No access" line means that workbook has not been shared with you.</p>';
+}
+
+function fxView() {
+  const k = FX.kpi;
+  let h = fxWarningsBlock();
+
+  h += fxLiquidityStrip();
+  h += fxPanel('Cash flow', fxCfRange(), fxCashflowTable());
+  h += fxPanel('Day by day', FX.weekly && FX.weekly.usingBalanceSheet ? 'from the morning available balance' : 'opening balance carried forward', fxProjTable());
+  h += fxPanel('Average against actual', FX.weekly && FX.weekly.collectionCheck ? (fxShortDate(FX.weekly.collectionCheck.from) + ' to ' + fxShortDate(FX.weekly.collectionCheck.to)) : 'last 7 days', fxAccuracyTable());
+  h += fxPanel('How the expected collection was worked out', FX.weekly ? 'from ' + (FX.weekly.collectionMonth || 'last month') : '', fxCollectionCheck());
+
+  if (FX.weekly && FX.weekly.byHead.length) {
+    h += fxPanel('Where the money goes', 'payments by head', fxChartBox('fxCHead', fxBarHeight(Math.min(FX.weekly.byHead.length, 12), 32)));
+  }
+
+  h += '<div class="fx-tiles">' +
+    fxTile('Paid yesterday', fxInrShort(k.paidYesterday), FX.yesterday, 'red') +
+    fxTile('Paid this month', fxInrShort(k.paidMTD), 'day ' + FX.daysElapsed + ' of ' + FX.daysInMonth, 'red') +
+    fxTile('Received this month', fxInrShort(k.recdMTD), fxInrShort(k.recdYesterday) + ' yesterday', 'green') +
+    fxTile('Net this month', fxInrShort(k.netMTD), 'received less paid', k.netMTD >= 0 ? 'green' : 'red') +
+    fxTile('Bank balance (statements)', fxInrShort(k.bankBalance), FX.accounts.length + ' accounts', 'blue') + '</div>';
+
+  h += '<div class="fx-tiles">' +
+    fxTile('Payments in range', fxInrShort(k.outNext7), fxCfRange(), 'amber') +
+    fxTile('Receipts in range', fxInrShort(k.inNext7), fxCfRange(), 'green') +
+    fxTile('Net in range', fxInrShort(k.netNext7), 'before opening balance', k.netNext7 >= 0 ? 'green' : 'red') +
+    fxTile('Limit used', fxPct(k.utilisation), fxInrShort(k.creditUsed) + ' drawn', (k.utilisation !== null && k.utilisation > 0.85) ? 'red' : 'amber') +
+    fxTile('Compliance', k.failures ? k.failures + ' missed' : 'On time', 'statutory due dates this month', k.failures ? 'red' : 'green') + '</div>';
+
+  h += '<div class="fx-split">' +
+    fxPanel('Cash position by day', fxCfRange(), fxChartBox('fxCProj', 300)) +
+    fxPanel('Payments by category', 'this month', fxChartBox('fxCCat', fxBarHeight(FX.byCategory.length || 1, 34))) + '</div>';
+
+  h += fxPanel('Bank accounts and credit limits', 'closing balance as on the latest statement entry', fxBankTable());
+
+  h += '<div class="fx-split">' + fxPanel('Largest payments yesterday', 'top 10', fxMajorTable()) +
+       fxPanel('Compliance status', 'statutory due dates', fxFailTable()) + '</div>';
+
+  h += '<div class="fx-split">' + fxPanel('Statutory in range', fxCfRange(), fxStatDueTable()) +
+       fxPanel('Creditor payments in range', 'top 25 by date', fxCreditorTable()) + '</div>';
+
+  h += fxPanel('Data sources', 'what was read for this report', fxSourcesTable());
+  h += '<div class="dim" style="font-size:11.5px;padding:2px 4px 18px">Built ' + fxEsc(FX.generatedAt) + ' from the live sheets.</div>';
+  return h;
+}
+
+
+/* ---------------- charts ---------------- */
+function fxCss(name, fallback) {
+  try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback; }
+  catch (e) { return fallback; }
+}
+
+function fxKillCharts() {
+  Object.keys(FX_CHARTS).forEach(k => { if (FX_CHARTS[k]) { FX_CHARTS[k].destroy(); FX_CHARTS[k] = null; } });
+}
+
+function fxChartOpts(horizontal) {
+  const muted = fxCss('--muted', '#8fa3be');
+  const grid = 'rgba(128,128,128,0.18)';
+  const o = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: muted, boxWidth: 10, usePointStyle: true } },
+      tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + fxInrShort(horizontal ? c.parsed.x : c.parsed.y) } }
+    },
+    scales: {
+      x: { grid: { color: horizontal ? grid : 'transparent' }, ticks: { color: muted } },
+      y: { grid: { color: horizontal ? 'transparent' : grid }, ticks: { color: muted } }
+    }
+  };
+  const money = horizontal ? o.scales.x : o.scales.y;
+  money.ticks.callback = v => fxInrShort(v);
+  money.ticks.maxTicksLimit = 6;
+  if (horizontal) { o.indexAxis = 'y'; o.plugins.legend.display = false; o.scales.y.ticks.autoSkip = false; }
+  return o;
+}
+
+function fxDrawCharts() {
+  fxKillCharts();
+  if (!FX || typeof Chart === 'undefined') return;
+  const el = id => document.getElementById(id);
+
+  if (el('fxCProj')) {
+    FX_CHARTS.proj = new Chart(el('fxCProj'), { type: 'bar', data: {
+      labels: FX.projection.map(p => p.label),
+      datasets: [
+        { label: 'Expected in', data: FX.projection.map(p => p.inflow), backgroundColor: '#2FA97C', borderRadius: 2, order: 2 },
+        { label: 'Planned out', data: FX.projection.map(p => -p.outflow), backgroundColor: '#C4453B', borderRadius: 2, order: 2 },
+        { label: 'Closing balance', data: FX.projection.map(p => p.closing), type: 'line', borderColor: '#E8A020',
+          backgroundColor: '#E8A020', borderWidth: 2.2, pointRadius: 3, fill: false, order: 1 }] },
+      options: fxChartOpts(false) });
+  }
+
+  if (el('fxCCat')) {
+    FX_CHARTS.cat = new Chart(el('fxCCat'), { type: 'bar', data: {
+      labels: FX.byCategory.map(r => fxShortLabel(r.key, 16)),
+      datasets: [{ label: 'Paid', data: FX.byCategory.map(r => r.amount), backgroundColor: '#3498db', borderRadius: 2, barPercentage: .7 }] },
+      options: fxChartOpts(true) });
+  }
+
+  if (el('fxCHead')) {
+    const rows = (FX.weekly.byHead || []).filter(h => h.amount > 0).slice(0, 12);
+    FX_CHARTS.head = new Chart(el('fxCHead'), { type: 'bar', data: {
+      labels: rows.map(h => fxShortLabel(h.head, 20)),
+      datasets: [{ label: 'Payments in range', data: rows.map(h => h.amount), backgroundColor: '#E08A00', borderRadius: 3, maxBarThickness: 26 }] },
+      options: fxChartOpts(true) });
+  }
+}
+
+
+/* ---------------- Excel export ---------------- */
+function fxExport() {
+  if (!FX) { showToast('❌ Pehle report load karein', true); return; }
+  const res = FX;
+  const b = [];
+  b.push([res.reportName]);
+  b.push([res.month + ' ' + res.year + '  |  ' + res.locations.map(l => l.name).join(', ')]);
+  b.push(['Generated ' + res.generatedAt]);
+  b.push([]);
+
+  b.push(['Headline', 'Amount']);
+  b.push(['Paid yesterday', res.kpi.paidYesterday]);
+  b.push(['Paid month to date', res.kpi.paidMTD]);
+  b.push(['Received month to date', res.kpi.recdMTD]);
+  b.push(['Bank balance (statements)', res.kpi.bankBalance]);
+  b.push(['Credit limit', res.kpi.creditLimit]);
+  b.push(['Limit used', res.kpi.creditUsed]);
+  b.push(['Headroom', res.kpi.headroom]);
+  b.push([]);
+
+  const w = res.weekly;
+  b.push(['Cash flow statement ' + w.from + ' to ' + w.to, 'Amount']);
+  b.push(['Opening balance', w.openingTotal, w.unitsCovered.join(', ') + ' only']);
+  b.push(['Add: expected receipts', w.inflowTotal]);
+  b.push(['Less: planned payments', -w.outflowTotal]);
+  b.push(['Expected closing balance', w.closingTotal]);
+  b.push(['Headroom today', w.headroomNow]);
+  b.push(['Headroom after the range', w.headroomAfter]);
+  if (w.unitsMissing.length) b.push(['Not included', w.unitsMissing.join(', ') + ' - no opening balance']);
+  b.push([]);
+
+  b.push(['Cash flow ' + w.from + ' to ' + w.to].concat(w.bankCols, ['Opening total', 'Expected collection'], w.headOrder, ['Closing balance']));
+  w.byUnit.forEach(function (u) {
+    const row = [u.name + (u.connected ? (u.asOn ? ' (as on ' + u.asOn + ')' : '') : ' (not connected)')];
+    w.bankCols.forEach(bk => row.push(u.connected ? ((u.byBank && u.byBank[bk]) || '') : ''));
+    row.push(u.connected ? u.opening : '');
+    row.push(u.inflow);
+    w.headOrder.forEach(h => row.push(u.heads[h] || ''));
+    row.push(u.connected ? u.closing : '');
+    b.push(row);
+  });
+  const tot = ['Group total'];
+  w.bankCols.forEach(bk => tot.push(w.bankTotal[bk] || ''));
+  tot.push(w.openingTotal, w.inflowTotal);
+  w.headOrder.forEach(h => tot.push(w.headTotal[h] || ''));
+  tot.push(w.closingTotal);
+  b.push(tot);
+  b.push([]);
+
+  b.push(['Payments by head', 'Paid MTD', 'Share', 'Planned in range']);
+  res.byCategory.forEach(r => b.push([r.key, r.amount, r.share, r.planned]));
+  b.push([]);
+
+  b.push(['Bank accounts', 'Unit', 'Balance', 'Limit', 'Used', 'Utilisation']);
+  res.accounts.forEach(a => b.push([a.bank + ' ' + a.account, fxLabel(a.loc), a.balance, a.limit, a.used, a.utilisation]));
+  b.push([]);
+
+  const pb = w.projectionBanks || [];
+  b.push(['Day by day'].concat(pb, ['Opening (actual)', 'Opening (assumed)', 'Inflow', 'Outflow', 'Net', 'Closing']));
+  res.projection.forEach(function (p) {
+    const row = [p.label];
+    pb.forEach(bk => row.push((p.openingIsActual && p.openingBanks && p.openingBanks[bk]) || ''));
+    row.push(p.openingIsActual ? p.openingActual : '', p.openingAssumed, p.inflow, p.outflow, p.net, p.closing);
+    b.push(row);
+    (p.unitRows || []).forEach(function (u) {
+      const ur = ['    ' + u.name];
+      pb.forEach(bk => ur.push((u.openingBanks && u.openingBanks[bk]) || ''));
+      ur.push(u.openingActual === null || u.openingActual === undefined ? '' : u.openingActual, u.openingAssumed, u.inflow, u.outflow, u.net, u.closing);
+      b.push(ur);
+    });
+  });
+  b.push([]);
+
+  b.push(['Compliance', 'Due date', 'State', 'Paid', 'Days late']);
+  if (!res.failureList.length) b.push(['All heads cleared on time']);
+  res.failureList.forEach(f => b.push([f.head, f.dueDate, f.state, f.paid, f.daysLate]));
+
+  const width = b.reduce((m, r) => Math.max(m, r.length), 5);
+  const padded = b.map(r => { const c = r.slice(); while (c.length < width) c.push(''); return c; });
+
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.aoa_to_sheet(padded);
+  ws['!cols'] = [{ wch: 36 }].concat(new Array(width - 1).fill({ wch: 16 }));
+  XLSX.utils.book_append_sheet(wb, ws, 'Finance');
+  XLSX.writeFile(wb, 'BWPL_Finance_' + res.month + '_' + res.year + '_' + res.today + '.xlsx');
+}
+
+
 function fmtN(n) {
   return Math.round(n).toLocaleString('en-IN');
 }
@@ -7163,7 +9450,7 @@ const ALL_PAGES = [
   'productivity','vehicle','travel','pricelist',
   'top10vol','top10val','bot10vol','bot10val',
   'complaints','financials','manufacturing','salesperson','daywise',
-  'wirerod','groupmaster','history','setup'
+  'wirerod','groupmaster','appsdata','finance','history','setup'
 ];
 
 // Sidebar item label → page ID mapping (also used to build friendly names
@@ -7180,6 +9467,8 @@ const SIDEBAR_PAGE_MAP = {
   'sales person report':'salesperson', 'day-wise sales report':'daywise',
   'wire rod report':'wirerod',
   'group / company master':'groupmaster',
+  'custom data section':'appsdata',
+  'finance & cash flow':'finance',
   'history':'history', 'setup':'setup'
 };
 
