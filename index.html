@@ -990,6 +990,80 @@
     #page-finance .fx-tiles { grid-template-columns:repeat(2,1fr); }
     #page-finance .fx-split { grid-template-columns:1fr; }
   }
+
+  /* ===== FINANCE SECTION ===== */
+  #page-supply .fx-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+  #page-supply .fx-chip { display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--white);
+    background:var(--input-bg); border:1px solid var(--input-border); border-radius:6px; padding:6px 10px; cursor:pointer; }
+  #page-supply .fx-controls select { background:var(--input-bg); color:var(--white); border:1px solid var(--input-border);
+    border-radius:6px; padding:7px 10px; font-size:13px; }
+  #page-supply .fx-controls select option { background:var(--steel-mid); color:var(--white); }
+  #page-supply .neg { color:var(--danger); }
+  #page-supply .pos { color:var(--success); }
+  #page-supply .dim { color:var(--muted); }
+  #page-supply .fx-empty { padding:28px; text-align:center; color:var(--muted); font-size:13px; }
+  #page-supply .fx-panel { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; margin:0 0 16px; overflow:hidden; }
+  #page-supply .fx-panel-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap;
+    padding:12px 16px; background:var(--report-header-bg); border-bottom:1px solid var(--td-border); }
+  #page-supply .fx-panel-head h3 { margin:0; font-size:13.5px; color:var(--white); }
+  #page-supply .fx-panel-head .note { font-size:11.5px; color:var(--muted); }
+  #page-supply .fx-panel-body { padding:14px 16px; }
+  #page-supply .fx-frame { overflow-x:auto; }
+  #page-supply table.fx-t { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+  #page-supply .fx-t th { text-align:right; white-space:nowrap; padding:8px 10px; background:var(--table-header-bg);
+    color:var(--muted); font-size:10.5px; text-transform:uppercase; letter-spacing:.04em; font-weight:600; }
+  #page-supply .fx-t td { text-align:right; white-space:nowrap; padding:7px 10px; border-bottom:1px solid var(--td-border); color:var(--white); }
+  #page-supply .fx-t th.tl, #page-supply .fx-t td.tl { text-align:left; }
+  #page-supply .fx-t td.neg { color:var(--danger); }
+  #page-supply .fx-t td.pos { color:var(--success); }
+  #page-supply .fx-t td.dim { color:var(--muted); }
+  #page-supply .fx-t tr.sum td { font-weight:700; border-top:2px solid var(--border); background:var(--report-header-bg); }
+  #page-supply .fx-t tr.dayrow td { background:rgba(232,160,32,0.08); }
+  #page-supply .fx-tag { display:inline-block; font-size:10.5px; font-weight:600; padding:2px 8px; border-radius:10px; }
+  #page-supply .fx-tag.good { background:rgba(46,204,113,.16); color:var(--success); }
+  #page-supply .fx-tag.warn { background:rgba(232,160,32,.18); color:var(--wire); }
+  #page-supply .fx-tag.bad  { background:rgba(231,76,60,.16); color:var(--danger); }
+  #page-supply .fx-tag.flat { background:var(--input-bg); color:var(--muted); }
+  #page-supply .fx-note { margin:0 0 12px; padding:10px 14px; border-radius:8px; font-size:12.5px; color:var(--white);
+    border:1px solid var(--border); background:var(--card-bg); border-left:4px solid var(--info); }
+  #page-supply .fx-note.warn { border-left-color:var(--wire); }
+  #page-supply .fx-note.err  { border-left-color:var(--danger); }
+  #page-supply .fx-panel-body .fx-note { margin:13px 0 0; }
+  #page-supply .fx-tiles { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:0 0 16px; }
+  #page-supply .fx-tile { background:var(--card-bg); border:1px solid var(--border); border-top:3px solid var(--info);
+    border-radius:10px; padding:12px 14px; min-width:0; }
+  #page-supply .fx-tile.red { border-top-color:var(--danger); }
+  #page-supply .fx-tile.green { border-top-color:var(--success); }
+  #page-supply .fx-tile.amber { border-top-color:var(--wire); }
+  #page-supply .fx-tile .k { font-size:10.5px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  #page-supply .fx-tile .v { font-size:20px; font-weight:700; color:var(--white); margin:4px 0 2px; }
+  #page-supply .fx-tile .s { font-size:11px; color:var(--muted); }
+  #page-supply .fx-split { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  #page-supply .fx-split .fx-panel { min-width:0; }
+  #page-supply .fx-chartbox { position:relative; width:100%; }
+  #page-supply .fx-strip { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:16px 18px; margin:0 0 16px; }
+  #page-supply .fx-strip-top { display:flex; justify-content:space-between; gap:14px; flex-wrap:wrap; align-items:flex-end; }
+  #page-supply .fx-strip .lbl { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; }
+  #page-supply .fx-strip .fig { font-size:26px; font-weight:700; color:var(--white); }
+  #page-supply .fx-strip .of { font-size:13px; font-weight:400; color:var(--muted); }
+  #page-supply .fx-strip .verdict { text-align:right; }
+  #page-supply .fx-strip .verdict .v { font-size:16px; font-weight:700; }
+  #page-supply .fx-strip .verdict .d { font-size:11.5px; color:var(--muted); }
+  #page-supply .fx-strip .track { height:8px; background:var(--input-bg); border-radius:4px; margin:12px 0 6px; overflow:hidden; }
+  #page-supply .fx-strip .fill { height:100%; border-radius:4px; background:var(--success); }
+  #page-supply .fx-strip .fill.bad { background:var(--danger); }
+  #page-supply .fx-strip .legend { font-size:11.5px; color:var(--muted); }
+  @media (max-width: 1000px) {
+    #page-supply .fx-tiles { grid-template-columns:repeat(2,1fr); }
+    #page-supply .fx-split { grid-template-columns:1fr; }
+  }
+
+  #page-supply .fx-strip .track { display:flex; }
+  #page-supply .fx-strip .seg { height:100%; transition:width .4s; }
+  #page-supply .fx-strip .keys { display:flex; flex-wrap:wrap; gap:14px; font-size:11.5px; color:var(--muted); }
+  #page-supply .fx-strip .keys i { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; }
+  #page-supply .fx-tiles { grid-template-columns:repeat(4,1fr); }
+  @media (max-width: 1000px) { #page-supply .fx-tiles { grid-template-columns:repeat(2,1fr); } }
 </style>
 </head>
 <body>
@@ -1227,6 +1301,9 @@
       </div>
       <div class="sidebar-item" onclick="showPage('finance', this)">
         <span class="nav-icon">💰</span> Finance &amp; Cash Flow
+      </div>
+      <div class="sidebar-item" onclick="showPage('supply', this)">
+        <span class="nav-icon">🚚</span> Supply Management
       </div>
     </div>
 
@@ -2536,6 +2613,29 @@
       <div id="fxBody"><div class="fx-empty">Loading finance data...</div></div>
     </div>
 
+    <!-- SUPPLY MANAGEMENT (new section, ported from the Apps Script supply dashboard) -->
+    <div class="page" id="page-supply">
+      <div class="dash-banner">
+        <div>
+          <div class="dash-eyebrow"><span class="live-dot"></span> DIRECT SHEETS API</div>
+          <div class="dash-banner-title">Supply Management</div>
+          <div class="dash-banner-sub">Wire rod receipts, supplier position, PO reconciliation, transit &amp; transporter performance — live from the Wire Rod workbooks</div>
+        </div>
+        <div class="dash-banner-actions">
+          <div class="fx-controls">
+            <div id="sxUnits" class="fx-controls"></div>
+            <select id="sxMonth" onchange="loadSupply(false)"></select>
+            <select id="sxYear" onchange="loadSupply(false)"></select>
+            <select id="sxSupplier" onchange="loadSupply(false)"><option value="">All suppliers</option></select>
+            <button class="btn btn-primary" id="sxRefreshBtn" onclick="loadSupply(true)">↻ Refresh</button>
+            <button class="btn btn-secondary" onclick="sxExport()">⬇ Excel</button>
+          </div>
+        </div>
+      </div>
+      <div id="sxStatus" style="padding:0 4px 10px;font-size:12px;color:var(--muted)"></div>
+      <div id="sxBody"><div class="fx-empty">Loading supply data...</div></div>
+    </div>
+
     <!-- HISTORY -->
     <div class="page" id="page-history">
       <div class="report-panel">
@@ -2895,6 +2995,9 @@ function showPage(name, el) {
   }
   if (name === 'finance') {
     setTimeout(initFinance, 50);
+  }
+  if (name === 'supply') {
+    setTimeout(initSupply, 50);
   }
   if (name === 'top10vol' && dispatchData.length > 0) {
     setTimeout(loadTop10Vol, 50);
@@ -9403,6 +9506,1015 @@ function fxExport() {
 }
 
 
+/* =====================================================================
+   SUPPLY MANAGEMENT ENGINE  (client side port of Supply.gs runSupply)
+   Prefix sx / SX_. Uses the shared helpers of the finance engine
+   (fxParseDate, fxNum, fxIst, fxReadOutflow ...), so that file loads first.
+   Quantities are MT, money is rupees.
+   ===================================================================== */
+
+const SX_TOLERANCE = 0.05;
+const SX_STUCK_DAYS = 7;
+const SX_TRANSIT_WINDOW = 30;
+
+const SX_TRANSIT_BUCKETS = [
+  { id: 'd0', label: 'Same day',    max: 0 },
+  { id: 'd1', label: '1 day',       max: 1 },
+  { id: 'd3', label: '2-3 days',    max: 3 },
+  { id: 'd7', label: '4-7 days',    max: 7 },
+  { id: 'dx', label: 'Over 7 days', max: 1e9 }
+];
+const SX_TURN_BUCKETS = [
+  { id: 'h3',  label: 'Under 3 hrs', max: 3 },
+  { id: 'h6',  label: '3-6 hrs',     max: 6 },
+  { id: 'h12', label: '6-12 hrs',    max: 12 },
+  { id: 'h24', label: '12-24 hrs',   max: 24 },
+  { id: 'hx',  label: 'Over 24 hrs', max: 1e9 }
+];
+const SX_NOT_A_TRANSPORTER = ['FOR DELIVERY', 'FORDELIVERY', 'SELF', 'SELF PICKUP', 'SELFPICKUP',
+                              'INCLUSIVE W/R', 'INCLUSIVEWR', 'OTHER', 'NA', 'N/A', '-', 'PARTY', 'MARKET'];
+const SX_RAWMAT_HEADS = ['wire rod', 'wirerod', 'raw material', 'rawmaterial'];
+const SX_CLOSED_STATUS = ['COMPLETE', 'COMPLETED', 'FORECLOSE', 'FORECLOSED', 'CANCEL', 'CANCELLED'];
+
+/* The Wire Rod workbook (1PO Data, 2INcoming WR) and the planning workbook
+   (Dispatch Planning) of every unit. Header sits on row 6 in all of them. */
+const SX_UNITS = {
+  VKI: { wireRod: '1mKFpEmI7SPW55LE_JTu4Qvh45HxMpFedPxq8AsZ_Blg',
+         pos: '1YYZ9kRbrT8HYXjA-neTnLIq1BgV3uXr3p9M9KhvN3uM', dispTab: 'Dispatch Planing ' },
+  BGR: { wireRod: '1A0aY8ABNjlZxb8kP59LAfoU2WacYlWIR0I-oYy2gcBE',
+         pos: '1_ZRfa-AZsS7byzRJBmHoZyxyVwKCUkdUMYpJVG0ZUM4', dispTab: 'Dispatch Planning' },
+  BGI: { wireRod: '12j0LzvGm9GV-6LD5PYjxvkcHIjB7olJi-iUWcu8aiXQ',
+         pos: '15Mob96coeFOYHPqxfevm1Tn5Pn1R2c90SjT7zvGfNgo', dispTab: 'Dispatch Planning' }
+};
+const SX_TAB_PO = '1PO Data';
+const SX_TAB_IN = '2INcoming WR';
+const SX_HEADER_ROW = 6;
+
+/* Column numbers (1 based, as in Field_Map "#N") per unit.
+   Field: [column, type, transform] */
+const SX_PO_MAP = (function () {
+  const vki = { PO_Date: [3, 'date'], Supplier: [4, 'text', 'trim'], PO_No: [5, 'text', 'trim'],
+    Grade: [6, 'text', 'trim'], Size: [7, 'text', 'trim'], Order_Qty: [8, 'number'], Rate: [9, 'number'],
+    Received: [10, 'number'], Balance: [11, 'number'], Status: [14, 'text', 'trim'] };
+  const bg = { PO_Date: [4, 'date'], Supplier: [5, 'text', 'trim'], PO_No: [6, 'text', 'trim'],
+    Grade: [7, 'text', 'trim'], Size: [8, 'text', 'trim'], Order_Qty: [9, 'number'], Rate: [10, 'number'],
+    Received: [11, 'number'], Balance: [12, 'number'], Status: [14, 'text', 'trim'] };
+  return { VKI: vki, BGR: bg, BGI: bg };
+})();
+
+const SX_IN_COMMON = { Dispatch_Date: [2, 'date'], Supplier: [3, 'text', 'trim'], PO_No: [4, 'text', 'trim'],
+  Invoice_No: [5, 'text', 'trim'], Qty: [6, 'number'], Grade: [7, 'text', 'trim'], Size: [8, 'text', 'trim'],
+  Truck_No: [9, 'text', 'upper'], Received_Date: [11, 'date'], Coils: [12, 'number'],
+  Received_Qty: [13, 'number'], Qty_Diff: [14, 'number'] };
+const SX_IN_MAP = {
+  VKI: Object.assign({}, SX_IN_COMMON, { Transporter: [21, 'text', 'trim'], Freight: [23, 'number'] }),
+  BGR: Object.assign({}, SX_IN_COMMON, { Transporter: [25, 'text', 'trim'], Freight: [22, 'number'] }),
+  BGI: Object.assign({}, SX_IN_COMMON, { Transporter: [25, 'text', 'trim'], Freight: [22, 'number'] })
+};
+
+const SX_OUT_MAP = {
+  VKI: { Party: [4, 'text', 'trim'], Qty: [8, 'number'], Truck_In: [19, 'datetime'], Truck_Out: [20, 'datetime'], Transporter: [41, 'text', 'trim'] },
+  BGR: { Party: [4, 'text', 'trim'], Qty: [8, 'number'], Truck_In: [19, 'datetime'], Truck_Out: [20, 'datetime'], Transporter: [33, 'text', 'trim'] },
+  BGI: { Party: [4, 'text', 'trim'], Qty: [8, 'number'], Truck_In: [27, 'datetime'], Truck_Out: [64, 'datetime'], Transporter: [51, 'text', 'trim'] }
+};
+
+
+/* ============================ readers ============================ */
+
+/* A timestamp as yyyy-MM-ddTHH:mm:ss, or '' when the cell is not one. */
+function sxParseDateTime(v) {
+  if (v === null || v === undefined || v === '') return '';
+  const p2 = fxPad2;
+
+  if (typeof v === 'number') {
+    if (v < 20000 || v > 80000) return '';
+    const day = Math.floor(v);
+    const secs = Math.round((v - day) * 86400);
+    const d = new Date(Math.round((day - 25569) * 86400000) + secs * 1000);
+    return d.getUTCFullYear() + '-' + p2(d.getUTCMonth() + 1) + '-' + p2(d.getUTCDate()) + 'T' +
+           p2(d.getUTCHours()) + ':' + p2(d.getUTCMinutes()) + ':' + p2(d.getUTCSeconds());
+  }
+
+  const s = String(v).trim();
+  if (!s) return '';
+  const iso = fxParseDate(s);
+  if (!iso) return '';
+
+  let h = 0, mi = 0, se = 0;
+  const m = s.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?/);
+  if (m) {
+    h = +m[1]; mi = +m[2]; se = +(m[3] || 0);
+    if (m[4]) {
+      const pm = m[4].toLowerCase() === 'pm';
+      if (pm && h < 12) h += 12;
+      if (!pm && h === 12) h = 0;
+    }
+  }
+  return iso + 'T' + p2(h) + ':' + p2(mi) + ':' + p2(se);
+}
+
+/* Epoch ms for a yyyy-MM-dd or yyyy-MM-ddTHH:mm:ss value (treated as one
+   consistent clock, so only differences matter). null when missing. */
+function sxDate(v) {
+  if (!v) return null;
+  const s = String(v).trim();
+  let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})[T ](\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (m) return Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] || 0));
+  const iso = fxParseDate(s);
+  if (!iso) return null;
+  m = iso.split('-').map(Number);
+  return Date.UTC(m[0], m[1] - 1, m[2]);
+}
+function sxDayGap(from, to) {
+  const a = sxDate(from), b = sxDate(to);
+  if (a === null || b === null) return null;
+  return Math.round((b - a) / 86400000 * 10) / 10;
+}
+function sxHourGap(from, to) {
+  const a = sxDate(from), b = sxDate(to);
+  if (a === null || b === null) return null;
+  return Math.round((b - a) / 3600000 * 100) / 100;
+}
+function sxMedian(list) {
+  if (!list || !list.length) return null;
+  const s = list.slice().sort((a, b) => a - b);
+  const m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+
+function sxField(row, spec) {
+  const raw = row[spec[0] - 1];
+  const type = spec[1], tf = spec[2];
+  if (type === 'number') return fxNum(raw);
+  if (type === 'date') return fxParseDate(raw);
+  if (type === 'datetime') return sxParseDateTime(raw);
+  let t = (raw === null || raw === undefined) ? '' : String(raw);
+  if (tf === 'trim' || tf === 'upper') t = t.trim();
+  if (tf === 'upper') t = t.toUpperCase();
+  return t;
+}
+
+/* Rows of a tab to objects keyed by logical field. A row with nothing in any
+   mapped column is dropped, as the Apps Script reader does. */
+function sxReadRows(grid, map) {
+  const out = [];
+  if (!grid) return out;
+  const fields = Object.keys(map);
+  for (let r = SX_HEADER_ROW; r < grid.length; r++) {
+    const row = grid[r];
+    if (!row || !row.length) continue;
+    const o = {};
+    let any = false;
+    fields.forEach(function (f) {
+      const v = sxField(row, map[f]);
+      o[f] = v;
+      if (v !== '' && v !== 0) any = true;
+    });
+    if (any) out.push(o);
+  }
+  return out;
+}
+
+function sxPoClosed(status) {
+  return SX_CLOSED_STATUS.indexOf(String(status || '').trim().toUpperCase()) > -1;
+}
+function sxName(v) { return String(v || '').trim().replace(/\s+/g, ' '); }
+function sxKey(v) { return String(v || '').trim().toUpperCase().replace(/\s+/g, ''); }
+function sxR3(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
+
+function sxTransporterKey(name) {
+  const raw = String(name || '').trim();
+  if (!raw) return '';
+  if (SX_NOT_A_TRANSPORTER.indexOf(raw.toUpperCase()) > -1) return '';
+  const clean = raw.toUpperCase().replace(/[^A-Z0-9]/g, '');
+  if (clean.length < 3) return '';
+  if (SX_NOT_A_TRANSPORTER.indexOf(clean) > -1) return '';
+  return clean.substring(0, 7);
+}
+
+function sxAge(fromIso, todayIso) {
+  if (!fromIso) return null;
+  return fxDayGap(fromIso, todayIso);
+}
+function sxShare(poTotal, row) {
+  if (!row.po) return 1;
+  const total = poTotal[row.po] || 0;
+  return total > 0 ? (row.qty / total) : 1;
+}
+
+
+/* ============================ performance ============================ */
+
+function sxIncomingPerformance(rows, fyFrom, fyTo) {
+  const groups = {}, buckets = {}, all = [], variants = {};
+  SX_TRANSIT_BUCKETS.forEach(b => { buckets[b.id] = 0; });
+
+  rows.forEach(function (r) {
+    if (!r.received) return;
+    const d = String(r.received).substring(0, 10);
+    if (d < fyFrom || d > fyTo) return;
+
+    const lag = sxDayGap(r.dispatch, r.received);
+    if (lag === null || lag < 0 || lag > 120) return;
+
+    all.push(lag);
+    for (let i = 0; i < SX_TRANSIT_BUCKETS.length; i++) {
+      if (lag <= SX_TRANSIT_BUCKETS[i].max) { buckets[SX_TRANSIT_BUCKETS[i].id]++; break; }
+    }
+
+    const key = sxTransporterKey(r.transporter);
+    if (!key) return;
+
+    if (!groups[key]) groups[key] = { key: key, name: r.transporter, trips: 0, mt: 0, lags: [], late: 0, freight: 0, freightMt: 0 };
+    const g = groups[key];
+    if (String(r.transporter).length > String(g.name).length) g.name = r.transporter;
+    (variants[key] = variants[key] || {})[String(r.transporter).trim()] = true;
+
+    const carried = r.recdQty || r.qty;
+    g.trips++; g.mt += carried; g.lags.push(lag);
+    if (r.freight > 0 && carried > 0) { g.freight += r.freight; g.freightMt += carried; }
+    if (lag > 3) g.late++;
+  });
+
+  const list = Object.keys(groups).map(function (k) {
+    const g = groups[k];
+    return {
+      name: g.name, trips: g.trips, mt: sxR3(g.mt), median: sxMedian(g.lags),
+      worst: g.lags.length ? Math.max.apply(null, g.lags) : null,
+      latePct: g.trips ? g.late / g.trips : null,
+      freightPerMt: g.freightMt ? Math.round(g.freight / g.freightMt) : null,
+      freightTrips: g.freightMt ? 1 : 0
+    };
+  }).sort((a, b) => b.trips - a.trips);
+
+  const merged = [];
+  Object.keys(variants).forEach(function (k) {
+    const names = Object.keys(variants[k]);
+    if (names.length > 1) merged.push(names.join(' = '));
+  });
+
+  const onTime = buckets.d0 + buckets.d1 + buckets.d3;
+  return {
+    median: sxMedian(all), trips: all.length,
+    onTimeShare: all.length ? onTime / all.length : null,
+    buckets: SX_TRANSIT_BUCKETS.map(b => ({ label: b.label, count: buckets[b.id], share: all.length ? buckets[b.id] / all.length : 0 })),
+    transporters: list.slice(0, 20), merged: merged
+  };
+}
+
+function sxOutgoingPerformance(rows, fyFrom, fyTo) {
+  const groups = {}, buckets = {}, all = [];
+  SX_TURN_BUCKETS.forEach(b => { buckets[b.id] = 0; });
+
+  rows.forEach(function (r) {
+    const d = String(r.inAt).substring(0, 10);
+    if (!d || d < fyFrom || d > fyTo) return;
+
+    const hrs = sxHourGap(r.inAt, r.outAt);
+    if (hrs === null || hrs < 0 || hrs > 240) return;
+
+    all.push(hrs);
+    for (let i = 0; i < SX_TURN_BUCKETS.length; i++) {
+      if (hrs <= SX_TURN_BUCKETS[i].max) { buckets[SX_TURN_BUCKETS[i].id]++; break; }
+    }
+
+    const key = sxTransporterKey(r.transporter);
+    if (!key) return;
+    if (!groups[key]) groups[key] = { name: r.transporter, trips: 0, mt: 0, hrs: [], slow: 0 };
+    const g = groups[key];
+    if (String(r.transporter).length > String(g.name).length) g.name = r.transporter;
+    g.trips++; g.mt += r.qty; g.hrs.push(hrs);
+    if (hrs > 12) g.slow++;
+  });
+
+  const list = Object.keys(groups).map(function (k) {
+    const g = groups[k];
+    return { name: g.name, trips: g.trips, mt: sxR3(g.mt), median: sxMedian(g.hrs),
+             worst: g.hrs.length ? Math.round(Math.max.apply(null, g.hrs) * 10) / 10 : null,
+             slowPct: g.trips ? g.slow / g.trips : null };
+  }).sort((a, b) => b.trips - a.trips);
+
+  const quick = buckets.h3 + buckets.h6;
+  return {
+    median: sxMedian(all), trips: all.length,
+    quickShare: all.length ? quick / all.length : null,
+    buckets: SX_TURN_BUCKETS.map(b => ({ label: b.label, count: buckets[b.id], share: all.length ? buckets[b.id] / all.length : 0 })),
+    transporters: list.slice(0, 20)
+  };
+}
+
+
+/* ============================ the report ============================ */
+
+/* inp = { now, month, year, units, supplier,
+           raw:  { VKI: { po:{grid|err}, inc:{grid|err}, out:{grid|err} }, ... },
+           cash: { VKI: { grid|err }, ... }   (the Outflow Data tab, for payments) } */
+function sxBuild(inp) {
+  const now = inp.now || new Date();
+  const ist = fxIst(now);
+
+  const codes = (inp.units && inp.units.length ? inp.units : FX_UNIT_ORDER).slice();
+  if (!codes.length) throw new Error('Select at least one unit.');
+  const locs = codes.map(c => ({ code: c, name: fxLabel(c) }));
+
+  const month = String(inp.month || FX_MONTHS[ist.m]).trim();
+  const year = Number(inp.year) || ist.y;
+  const mIdx = fxMonthIndex(month);
+  if (mIdx < 0) throw new Error('Month "' + month + '" was not recognised.');
+
+  const supplier = String(inp.supplier || '').trim().toUpperCase();
+  const todayIso = ist.iso;
+  const yestIso = fxAddDays(todayIso, -1);
+  const prefix = year + '-' + fxPad2(mIdx + 1);
+
+  const fyStartYear = (mIdx <= 2) ? year - 1 : year;
+  const fyFrom = fyStartYear + '-04-01';
+  const fyTo = (fyStartYear + 1) + '-03-31';
+
+  const problems = [], sources = [];
+  function note(unit, what, src, rows) {
+    sources.push({ unit: unit, source: what, ok: !src || !src.err, rows: rows, error: src && src.err ? src.err : '' });
+    if (src && src.err) problems.push(fxLabel(unit) + ' ' + what + ': ' + src.err);
+  }
+
+  let poRows = [], inRows = [], outRows = [];
+
+  locs.forEach(function (loc) {
+    const raw = (inp.raw && inp.raw[loc.code]) || {};
+
+    if (!raw.po || raw.po.err) { note(loc.code, '1PO Data', raw.po || { err: 'not fetched' }, 0); }
+    else {
+      let n = 0;
+      sxReadRows(raw.po.grid, SX_PO_MAP[loc.code]).forEach(function (r) {
+        const q = r.Order_Qty || 0;
+        if (!q) return;
+        n++;
+        poRows.push({ loc: loc.code, date: r.PO_Date || '', supplier: sxName(r.Supplier), po: sxKey(r.PO_No),
+          poShown: String(r.PO_No || '').trim(), grade: String(r.Grade || '').trim(), size: String(r.Size || '').trim(),
+          qty: q, rate: r.Rate || 0, sheetReceived: r.Received || 0, sheetBalance: r.Balance || 0,
+          status: String(r.Status || '').trim(), closed: sxPoClosed(r.Status) });
+      });
+      note(loc.code, '1PO Data', null, n);
+    }
+
+    if (!raw.inc || raw.inc.err) { note(loc.code, '2INcoming WR', raw.inc || { err: 'not fetched' }, 0); }
+    else {
+      let n = 0;
+      sxReadRows(raw.inc.grid, SX_IN_MAP[loc.code]).forEach(function (r) {
+        const q = r.Qty || 0, rq = r.Received_Qty || 0;
+        if (!q && !rq) return;
+        n++;
+        inRows.push({ loc: loc.code, dispatch: r.Dispatch_Date || '', received: r.Received_Date || '',
+          supplier: sxName(r.Supplier), po: sxKey(r.PO_No), invoice: String(r.Invoice_No || '').trim(),
+          truck: String(r.Truck_No || '').trim(), grade: String(r.Grade || '').trim(), size: String(r.Size || '').trim(),
+          qty: q, recdQty: rq, diff: r.Qty_Diff || 0, coils: r.Coils || 0, freight: r.Freight || 0,
+          transporter: String(r.Transporter || '').trim() });
+      });
+      note(loc.code, '2INcoming WR', null, n);
+    }
+
+    if (!raw.out || raw.out.err) { note(loc.code, 'Dispatch Planning (outgoing trucks)', raw.out || { err: 'not fetched' }, 0); }
+    else {
+      let n = 0;
+      sxReadRows(raw.out.grid, SX_OUT_MAP[loc.code]).forEach(function (r) {
+        if (!r.Truck_In && !r.Truck_Out) return;
+        n++;
+        outRows.push({ loc: loc.code, party: String(r.Party || '').trim(), qty: r.Qty || 0,
+          inAt: r.Truck_In || '', outAt: r.Truck_Out || '', transporter: String(r.Transporter || '').trim() });
+      });
+      note(loc.code, 'Dispatch Planning (outgoing trucks)', null, n);
+    }
+  });
+
+  /* every supplier of the selected units, before the filter, for the dropdown */
+  const supplierList = {};
+  poRows.forEach(r => { if (r.supplier) supplierList[r.supplier.toUpperCase()] = r.supplier; });
+
+  if (supplier) {
+    poRows = poRows.filter(r => r.supplier.toUpperCase() === supplier);
+    inRows = inRows.filter(r => r.supplier.toUpperCase() === supplier);
+  }
+
+  /* ================= 1. receipts ================= */
+  const receipt = { today: { mt: 0, trucks: 0, value: 0 }, yesterday: { mt: 0, trucks: 0, value: 0 },
+                    mtd: { mt: 0, trucks: 0, value: 0 }, fy: { mt: 0, trucks: 0, value: 0 } };
+  const poRate = {};
+  poRows.forEach(p => { if (p.po && p.rate > 0 && !poRate[p.po]) poRate[p.po] = p.rate; });
+
+  const dayTrend = {};
+  inRows.forEach(function (r) {
+    if (!r.received) return;
+    const d = String(r.received).substring(0, 10);
+    const qty = r.recdQty || r.qty;
+    const val = qty * (poRate[r.po] || 0);
+
+    if (d === todayIso) { receipt.today.mt += qty; receipt.today.trucks++; receipt.today.value += val; }
+    if (d === yestIso)  { receipt.yesterday.mt += qty; receipt.yesterday.trucks++; receipt.yesterday.value += val; }
+    if (d.indexOf(prefix) === 0) {
+      receipt.mtd.mt += qty; receipt.mtd.trucks++; receipt.mtd.value += val;
+      dayTrend[d] = (dayTrend[d] || 0) + qty;
+    }
+    if (d >= fyFrom && d <= fyTo) { receipt.fy.mt += qty; receipt.fy.trucks++; receipt.fy.value += val; }
+  });
+  const trend = Object.keys(dayTrend).sort().map(d => ({ date: d, day: Number(d.substring(8, 10)), mt: sxR3(dayTrend[d]) }));
+
+  /* ================= 2. raw material payment ================= */
+  const payment = { today: 0, mtd: 0, fy: 0, available: false, note: '', units: [], missing: [] };
+  locs.forEach(function (loc) {
+    const c = inp.cash && inp.cash[loc.code];
+    if (!c || c.err) {
+      payment.missing.push(loc.code);
+      note(loc.code, 'Outflow Data (raw material payment)', c || { err: 'not fetched' }, 0);
+      return;
+    }
+    payment.units.push(loc.code);
+    const parsed = fxReadOutflow(c.grid, loc.code);
+    note(loc.code, 'Outflow Data (raw material payment)', null, parsed.rows.length);
+    parsed.rows.forEach(function (r) {
+      if (SX_RAWMAT_HEADS.indexOf(String(r.category || '').trim().toLowerCase()) < 0) return;
+      payment.available = true;
+      const d = String(r.date).substring(0, 10);
+      if (d === todayIso) payment.today += r.amount;
+      if (d.indexOf(prefix) === 0) payment.mtd += r.amount;
+      if (d >= fyFrom && d <= fyTo) payment.fy += r.amount;
+    });
+  });
+  if (!payment.available) {
+    payment.note = 'No Wire Rod row was found in the Outflow Data tab for the selected units.';
+  } else if (payment.missing.length) {
+    payment.note = 'Payment covers ' + payment.units.join(', ') + ' only. ' +
+                   payment.missing.join(', ') + ' could not be read.';
+  }
+
+  /* ================= 3 and 4. supplier position and reconciliation ================= */
+  const byPo = {};
+  function poBucket(key) {
+    if (!byPo[key]) byPo[key] = { dispatched: 0, lifted: 0, transit: 0, unconfirmed: 0, transitTrucks: 0,
+                                  unconfirmedTrucks: 0, trucks: 0, lastReceipt: '', oldestTransit: '' };
+    return byPo[key];
+  }
+
+  const transitRows = [], unconfirmedRows = [];
+  inRows.forEach(function (r) {
+    const b = poBucket(r.po);
+    b.trucks++;
+    b.dispatched += r.qty;
+
+    if (r.received) {
+      b.lifted += (r.recdQty || r.qty);
+      const d = String(r.received).substring(0, 10);
+      if (d > b.lastReceipt) b.lastReceipt = d;
+      return;
+    }
+
+    const dd = String(r.dispatch).substring(0, 10);
+    const age = sxAge(dd, todayIso);
+    const entry = { loc: r.loc, supplier: r.supplier, po: r.poShown || r.po, invoice: r.invoice, truck: r.truck,
+                    grade: r.grade, size: r.size, qty: sxR3(r.qty), dispatch: dd, ageDays: age };
+
+    if (age !== null && age <= SX_TRANSIT_WINDOW) {
+      b.transit += r.qty; b.transitTrucks++;
+      if (dd && (!b.oldestTransit || dd < b.oldestTransit)) b.oldestTransit = dd;
+      transitRows.push(entry);
+    } else {
+      b.unconfirmed += r.qty; b.unconfirmedTrucks++;
+      unconfirmedRows.push(entry);
+    }
+  });
+
+  const byAge = (a, b) => (b.ageDays || 0) - (a.ageDays || 0);
+  transitRows.sort(byAge);
+  unconfirmedRows.sort(byAge);
+
+  const poTotal = {};
+  poRows.forEach(p => { poTotal[p.po] = (poTotal[p.po] || 0) + p.qty; });
+
+  const scoped = poRows.filter(function (p) {
+    const inFy = p.date && p.date >= fyFrom && p.date <= fyTo;
+    const b = byPo[p.po] || { lifted: 0, transit: 0, unconfirmed: 0 };
+    const stillOpen = !p.closed && (p.qty - b.lifted - b.transit - b.unconfirmed) > SX_TOLERANCE;
+    return inFy || stillOpen;
+  });
+
+  const supMap = {};
+  scoped.forEach(function (p) {
+    const key = p.supplier.toUpperCase();
+    if (!supMap[key]) supMap[key] = { supplier: p.supplier, orders: 0, ordered: 0, lifted: 0, transit: 0,
+                                      unconfirmed: 0, pending: 0, value: 0, openOrders: 0, locs: {} };
+    const s = supMap[key];
+    const b = byPo[p.po] || { lifted: 0, transit: 0, unconfirmed: 0 };
+    const share = sxShare(poTotal, p);
+
+    const lifted = b.lifted * share, transit = b.transit * share, unconf = b.unconfirmed * share;
+    let pending = Math.max(0, p.qty - lifted - transit - unconf);
+    if (p.closed) pending = 0;
+
+    s.orders++; s.ordered += p.qty; s.lifted += lifted; s.transit += transit;
+    s.unconfirmed += unconf; s.pending += pending; s.value += p.qty * p.rate;
+    s.locs[p.loc] = true;
+    if (pending > SX_TOLERANCE) s.openOrders++;
+  });
+
+  const suppliers = Object.keys(supMap).map(function (k) {
+    const s = supMap[k];
+    return { supplier: s.supplier, units: Object.keys(s.locs).sort().map(fxLabel).join(', '),
+      orders: s.orders, openOrders: s.openOrders, ordered: sxR3(s.ordered), lifted: sxR3(s.lifted),
+      transit: sxR3(s.transit), unconfirmed: sxR3(s.unconfirmed), pending: sxR3(s.pending),
+      value: Math.round(s.value), liftPct: s.ordered ? s.lifted / s.ordered : null };
+  }).sort((a, b) => b.pending - a.pending || b.ordered - a.ordered);
+
+  const recon = scoped.map(function (p) {
+    const b = byPo[p.po] || { dispatched: 0, lifted: 0, transit: 0, unconfirmed: 0, trucks: 0,
+                              transitTrucks: 0, unconfirmedTrucks: 0, lastReceipt: '', oldestTransit: '' };
+    const share = sxShare(poTotal, p);
+    const dispatched = b.dispatched * share, lifted = b.lifted * share;
+    const transit = b.transit * share, unconf = b.unconfirmed * share;
+    const pending = p.closed ? 0 : Math.max(0, p.qty - lifted - transit - unconf);
+    const sheetGap = Math.abs(p.sheetReceived - lifted);
+
+    return { loc: p.loc, po: p.poShown || p.po, date: p.date, supplier: p.supplier, grade: p.grade, size: p.size,
+      ordered: sxR3(p.qty), dispatched: sxR3(dispatched), lifted: sxR3(lifted), transit: sxR3(transit),
+      unconfirmed: sxR3(unconf), pending: sxR3(pending), trucks: b.trucks, transitTrucks: b.transitTrucks,
+      lastReceipt: b.lastReceipt, status: p.status, closed: p.closed, sheetReceived: sxR3(p.sheetReceived),
+      sheetGap: sxR3(sheetGap), flagged: sheetGap > 1 };
+  }).sort((a, b) => b.pending - a.pending || b.ordered - a.ordered);
+
+  const openRecon = recon.filter(r => r.pending > SX_TOLERANCE);
+
+  /* ================= 5. performance ================= */
+  const incoming = sxIncomingPerformance(inRows, fyFrom, fyTo);
+  const outgoing = sxOutgoingPerformance(outRows, fyFrom, fyTo);
+
+  let totalOrdered = 0, totalLifted = 0, totalTransit = 0, totalUnconf = 0, totalPending = 0, totalValue = 0;
+  suppliers.forEach(function (s) {
+    totalOrdered += s.ordered; totalLifted += s.lifted; totalTransit += s.transit;
+    totalUnconf += s.unconfirmed; totalPending += s.pending; totalValue += s.value;
+  });
+
+  const stuck = transitRows.filter(r => r.ageDays > SX_STUCK_DAYS);
+  const unconfQty = unconfirmedRows.reduce((a, r) => a + r.qty, 0);
+
+  const kpi = {
+    receiptToday: sxR3(receipt.today.mt), receiptTodayTrucks: receipt.today.trucks,
+    receiptYesterday: sxR3(receipt.yesterday.mt), receiptMtd: sxR3(receipt.mtd.mt),
+    receiptMtdTrucks: receipt.mtd.trucks, receiptMtdValue: Math.round(receipt.mtd.value),
+    receiptFy: sxR3(receipt.fy.mt),
+    paymentToday: Math.round(payment.today), paymentMtd: Math.round(payment.mtd), paymentFy: Math.round(payment.fy),
+    paymentAvailable: payment.available, paymentNote: payment.note, paymentUnits: payment.units.join(', '),
+    ordered: sxR3(totalOrdered), lifted: sxR3(totalLifted), transit: sxR3(totalTransit),
+    unconfirmed: sxR3(totalUnconf), pending: sxR3(totalPending), orderValue: Math.round(totalValue),
+    liftPct: totalOrdered ? totalLifted / totalOrdered : null,
+    openOrders: openRecon.length, transitTrucks: transitRows.length, stuckTrucks: stuck.length,
+    stuckQty: sxR3(stuck.reduce((a, r) => a + r.qty, 0)),
+    unconfirmedTrucks: unconfirmedRows.length, unconfirmedQty: sxR3(unconfQty),
+    medianTransit: incoming.median, onTimeShare: incoming.onTimeShare,
+    medianTurnaround: outgoing.median, suppliers: suppliers.length
+  };
+
+  /* ================= warnings ================= */
+  const warnings = [];
+  if (stuck.length) {
+    warnings.push({ text: stuck.length + ' inbound truck(s) despatched more than ' + SX_STUCK_DAYS +
+      ' days ago still have no received date, ' + sxR3(kpi.stuckQty) + ' MT in all.',
+      detail: stuck.slice(0, 8).map(r => r.truck + ' ' + r.supplier + ' ' + r.ageDays + 'd') });
+  }
+  if (unconfirmedRows.length) {
+    warnings.push({ text: unconfirmedRows.length + ' inbound truck(s) carrying ' + sxR3(unconfQty) +
+      ' MT were invoiced by the supplier more than ' + SX_TRANSIT_WINDOW + ' days ago and still carry no ' +
+      'received date. These are counted as not yet lifted, not as material on the road.',
+      detail: unconfirmedRows.slice(0, 8).map(r => r.truck + ' ' + r.supplier + ' ' + r.qty + ' MT ' + r.ageDays + 'd') });
+  }
+  const gapped = recon.filter(r => r.flagged);
+  if (gapped.length) {
+    warnings.push({ text: gapped.length + ' PO(s) where the sheet Received column and the sum of weighbridge ' +
+      'receipts differ by more than 1 MT.',
+      detail: gapped.slice(0, 8).map(r => r.po + ' sheet ' + r.sheetReceived + ' vs weighed ' + r.lifted) });
+  }
+  if (incoming.merged.length) {
+    warnings.push({ text: 'Transporter names were grouped where the spelling differs. Fixing the sheet would make this exact.',
+                    detail: incoming.merged.slice(0, 8) });
+  }
+  if (problems.length) warnings.push({ text: 'Some sources could not be read.', detail: problems });
+
+  const pad = fxPad2;
+  return {
+    generatedAt: pad(ist.d) + ' ' + FX_MONTHS[ist.m] + ' ' + ist.y + ', ' + pad(ist.hh) + ':' + pad(ist.mi),
+    month: month, year: year,
+    fyLabel: 'FY ' + fyStartYear + '-' + String(fyStartYear + 1).substring(2),
+    today: todayIso, yesterday: yestIso,
+    locations: locs, supplierFilter: supplier,
+    supplierOptions: Object.keys(supplierList).sort().map(k => supplierList[k]),
+    kpi: kpi, trend: trend,
+    suppliers: suppliers.slice(0, 40), recon: openRecon.slice(0, 60), reconAll: recon.length,
+    transit: transitRows.slice(0, 40), unconfirmed: unconfirmedRows.slice(0, 40),
+    incoming: incoming, outgoing: outgoing, warnings: warnings, sources: sources, fromCache: false
+  };
+}
+
+
+/* =====================================================================
+   SUPPLY MANAGEMENT SECTION - fetching, page logic and renderers
+   (renderers are ports of the Apps Script supply dashboard)
+   Shares the fx* helpers and styles of the Finance section.
+   ===================================================================== */
+
+let SX = null;                  /* the last report built */
+let SX_RAW = { at: 0, units: {}, cash: {} };
+let SX_BUSY = false;
+const SX_CHARTS = {};
+const SX_RAW_TTL = 5 * 60 * 1000;
+
+const sxMt  = n => (Number(n) || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const sxMt0 = n => (Number(n) || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+
+function sxTagShare(v, goodAt) {
+  if (v === null || v === undefined) return '<span class="fx-tag flat">n/a</span>';
+  const c = v >= goodAt ? 'good' : (v >= goodAt * 0.7 ? 'warn' : 'bad');
+  return '<span class="fx-tag ' + c + '">' + fxPct(v) + '</span>';
+}
+
+
+/* ---------------- fetching ---------------- */
+async function sxFetchUnit(code) {
+  const cfg = SX_UNITS[code];
+  const out = {};
+  await Promise.all([
+    fxSafe(cfg.wireRod, SX_TAB_PO).then(r => { out.po = r; }),
+    fxSafe(cfg.wireRod, SX_TAB_IN).then(r => { out.inc = r; }),
+    fxSafe(cfg.pos, cfg.dispTab).then(r => { out.out = r; })
+  ]);
+  return out;
+}
+
+async function sxFetchCash(code) {
+  /* the Outflow Data tab is already in the finance cache when that page was opened */
+  const have = FX_RAW.units[code] && FX_RAW.units[code].outflow;
+  if (have && !have.err && (Date.now() - FX_RAW.at) < FX_RAW_TTL) return have;
+  return fxSafe(FX_UNITS[code].cash, FX_TAB_OUTFLOW);
+}
+
+
+/* ---------------- page controls ---------------- */
+function sxSelectedUnits() {
+  const picked = [];
+  document.querySelectorAll('#sxUnits input[type=checkbox]').forEach(b => { if (b.checked) picked.push(b.value); });
+  return picked;
+}
+
+function initSupply() {
+  const mSel = document.getElementById('sxMonth');
+  if (!mSel) return;
+  if (!mSel.options.length) {
+    const ist = fxIst(new Date());
+    mSel.innerHTML = FX_MONTHS.map((m, i) => '<option value="' + m + '"' + (i === ist.m ? ' selected' : '') + '>' + FX_MONTHS_FULL[i] + '</option>').join('');
+    let ys = '';
+    for (let y = ist.y - 3; y <= ist.y + 1; y++) ys += '<option' + (y === ist.y ? ' selected' : '') + '>' + y + '</option>';
+    document.getElementById('sxYear').innerHTML = ys;
+    document.getElementById('sxUnits').innerHTML = FX_UNIT_ORDER.map(c =>
+      '<label class="fx-chip"><input type="checkbox" value="' + c + '" checked onchange="loadSupply(false)"> ' + fxEsc(fxLabel(c)) + '</label>').join('');
+  }
+  if (!SX) loadSupply(false);
+}
+
+function sxFillSuppliers() {
+  const sel = document.getElementById('sxSupplier');
+  if (!sel || !SX) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">All suppliers</option>' +
+    SX.supplierOptions.map(s => '<option value="' + fxEsc(s) + '"' + (s.toUpperCase() === keep.toUpperCase() ? ' selected' : '') + '>' + fxEsc(s) + '</option>').join('');
+}
+
+async function loadSupply(force) {
+  if (SX_BUSY) return;
+  const units = sxSelectedUnits();
+  const status = document.getElementById('sxStatus');
+  const body = document.getElementById('sxBody');
+  const btn = document.getElementById('sxRefreshBtn');
+  if (!units.length) { if (status) status.innerHTML = '<span style="color:var(--danger)">Select at least one unit.</span>'; return; }
+
+  SX_BUSY = true;
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ Loading...'; }
+
+  try {
+    const stale = (Date.now() - SX_RAW.at) > SX_RAW_TTL;
+    if (force || stale || !SX_RAW.at) SX_RAW = { at: Date.now(), units: {}, cash: {} };
+
+    const missing = units.filter(u => !SX_RAW.units[u]);
+    if (missing.length) {
+      if (status) status.innerHTML = '<span style="color:var(--muted)">☁ Reading the wire rod sheets...</span>';
+      await Promise.all(missing.map(c =>
+        Promise.all([sxFetchUnit(c), sxFetchCash(c)]).then(r => { SX_RAW.units[c] = r[0]; SX_RAW.cash[c] = r[1]; })));
+    }
+
+    SX = sxBuild({ now: new Date(), month: document.getElementById('sxMonth').value,
+                   year: Number(document.getElementById('sxYear').value), units: units,
+                   supplier: document.getElementById('sxSupplier').value,
+                   raw: SX_RAW.units, cash: SX_RAW.cash });
+    sxFillSuppliers();
+    paintSupply();
+
+    const bad = SX.sources.filter(s => !s.ok).length;
+    if (status) {
+      status.innerHTML = bad
+        ? '<span style="color:var(--wire)">⚠ Built ' + fxEsc(SX.generatedAt) + ' - ' + bad + ' of ' + SX.sources.length + ' sheet reads failed, see "Data sources" below</span>'
+        : '<span style="color:var(--success)">✅ Built ' + fxEsc(SX.generatedAt) + ' from ' + SX.sources.length + ' sheets</span>';
+    }
+  } catch (e) {
+    if (status) status.innerHTML = '<span style="color:var(--danger)">❌ ' + fxEsc(e.message || e) + '</span>';
+    if (body && !SX) body.innerHTML = fxEmpty(e.message || String(e));
+  }
+
+  SX_BUSY = false;
+  if (btn) { btn.disabled = false; btn.textContent = '↻ Refresh'; }
+}
+
+function paintSupply() {
+  const body = document.getElementById('sxBody');
+  if (!body || !SX) return;
+  body.innerHTML = sxView();
+  sxDrawCharts();
+}
+
+
+/* ---------------- renderers ---------------- */
+function sxWarningsBlock() {
+  if (!SX.warnings.length) return '';
+  return SX.warnings.map(function (w) {
+    const detail = (w.detail && w.detail.length)
+      ? '<details style="margin-top:5px"><summary style="cursor:pointer">' + w.detail.length + ' detail</summary><ul style="margin:6px 0 0 18px">' +
+        w.detail.map(d => '<li>' + fxEsc(d) + '</li>').join('') + '</ul></details>' : '';
+    return '<div class="fx-note warn">' + fxEsc(w.text) + detail + '</div>';
+  }).join('');
+}
+
+function sxLiftStrip() {
+  const k = SX.kpi;
+  const ord = k.ordered || 0;
+  const liftPct = ord ? Math.min(k.lifted / ord * 100, 100) : 0;
+  const trPct = ord ? Math.min(k.transit / ord * 100, 100 - liftPct) : 0;
+  const unPct = ord ? Math.min(k.unconfirmed / ord * 100, 100 - liftPct - trPct) : 0;
+  const ok = (k.liftPct !== null && k.liftPct >= 0.85);
+
+  return '<div class="fx-strip"><div class="fx-strip-top"><div>' +
+    '<div class="lbl">Lifted against orders placed &middot; ' + fxEsc(SX.fyLabel) + '</div>' +
+    '<div class="fig">' + sxMt0(k.lifted) + '<span class="of"> MT of ' + sxMt0(k.ordered) + ' MT ordered</span></div>' +
+    '</div><div class="verdict"><div class="v ' + (ok ? 'pos' : 'neg') + '">' + fxPct(k.liftPct) + '</div>' +
+    '<div class="d">' + sxMt0(k.pending) + ' MT still to lift</div></div></div>' +
+    '<div class="track">' +
+      '<div class="seg" style="width:' + liftPct.toFixed(1) + '%;background:#2FA97C"></div>' +
+      '<div class="seg" style="width:' + trPct.toFixed(1) + '%;background:#E08A00"></div>' +
+      '<div class="seg" style="width:' + unPct.toFixed(1) + '%;background:#C4453B"></div></div>' +
+    '<div class="keys">' +
+      '<span><i style="background:#2FA97C"></i>Lifted ' + sxMt0(k.lifted) + ' MT</span>' +
+      '<span><i style="background:#E08A00"></i>On the road ' + sxMt0(k.transit) + ' MT</span>' +
+      (k.unconfirmed > 0.05 ? '<span><i style="background:#C4453B"></i>Unconfirmed ' + sxMt0(k.unconfirmed) + ' MT</span>' : '') +
+      '<span><i style="background:#AEB6BF"></i>Pending to lift ' + sxMt0(k.pending) + ' MT</span></div></div>';
+}
+
+function sxReceiptTiles() {
+  const k = SX.kpi, t = [];
+  const unit = (v, u) => v + '<span style="font-size:12px;font-weight:400;color:var(--muted)">' + u + '</span>';
+
+  t.push(fxTile('Received today', unit(sxMt(k.receiptToday), ' MT'), k.receiptTodayTrucks + ' truck' + (k.receiptTodayTrucks === 1 ? '' : 's'), ''));
+  t.push(fxTile('Received yesterday', unit(sxMt(k.receiptYesterday), ' MT'), 'weighbridge', ''));
+  t.push(fxTile('Received month to date', unit(sxMt0(k.receiptMtd), ' MT'), k.receiptMtdTrucks + ' trucks · ' + fxInrShort(k.receiptMtdValue), 'green'));
+
+  if (k.paymentAvailable) {
+    t.push(fxTile('Raw material paid today', fxInrShort(k.paymentToday), 'Wire Rod outflow', 'red'));
+    t.push(fxTile('Paid month to date', fxInrShort(k.paymentMtd), SX.month + ' ' + SX.year, 'red'));
+  } else {
+    t.push(fxTile('Raw material payment', '—', 'no Wire Rod outflow row', ''));
+  }
+
+  t.push(fxTile('Trucks on the road', sxMt0(k.transitTrucks), sxMt(k.transit) + ' MT in transit', k.stuckTrucks ? 'amber' : ''));
+  t.push(fxTile('Median transit', k.medianTransit === null ? '—' : unit(k.medianTransit.toFixed(1), ' days'), 'supplier gate to ours', ''));
+  t.push(fxTile('Median loading turnaround', k.medianTurnaround === null ? '—' : unit(k.medianTurnaround.toFixed(1), ' hrs'), 'outgoing trucks', ''));
+
+  return '<div class="fx-tiles">' + t.join('') + '</div>';
+}
+
+function sxSupplierTable() {
+  if (!SX.suppliers.length) return fxEmpty('No purchase orders in this selection.');
+  const hasUn = SX.kpi.unconfirmed > 0.05;
+
+  const body = SX.suppliers.map(s =>
+    '<tr><td class="tl">' + fxEsc(s.supplier) + '</td><td class="tl">' + fxEsc(s.units) + '</td><td>' + s.orders + '</td>' +
+    '<td>' + sxMt(s.ordered) + '</td><td>' + sxMt(s.lifted) + '</td><td>' + (s.transit ? sxMt(s.transit) : '—') + '</td>' +
+    (hasUn ? '<td class="' + (s.unconfirmed ? 'neg' : '') + '">' + (s.unconfirmed ? sxMt(s.unconfirmed) : '—') + '</td>' : '') +
+    '<td>' + (s.pending ? sxMt(s.pending) : '—') + '</td><td>' + sxTagShare(s.liftPct, 0.9) + '</td><td>' + fxInrShort(s.value) + '</td></tr>').join('');
+
+  const k = SX.kpi;
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Supplier</th><th class="tl">Units</th><th>PO lines</th>' +
+    '<th>Ordered MT</th><th>Lifted MT</th><th>In transit</th>' + (hasUn ? '<th>Unconfirmed</th>' : '') +
+    '<th>Pending MT</th><th>Lifted</th><th>Order value</th></tr></thead><tbody>' + body +
+    '<tr class="sum"><td class="tl">Total</td><td></td><td></td><td>' + sxMt(k.ordered) + '</td><td>' + sxMt(k.lifted) + '</td><td>' + sxMt(k.transit) + '</td>' +
+    (hasUn ? '<td class="neg">' + sxMt(k.unconfirmed) + '</td>' : '') +
+    '<td>' + sxMt(k.pending) + '</td><td>' + sxTagShare(k.liftPct, 0.9) + '</td><td>' + fxInrShort(k.orderValue) + '</td></tr></tbody></table></div>';
+}
+
+function sxReconTable() {
+  if (!SX.recon.length) return fxEmpty('Every purchase order in this selection is fully lifted.');
+  const hasUn = SX.recon.some(r => r.unconfirmed > 0.05);
+
+  const body = SX.recon.map(r =>
+    '<tr><td class="tl">' + fxEsc(fxLabel(r.loc)) + '</td><td class="tl">' + fxEsc(r.po) + '</td><td class="tl">' + fxEsc(r.date || '—') + '</td>' +
+    '<td class="tl">' + fxEsc(fxShortLabel(r.supplier, 24)) + '</td><td class="tl">' + fxEsc(r.grade) + ' ' + fxEsc(r.size) + '</td>' +
+    '<td>' + sxMt(r.ordered) + '</td><td>' + sxMt(r.dispatched) + '</td><td>' + sxMt(r.lifted) + '</td>' +
+    '<td>' + (r.transit ? sxMt(r.transit) : '—') + '</td>' +
+    (hasUn ? '<td class="' + (r.unconfirmed ? 'neg' : '') + '">' + (r.unconfirmed ? sxMt(r.unconfirmed) : '—') + '</td>' : '') +
+    '<td><b>' + sxMt(r.pending) + '</b></td><td>' + r.trucks + '</td><td class="tl">' + fxEsc(r.lastReceipt || '—') + '</td></tr>').join('');
+
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Unit</th><th class="tl">PO No</th><th class="tl">PO date</th><th class="tl">Supplier</th>' +
+    '<th class="tl">Grade / size</th><th>Ordered</th><th>Despatched</th><th>Lifted</th><th>In transit</th>' + (hasUn ? '<th>Unconfirmed</th>' : '') +
+    '<th>Pending</th><th>Trucks</th><th class="tl">Last receipt</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '<p class="dim" style="font-size:11px;margin:9px 2px 0">Despatched is what the supplier invoiced, lifted is what the weighbridge took in. ' +
+    'Pending is ordered less lifted, less anything already on the road, so a truck is never counted twice.</p>';
+}
+
+function sxTruckTable(rows, ageLabel, warnAt) {
+  if (!rows.length) return fxEmpty('Nothing here.');
+  const body = rows.map(function (r) {
+    const cls = (r.ageDays !== null && r.ageDays > warnAt) ? 'bad' : 'good';
+    return '<tr><td class="tl">' + fxEsc(fxLabel(r.loc)) + '</td><td class="tl">' + fxEsc(fxShortLabel(r.supplier, 22)) + '</td>' +
+      '<td class="tl">' + fxEsc(r.truck || '—') + '</td><td class="tl">' + fxEsc(r.po) + '</td><td class="tl">' + fxEsc(r.invoice || '—') + '</td>' +
+      '<td>' + sxMt(r.qty) + '</td><td class="tl">' + fxEsc(r.dispatch || '—') + '</td>' +
+      '<td><span class="fx-tag ' + cls + '">' + (r.ageDays === null ? '—' : r.ageDays + 'd') + '</span></td></tr>';
+  }).join('');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Unit</th><th class="tl">Supplier</th><th class="tl">Truck</th><th class="tl">PO No</th>' +
+    '<th class="tl">Invoice</th><th>Qty MT</th><th class="tl">Despatched</th><th>' + fxEsc(ageLabel) + '</th></tr></thead><tbody>' + body + '</tbody></table></div>';
+}
+
+function sxTransporterTable(list, unit, goodAt, slowLabel, withFreight) {
+  if (!list.length) return fxEmpty('No named transporter in this selection.');
+  const body = list.map(t =>
+    '<tr><td class="tl">' + fxEsc(t.name) + '</td><td>' + t.trips + '</td><td>' + sxMt0(t.mt) + '</td>' +
+    '<td><b>' + (t.median === null ? '—' : t.median.toFixed(1)) + '</b></td><td>' + (t.worst === null ? '—' : t.worst.toFixed(1)) + '</td>' +
+    '<td>' + sxTagShare(1 - (t.latePct !== undefined ? t.latePct : t.slowPct), goodAt) + '</td>' +
+    (withFreight ? '<td>' + (t.freightPerMt ? fxInr(t.freightPerMt) : '—') + '</td>' : '') + '</tr>').join('');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Transporter</th><th>Trips</th><th>MT carried</th><th>Median ' + fxEsc(unit) + '</th>' +
+    '<th>Worst</th><th>' + fxEsc(slowLabel) + '</th>' + (withFreight ? '<th>Freight / MT</th>' : '') + '</tr></thead><tbody>' + body + '</tbody></table></div>';
+}
+
+function sxSourcesTable() {
+  const rows = SX.sources.map(s => '<tr><td class="tl">' + fxEsc(s.unit ? fxLabel(s.unit) : 'Group') + '</td><td class="tl">' + fxEsc(s.source) + '</td><td class="tl">' +
+    (s.ok ? '<span class="fx-tag good">read</span>' : '<span class="fx-tag bad">failed</span>') + '</td><td>' + (s.rows || 0) +
+    '</td><td class="tl" style="white-space:normal;max-width:520px">' + fxEsc(s.error || '') + '</td></tr>').join('');
+  return '<div class="fx-frame"><table class="fx-t"><thead><tr><th class="tl">Unit</th><th class="tl">Sheet</th><th class="tl">Status</th><th>Rows</th><th class="tl">Detail</th></tr></thead><tbody>' +
+    rows + '</tbody></table></div>' +
+    '<p class="dim" style="font-size:11px;margin:9px 2px 0">This page reads each workbook with <b>your own Google account</b>. A "No access" line means that workbook has not been shared with you.</p>';
+}
+
+function sxView() {
+  const k = SX.kpi;
+  const hasTrend = SX.trend.length > 0;
+
+  let out = sxWarningsBlock() + sxLiftStrip() + sxReceiptTiles() +
+    (k.paymentNote ? '<p class="dim" style="font-size:11px;margin:-6px 2px 14px">' + fxEsc(k.paymentNote) + '</p>' : '');
+
+  out += '<div class="fx-split">' +
+    fxPanel('Wire rod received', SX.month + ' ' + SX.year + ', by day', hasTrend ? fxChartBox('sxCTrend', 300) : fxEmpty('No receipt in this month yet.')) +
+    fxPanel('Order position by supplier', 'lifted, on the road, still to lift', fxChartBox('sxCSupplier', fxBarHeight(Math.min(SX.suppliers.length, 12), 36))) + '</div>';
+
+  out += fxPanel('Supplier position', 'orders placed against what has actually come in', sxSupplierTable());
+  out += fxPanel('Material reconciliation', k.openOrders + ' purchase order(s) still open', sxReconTable());
+
+  out += '<div class="fx-split">' +
+    fxPanel('Incoming transit time', SX.incoming.trips + ' trips, ' + SX.fyLabel, fxChartBox('sxCTransit', 260)) +
+    fxPanel('Outgoing loading turnaround', SX.outgoing.trips + ' trips, ' + SX.fyLabel, fxChartBox('sxCTurn', 260)) + '</div>';
+
+  out += fxPanel('On the road now', k.transitTrucks + ' truck(s) despatched, not yet weighed in', sxTruckTable(SX.transit, 'Days out', 7));
+
+  if (SX.unconfirmed && SX.unconfirmed.length) {
+    out += fxPanel('Unconfirmed receipts', 'invoiced more than 30 days ago, still no received date',
+      sxTruckTable(SX.unconfirmed, 'Days since', 30) +
+      '<p class="dim" style="font-size:11px;margin:9px 2px 0">These are not treated as material on the road. Either the truck never arrived or the received ' +
+      'date was never filled in, and until that is settled the quantity counts as not lifted.</p>');
+  }
+
+  out += fxPanel('Incoming transporter performance', 'supplier despatch to our weighbridge', sxTransporterTable(SX.incoming.transporters, 'days', 0.8, 'Within 3 days', true));
+  out += fxPanel('Outgoing transporter performance', 'gate in to gate out, loading time', sxTransporterTable(SX.outgoing.transporters, 'hours', 0.9, 'Within 12 hrs', false));
+  out += fxPanel('Data sources', 'what was read for this report', sxSourcesTable());
+  out += '<div class="dim" style="font-size:11.5px;padding:2px 4px 18px">Built ' + fxEsc(SX.generatedAt) + ' from the live sheets.</div>';
+  return out;
+}
+
+
+/* ---------------- charts ---------------- */
+function sxKillCharts() {
+  Object.keys(SX_CHARTS).forEach(k => { if (SX_CHARTS[k]) { SX_CHARTS[k].destroy(); SX_CHARTS[k] = null; } });
+}
+
+function sxChartOpts(horizontal, stacked) {
+  const muted = fxCss('--muted', '#8fa3be');
+  const grid = 'rgba(128,128,128,0.18)';
+  const o = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'bottom', labels: { color: muted, boxWidth: 10, usePointStyle: true } },
+      tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + sxMt(horizontal ? c.parsed.x : c.parsed.y) } }
+    },
+    scales: {
+      x: { grid: { color: horizontal ? grid : 'transparent' }, ticks: { color: muted } },
+      y: { grid: { color: horizontal ? 'transparent' : grid }, ticks: { color: muted }, beginAtZero: true }
+    }
+  };
+  const money = horizontal ? o.scales.x : o.scales.y;
+  money.ticks.callback = v => sxMt0(v);
+  money.ticks.maxTicksLimit = 6;
+  if (horizontal) { o.indexAxis = 'y'; o.scales.y.ticks.autoSkip = false; o.scales.x.beginAtZero = true; }
+  if (stacked) { o.scales.x.stacked = true; o.scales.y.stacked = true; }
+  return o;
+}
+
+function sxDrawBuckets(id, key, buckets, label) {
+  const elc = document.getElementById(id);
+  if (!elc) return;
+  const rows = buckets.filter(b => b.count > 0);
+  if (!rows.length) return;
+  const colours = ['#2FA97C', '#8FBF4C', '#E0A800', '#DD7722', '#C4453B'];
+  const o = sxChartOpts(false, false);
+  o.plugins.legend.display = false;
+  o.plugins.tooltip.callbacks.label = c => ' ' + c.parsed.y + ' ' + label;
+  SX_CHARTS[key] = new Chart(elc, { type: 'bar', data: {
+    labels: rows.map(b => b.label),
+    datasets: [{ label: label, data: rows.map(b => b.count), backgroundColor: rows.map((b, i) => colours[i % colours.length]), borderRadius: 3, maxBarThickness: 52 }] },
+    options: o });
+}
+
+function sxDrawCharts() {
+  sxKillCharts();
+  if (!SX || typeof Chart === 'undefined') return;
+  const el = id => document.getElementById(id);
+
+  if (SX.trend.length && el('sxCTrend')) {
+    const o = sxChartOpts(false, false);
+    o.plugins.legend.display = false;
+    SX_CHARTS.trend = new Chart(el('sxCTrend'), { type: 'bar', data: {
+      labels: SX.trend.map(t => String(t.day)),
+      datasets: [{ label: 'MT received', data: SX.trend.map(t => t.mt), backgroundColor: '#E08A00', borderRadius: 3, maxBarThickness: 26 }] },
+      options: o });
+  }
+
+  const sup = SX.suppliers.filter(s => s.lifted > 0 || s.transit > 0 || s.unconfirmed > 0 || s.pending > 0).slice(0, 12);
+  if (sup.length && el('sxCSupplier')) {
+    SX_CHARTS.sup = new Chart(el('sxCSupplier'), { type: 'bar', data: {
+      labels: sup.map(s => fxShortLabel(s.supplier, 20)),
+      datasets: [
+        { label: 'Lifted', data: sup.map(s => s.lifted), backgroundColor: '#2FA97C', borderRadius: 2 },
+        { label: 'On the road', data: sup.map(s => s.transit), backgroundColor: '#E08A00', borderRadius: 2 },
+        { label: 'Unconfirmed', data: sup.map(s => s.unconfirmed), backgroundColor: '#C4453B', borderRadius: 2 },
+        { label: 'Pending', data: sup.map(s => s.pending), backgroundColor: '#AEB6BF', borderRadius: 2 }] },
+      options: sxChartOpts(true, true) });
+  }
+
+  sxDrawBuckets('sxCTransit', 'transit', SX.incoming.buckets, 'trips');
+  sxDrawBuckets('sxCTurn', 'turn', SX.outgoing.buckets, 'trips');
+}
+
+
+/* ---------------- Excel export ---------------- */
+function sxExport() {
+  if (!SX) { showToast('❌ Pehle report load karein', true); return; }
+  const k = SX.kpi;
+  const wb = XLSX.utils.book_new();
+  function sheet(name, headers, rows, widths) {
+    const ws = XLSX.utils.aoa_to_sheet([headers].concat(rows));
+    ws['!cols'] = headers.map((h, i) => ({ wch: (widths && widths[i]) || Math.max(12, String(h).length + 2) }));
+    XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 31));
+  }
+
+  const sum = XLSX.utils.aoa_to_sheet([
+    ['Supply management', SX.month + ' ' + SX.year + '  ' + SX.fyLabel],
+    ['Units', SX.locations.map(l => l.name).join(', ')],
+    ['Built at', SX.generatedAt], ['', ''],
+    ['Receipts today (MT)', k.receiptToday], ['Receipts yesterday (MT)', k.receiptYesterday],
+    ['Receipts month to date (MT)', k.receiptMtd], ['Trucks month to date', k.receiptMtdTrucks], ['', ''],
+    ['Raw material paid today', k.paymentToday], ['Raw material paid month to date', k.paymentMtd], ['', ''],
+    ['Ordered (MT)', k.ordered], ['Lifted (MT)', k.lifted], ['In transit (MT)', k.transit],
+    ['Unconfirmed (MT)', k.unconfirmed], ['Pending to lift (MT)', k.pending], ['Open purchase orders', k.openOrders],
+    ['Trucks on the road', k.transitTrucks], ['', ''],
+    ['Median incoming transit (days)', k.medianTransit], ['Median outgoing turnaround (hours)', k.medianTurnaround],
+    ['Suppliers', k.suppliers]]);
+  sum['!cols'] = [{ wch: 38 }, { wch: 30 }];
+  XLSX.utils.book_append_sheet(wb, sum, 'Summary');
+
+  sheet('Supplier position', ['Supplier', 'Units', 'PO lines', 'Open', 'Ordered MT', 'Lifted MT', 'In transit MT', 'Unconfirmed MT', 'Pending MT', 'Order value', 'Lifted %'],
+    SX.suppliers.map(s => [s.supplier, s.units, s.orders, s.openOrders, s.ordered, s.lifted, s.transit, s.unconfirmed, s.pending, s.value, s.liftPct]), [30]);
+  sheet('Reconciliation', ['Unit', 'PO No', 'PO date', 'Supplier', 'Grade', 'Size', 'Ordered MT', 'Despatched MT', 'Lifted MT', 'In transit MT', 'Unconfirmed MT', 'Pending MT', 'Trucks', 'Last receipt', 'Status'],
+    SX.recon.map(r => [fxLabel(r.loc), r.po, r.date, r.supplier, r.grade, r.size, r.ordered, r.dispatched, r.lifted, r.transit, r.unconfirmed, r.pending, r.trucks, r.lastReceipt, r.status]));
+  sheet('In transit', ['Unit', 'Supplier', 'PO No', 'Invoice', 'Truck', 'Grade', 'Size', 'Qty MT', 'Despatched on', 'Days on road'],
+    SX.transit.map(r => [fxLabel(r.loc), r.supplier, r.po, r.invoice, r.truck, r.grade, r.size, r.qty, r.dispatch, r.ageDays]));
+  sheet('Unconfirmed', ['Unit', 'Supplier', 'PO No', 'Invoice', 'Truck', 'Grade', 'Size', 'Qty MT', 'Despatched on', 'Days since'],
+    SX.unconfirmed.map(r => [fxLabel(r.loc), r.supplier, r.po, r.invoice, r.truck, r.grade, r.size, r.qty, r.dispatch, r.ageDays]));
+  sheet('Incoming transporters', ['Transporter', 'Trips', 'MT carried', 'Median days', 'Worst days', 'Over 3 days %', 'Freight per MT'],
+    SX.incoming.transporters.map(t => [t.name, t.trips, t.mt, t.median, t.worst, t.latePct, t.freightPerMt]), [30]);
+  sheet('Outgoing transporters', ['Transporter', 'Trips', 'MT carried', 'Median hours', 'Worst hours', 'Over 12 hrs %'],
+    SX.outgoing.transporters.map(t => [t.name, t.trips, t.mt, t.median, t.worst, t.slowPct]), [30]);
+
+  XLSX.writeFile(wb, 'BWPL_Supply_' + SX.month + '_' + SX.year + '_' + SX.today + '.xlsx');
+}
+
+
 function fmtN(n) {
   return Math.round(n).toLocaleString('en-IN');
 }
@@ -9450,7 +10562,7 @@ const ALL_PAGES = [
   'productivity','vehicle','travel','pricelist',
   'top10vol','top10val','bot10vol','bot10val',
   'complaints','financials','manufacturing','salesperson','daywise',
-  'wirerod','groupmaster','appsdata','finance','history','setup'
+  'wirerod','groupmaster','appsdata','finance','supply','history','setup'
 ];
 
 // Sidebar item label → page ID mapping (also used to build friendly names
@@ -9469,6 +10581,7 @@ const SIDEBAR_PAGE_MAP = {
   'group / company master':'groupmaster',
   'custom data section':'appsdata',
   'finance & cash flow':'finance',
+  'supply management':'supply',
   'history':'history', 'setup':'setup'
 };
 
