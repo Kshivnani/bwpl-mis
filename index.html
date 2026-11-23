@@ -2422,7 +2422,7 @@
           <div class="form-group" style="min-width:150px">
             <label>Sort by</label>
             <select id="gmSortBy" onchange="gmSortBy=this.value; renderCompanyMaster()">
-              <option value="last3" selected>Past 6 Months Total (MT)</option>
+              <option value="last3" selected>Apr–Now Total (MT)</option>
               <option value="group">Group Name (A-Z)</option>
               <option value="sp">Sales Person</option>
               <option value="actual">Actual (MT)</option>
@@ -2441,7 +2441,7 @@
             <label>Show Months</label>
             <div class="ms-wrap" id="gmMonthsMs">
               <button type="button" class="ms-toggle" onclick="toggleMsPanel('gmMonthsMs')">
-                <span id="gmMonthsMsLabel">All 6 months</span><span class="ms-caret">▾</span>
+                <span id="gmMonthsMsLabel">All months</span><span class="ms-caret">▾</span>
               </button>
               <div class="ms-panel">
                 <div class="ms-panel-head">
@@ -4140,14 +4140,16 @@ function computeCompanySales(companyName, monthOnly) {
   return { qty, value };
 }
 
-// ── Past-6-months history columns (Group / Company Master, main tab) ──
-// Shows the last 6 COMPLETED months (e.g. Apr–Sep while today is in Oct), rolling
+// ── History columns from April (Group / Company Master, main tab) ──
+// Shows all COMPLETED months since April (e.g. Apr–Oct while today is in Nov), rolling
 // forward automatically each month. Any month can be hidden via "Show Months";
 // the choice is remembered in this browser (stored by month, e.g. "04-2026").
-const GM_HIST_MONTHS = 6;
+// Starts from April (financial-year start) up to last completed month; current month has its own Target/Actual columns.
+// Jan-Mar -> April of previous year. Rolls forward automatically.
+function gmHistCount() { const m = today.getMonth(); return m >= 3 ? m - 3 : m + 9; }
 let gmHiddenMonths = new Set();
 try { gmHiddenMonths = new Set(JSON.parse(localStorage.getItem('bwplGmHiddenMonths') || '[]')); } catch (e) { gmHiddenMonths = new Set(); }
-function gmHistOffsets() { return Array.from({ length: GM_HIST_MONTHS }, (_, i) => GM_HIST_MONTHS - i); } // [6,5,4,3,2,1]
+function gmHistOffsets() { const n = gmHistCount(); return Array.from({ length: n }, (_, i) => n - i); } // e.g. Nov -> [7..1] = Apr..Oct
 function gmVisibleIdx() { return gmHistOffsets().map((o, i) => i).filter(i => !gmHiddenMonths.has(gmMonthSuffix(gmHistOffsets()[i]))); }
 function gmMonthFullLabel(offset) {
   const d = new Date(today.getFullYear(), today.getMonth() - offset, 1);
@@ -4175,7 +4177,7 @@ function gmRenderMonthOptions() {
   }).join('');
   const hidden = gmHistOffsets().filter(o => gmHiddenMonths.has(gmMonthSuffix(o))).length;
   const labelEl = document.getElementById('gmMonthsMsLabel');
-  if (labelEl) labelEl.textContent = hidden === 0 ? 'All ' + GM_HIST_MONTHS + ' months' : (GM_HIST_MONTHS - hidden) + ' of ' + GM_HIST_MONTHS + ' months';
+  if (labelEl) labelEl.textContent = hidden === 0 ? 'All ' + gmHistCount() + ' months' : (gmHistCount() - hidden) + ' of ' + gmHistCount() + ' months';
 }
 
 function renderCompanyMaster() {
@@ -4305,7 +4307,7 @@ function renderCompanyMaster() {
   groupList.sort((a, b) => {
     const g1 = a[1], g2 = b[1];
     switch (gmSortBy) {
-      case 'last3': // "Past 6 Months Total" — sums only the months currently shown
+      case 'last3': // "Apr–Now Total" — sums only the months currently shown
         return dir * (visIdx.reduce((s, i) => s + g1.ms[i], 0) - visIdx.reduce((s, i) => s + g2.ms[i], 0));
       case 'sp':
         return dir * String(g1.sp || '').localeCompare(String(g2.sp || ''));
